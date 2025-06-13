@@ -1,0 +1,118 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# FFmpeg API Documentation
+
+Este guia documenta o módulo `@ffmpeg/api` usado no projeto para processamento de mídia via FFmpeg.
+
+## Instalação e Configuração
+- Instale o pacote: `npm install @ffmpeg/api`
+- Defina variáveis de ambiente (opcional):
+  - `FFMPEG_PATH`: caminho para o binário `ffmpeg`
+  - `FFPROBE_PATH`: caminho para o binário `ffprobe`
+
+## Service Wrapper
+O arquivo de serviço principal está em:
+- [src/services/ffmpegService.js](mdc:src/services/ffmpegService.js)
+
+### Principais Métodos
+
+#### `getMediaInfo(inputPath: string): Promise<FFprobeData>`
+Retorna metadados do arquivo de mídia usando `ffprobe`.
+
+#### `transcodeVideo(inputPath: string, outputPath: string, options: TranscodeOptions): Promise<string>`
+Transcodifica vídeo com as opções:
+- `videoCodec` (e.g. `'libx264'`)
+- `audioCodec` (e.g. `'aac'`)
+- `resolution` (e.g. `'1280x720'`)
+- `videoBitrate` (e.g. `'1000k'`)
+- `audioBitrate` (e.g. `'128k'`)
+
+**Exemplo de uso**:
+```javascript
+const { transcodeVideo } = require('@ffmpeg/api');
+
+transcodeVideo('input.mp4', 'output.mp4', {
+  videoCodec: 'libx264',
+  resolution: '1280x720',
+  videoBitrate: '1500k',
+})
+  .then(path => console.log('Arquivo salvo em', path))
+  .catch(console.error);
+```
+
+#### `generateThumbnail(inputPath: string, outputPath: string, timemarks?: string[]): Promise<string>`
+Gera miniaturas nos momentos especificados (timestamp ou `%`).
+
+**Exemplo**:
+```javascript
+const { generateThumbnail } = require('@ffmpeg/api');
+
+generateThumbnail('video.mp4', 'thumb.jpg', ['10%', '50%'])
+  .then(path => console.log('Thumbnail gerado:', path));
+```
+
+#### `createHLSStream(inputPath: string, outputDir: string): Promise<string>`
+Converte vídeo em HLS, gerando `playlist.m3u8` e segmentos em `outputDir`.
+
+**Exemplo**:
+```javascript
+const { createHLSStream } = require('@ffmpeg/api');
+
+createHLSStream('input.mp4', 'streams/video123')
+  .then(playlist => console.log('HLS pronto em', playlist));
+```
+
+## Endpoints REST
+O projeto expõe rotas HTTP em:
+- [src/controllers/mediaController.js](mdc:src/controllers/mediaController.js)
+
+### Upload e Fila de Processamento
+
+```
+POST   /api/v1/media/upload    # multipart/form-data: file, quality, format
+GET    /api/v1/media/{jobId}   # status e progresso do job
+```
+
+**cURL**:
+```bash
+curl -F "file=@./video.mp4" \
+     -F "quality=medium" \
+     -F "format=mp4" \
+     http://localhost:3000/api/v1/media/upload
+```
+
+Retorno:
+```json
+{ "data": { "jobId": "abc123", "status": "queued" } }
+```
+
+### Status e Resultado
+
+```
+GET /api/v1/media/{jobId}/status   # estado: waiting|active|completed|failed
+GET /api/v1/media/{jobId}/result   # arquivo processado ou playlist HLS
+GET /api/v1/media/{jobId}/thumbnail # miniatura gerada
+```
+
+## Tratamento de Erros
+- `400 Bad Request`: parâmetros inválidos ou arquivo ausente
+- `422 Unprocessable Entity`: falha de validação (formato, qualidade)
+- `500 Internal Server Error`: erro no processamento FFmpeg
+
+## Implementação e Testes
+- Arquivos de teste: [tests/media.test.js](mdc:tests/media.test.js)
+- Valide tipos MIME em [src/middleware/fileFilter.js](mdc:src/middleware/fileFilter.js)
+- Simule falhas de FFmpeg usando mock em [__mocks__](mdc:__mocks__)
+
+## Checklist
+- [ ] `@ffmpeg/api` instalado e importado em serviços/controllers
+- [ ] Variáveis `FFMPEG_PATH`, `FFPROBE_PATH` configuradas em produção
+- [ ] Endpoints cobertos por testes de integração
+- [ ] Monitoramento de jobs configurado (Bull Boards)
+- [ ] Logs estruturados para debugging de FFmpeg
+
+---
+*Guia de referência para usar o módulo FFmpeg API em todo o projeto.*

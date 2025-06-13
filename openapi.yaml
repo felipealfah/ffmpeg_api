@@ -1,0 +1,528 @@
+openapi: 3.0.3
+info:
+  title: FFmpeg API
+  description: |
+    API para processamento de vídeos usando FFmpeg.
+    
+    Esta API permite criar jobs de renderização de vídeo com múltiplas trilhas e clipes,
+    verificar o status dos jobs, obter resultados e informações sobre arquivos de mídia.
+  version: 1.0.0
+  contact:
+    name: Suporte Técnico
+    email: suporte@exemplo.com
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Servidor de desenvolvimento local
+tags:
+  - name: Renderização
+    description: Operações relacionadas à renderização de vídeos
+  - name: Informações
+    description: Operações para obter informações sobre arquivos de mídia
+paths:
+  /media/render:
+    post:
+      tags:
+        - Renderização
+      summary: Criar um job de renderização
+      description: |
+        Cria um novo job de renderização de vídeo com base em uma timeline.
+        A timeline pode conter múltiplas trilhas e clipes, incluindo vídeos, áudios e textos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenderRequest'
+      responses:
+        '201':
+          description: Job criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '400':
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erro interno do servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /media/render/{jobId}:
+    get:
+      tags:
+        - Renderização
+      summary: Verificar status de um job
+      description: Retorna o status atual de um job de renderização
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID do job de renderização
+      responses:
+        '200':
+          description: Status do job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatusResponse'
+        '404':
+          description: Job não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erro interno do servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /media/render/{jobId}/result:
+    get:
+      tags:
+        - Renderização
+      summary: Obter resultado de um job
+      description: Retorna o caminho para o arquivo de saída de um job concluído
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID do job de renderização
+      responses:
+        '200':
+          description: Resultado do job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResultResponse'
+        '400':
+          description: Job ainda não concluído
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Job não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erro interno do servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /media/render/{jobId}/file:
+    get:
+      tags:
+        - Renderização
+      summary: Baixar arquivo de saída
+      description: Faz o download direto do arquivo de vídeo processado
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID do job de renderização
+      responses:
+        '200':
+          description: Arquivo de vídeo
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+            video/quicktime:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+            application/x-mpegURL:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Job ainda não concluído
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Job ou arquivo não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erro interno do servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /media/info:
+    post:
+      tags:
+        - Informações
+      summary: Obter informações de mídia
+      description: Retorna metadados detalhados sobre um arquivo de mídia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaInfoRequest'
+      responses:
+        '200':
+          description: Informações do arquivo de mídia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaInfoResponse'
+        '400':
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erro interno do servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    MediaType:
+      type: string
+      enum:
+        - image
+        - video
+        - audio
+        - text
+      description: Tipo de mídia
+    AssetSource:
+      type: string
+      enum:
+        - url
+        - file
+        - html
+      description: Fonte do asset
+    OutputFormat:
+      type: string
+      enum:
+        - mp4
+        - mov
+        - gif
+        - hls
+      description: Formato do arquivo de saída
+    JobStatus:
+      type: string
+      enum:
+        - queued
+        - processing
+        - completed
+        - failed
+      description: Status do job de renderização
+    Position:
+      type: object
+      properties:
+        x:
+          type: number
+          description: Posição X em porcentagem da largura da tela (0-100)
+          minimum: 0
+          maximum: 100
+        y:
+          type: number
+          description: Posição Y em porcentagem da altura da tela (0-100)
+          minimum: 0
+          maximum: 100
+        width:
+          type: number
+          description: Largura em porcentagem da largura da tela (0-100)
+          minimum: 0
+          maximum: 100
+        height:
+          type: number
+          description: Altura em porcentagem da altura da tela (0-100)
+          minimum: 0
+          maximum: 100
+    Transition:
+      type: object
+      properties:
+        in:
+          type: string
+          description: Efeito de transição de entrada
+        out:
+          type: string
+          description: Efeito de transição de saída
+        inDuration:
+          type: number
+          description: Duração da transição de entrada em segundos
+          minimum: 0
+        outDuration:
+          type: number
+          description: Duração da transição de saída em segundos
+          minimum: 0
+    TextStyle:
+      type: object
+      properties:
+        fontFamily:
+          type: string
+          description: Família da fonte
+          default: Arial
+        fontSize:
+          type: number
+          description: Tamanho da fonte
+          default: 24
+        fontColor:
+          type: string
+          description: Cor da fonte
+          default: white
+        backgroundColor:
+          type: string
+          description: Cor de fundo
+        alignment:
+          type: string
+          enum:
+            - left
+            - center
+            - right
+          default: center
+          description: Alinhamento do texto
+    Asset:
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/MediaAsset'
+        - $ref: '#/components/schemas/TextAsset'
+    MediaAsset:
+      type: object
+      required:
+        - type
+        - source
+        - src
+      properties:
+        type:
+          $ref: '#/components/schemas/MediaType'
+        source:
+          $ref: '#/components/schemas/AssetSource'
+        src:
+          type: string
+          description: URL ou caminho do arquivo
+    TextAsset:
+      type: object
+      required:
+        - type
+        - text
+      properties:
+        type:
+          type: string
+          enum:
+            - text
+        text:
+          type: string
+          description: Texto para renderizar
+        style:
+          $ref: '#/components/schemas/TextStyle'
+    Clip:
+      type: object
+      required:
+        - asset
+        - start
+        - length
+      properties:
+        asset:
+          $ref: '#/components/schemas/Asset'
+        start:
+          type: number
+          description: Tempo de início em segundos
+          minimum: 0
+        length:
+          type: number
+          description: Duração em segundos
+          minimum: 0
+        position:
+          $ref: '#/components/schemas/Position'
+        transition:
+          $ref: '#/components/schemas/Transition'
+        filter:
+          type: array
+          items:
+            type: string
+          description: Filtros FFmpeg a serem aplicados
+    Track:
+      type: object
+      required:
+        - clips
+      properties:
+        clips:
+          type: array
+          items:
+            $ref: '#/components/schemas/Clip'
+          minItems: 1
+          description: Clipes na trilha
+    Timeline:
+      type: object
+      required:
+        - tracks
+      properties:
+        background:
+          type: string
+          description: Cor de fundo no formato hexadecimal
+        tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Track'
+          minItems: 1
+          description: Trilhas da timeline
+        duration:
+          type: number
+          description: Duração total em segundos
+          minimum: 0
+    OutputOptions:
+      type: object
+      required:
+        - format
+        - resolution
+      properties:
+        format:
+          $ref: '#/components/schemas/OutputFormat'
+        resolution:
+          type: string
+          pattern: ^\d+x\d+$
+          description: Resolução no formato LARGURAxALTURA
+          example: 1280x720
+        quality:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          default: medium
+          description: Qualidade da codificação
+        fps:
+          type: integer
+          minimum: 1
+          maximum: 120
+          default: 30
+          description: Frames por segundo
+        bitrate:
+          type: string
+          description: Bitrate do vídeo
+          example: 2000k
+    RenderRequest:
+      type: object
+      required:
+        - timeline
+        - output
+      properties:
+        timeline:
+          $ref: '#/components/schemas/Timeline'
+        output:
+          $ref: '#/components/schemas/OutputOptions'
+        webhook:
+          type: string
+          format: uri
+          description: URL para callback quando o processamento for concluído
+    MediaInfoRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: URL da mídia para analisar
+    JobResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            jobId:
+              type: string
+              format: uuid
+              description: ID do job criado
+            status:
+              $ref: '#/components/schemas/JobStatus'
+    JobStatusResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            jobId:
+              type: string
+              format: uuid
+              description: ID do job
+            status:
+              $ref: '#/components/schemas/JobStatus'
+            progress:
+              type: number
+              minimum: 0
+              maximum: 100
+              description: Progresso em porcentagem
+            error:
+              type: string
+              description: Mensagem de erro (se houver)
+    JobResultResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            jobId:
+              type: string
+              format: uuid
+              description: ID do job
+            status:
+              $ref: '#/components/schemas/JobStatus'
+            output:
+              type: string
+              description: Caminho para o arquivo de saída
+    MediaInfoResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          description: Metadados do arquivo de mídia
+    ErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+          description: URI de referência para o erro
+          example: https://api.example.com/errors/400
+        title:
+          type: string
+          description: Título do erro
+          example: Bad Request
+        status:
+          type: integer
+          description: Código de status HTTP
+          example: 400
+        detail:
+          type: string
+          description: Detalhes do erro
+          example: Requisição inválida
+        instance:
+          type: string
+          description: URI da requisição que causou o erro
+          example: /api/v1/media/render 

@@ -1,0 +1,169 @@
+### Variáveis
+@baseUrl = http://localhost:3000/api/v1
+@jobId = 9d55d85d-616f-4059-b891-e6314f129aa2
+
+### Criar um novo job de renderização com vídeo do Big Buck Bunny
+POST {{baseUrl}}/media/render
+Content-Type: application/json
+
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+            },
+            "start": 0,
+            "length": 5
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "720x480",
+    "quality": "medium",
+    "fps": 30
+  }
+}
+
+### Criar um job com múltiplos clipes
+POST {{baseUrl}}/media/render
+Content-Type: application/json
+
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+            },
+            "start": 0,
+            "length": 5,
+            "position": {
+              "x": 0,
+              "y": 0,
+              "width": 50,
+              "height": 50
+            }
+          },
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"
+            },
+            "start": 5,
+            "length": 5,
+            "position": {
+              "x": 50,
+              "y": 0,
+              "width": 50,
+              "height": 50
+            }
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://samplelib.com/lib/preview/mp3/sample-15s.mp3"
+            },
+            "start": 0,
+            "length": 10
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "high",
+    "fps": 30
+  }
+}
+
+### Criar um job com texto
+POST {{baseUrl}}/media/render
+Content-Type: application/json
+
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+            },
+            "start": 0,
+            "length": 10
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "Exemplo de texto sobreposto",
+              "style": {
+                "fontFamily": "Arial",
+                "fontSize": 36,
+                "fontColor": "white",
+                "backgroundColor": "black",
+                "alignment": "center"
+              }
+            },
+            "start": 2,
+            "length": 5,
+            "position": {
+              "x": 20,
+              "y": 20,
+              "width": 60,
+              "height": 20
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium",
+    "fps": 30
+  }
+}
+
+### Verificar status de um job
+GET {{baseUrl}}/media/render/{{jobId}}
+
+### Obter resultado de um job
+GET {{baseUrl}}/media/render/{{jobId}}/result
+
+### Baixar arquivo de saída de um job
+GET {{baseUrl}}/media/render/{{jobId}}/file
+
+### Obter informações de mídia
+POST {{baseUrl}}/media/info
+Content-Type: application/json
+
+{
+  "url": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+} 

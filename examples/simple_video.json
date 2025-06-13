@@ -1,0 +1,89 @@
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1280/720"
+            },
+            "start": 0,
+            "length": 5,
+            "position": {
+              "x": 0,
+              "y": 0,
+              "width": 100,
+              "height": 100
+            }
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1280/720?random=1"
+            },
+            "start": 5,
+            "length": 5,
+            "position": {
+              "x": 0,
+              "y": 0,
+              "width": 100,
+              "height": 100
+            }
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "Welcome to FFmpeg API",
+              "style": {
+                "fontFamily": "Arial",
+                "fontSize": 36,
+                "fontColor": "white",
+                "backgroundColor": "rgba(0,0,0,0.5)",
+                "alignment": "center"
+              }
+            },
+            "start": 1,
+            "length": 3,
+            "position": {
+              "x": 50,
+              "y": 50
+            }
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "Create amazing videos with code!",
+              "style": {
+                "fontFamily": "Arial",
+                "fontSize": 32,
+                "fontColor": "white",
+                "backgroundColor": "rgba(0,0,0,0.5)",
+                "alignment": "center"
+              }
+            },
+            "start": 6,
+            "length": 3,
+            "position": {
+              "x": 50,
+              "y": 50
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium",
+    "fps": 30,
+    "bitrate": "2000k"
+  }
+} 

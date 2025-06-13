@@ -1,0 +1,69 @@
+# Dependências
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Arquivos de ambiente
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Arquivos de build
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Arquivos de cache
+.npm
+.eslintcache
+.cache/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Arquivos temporários do sistema
+.DS_Store
+Thumbs.db
+.directory
+*.swp
+*.swo
+
+# Arquivos de cobertura de testes
+coverage/
+.nyc_output/
+
+# Arquivos de saída do FFmpeg
+output/
+uploads/
+temp/
+public/videos/
+public/thumbnails/
+
+# Arquivos de IDE/editor
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+*.code-workspace
+
+# Arquivos de debug
+.node-version
+.nvmrc
+.tool-versions
+
+# Arquivos específicos do projeto
+redis-data/
+dump.rdb
