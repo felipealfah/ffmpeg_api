@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
 import { AppError } from './errorHandler';
-import logger from '../utils/logger';
+import { logger } from '../utils/logger';
 
 // Middleware de validação que recebe um schema do Joi
 export function validate(schema: Joi.ObjectSchema) {

@@ -5,7 +5,16 @@ info:
     API para processamento de vídeos usando FFmpeg.
     
     Esta API permite criar jobs de renderização de vídeo com múltiplas trilhas e clipes,
-    verificar o status dos jobs, obter resultados e informações sobre arquivos de mídia.
+    incluindo suporte para imagens, vídeos, áudios, textos e legendas (SRT).
+    Você pode verificar o status dos jobs, obter resultados e informações sobre arquivos de mídia.
+    
+    ### Recursos Principais:
+    - ✅ Composição de múltiplas trilhas (vídeo, áudio, legendas)
+    - ✅ Suporte a legendas SRT com estilização customizável
+    - ✅ Processamento assíncrono com fila de jobs
+    - ✅ Múltiplos formatos de saída (MP4, MOV, GIF, HLS)
+    - ✅ Cálculo automático de duração
+    - ✅ Mixagem de múltiplos áudios
   version: 1.0.0
   contact:
     name: Suporte Técnico
@@ -26,7 +35,77 @@ paths:
       summary: Criar um job de renderização
       description: |
         Cria um novo job de renderização de vídeo com base em uma timeline.
-        A timeline pode conter múltiplas trilhas e clipes, incluindo vídeos, áudios e textos.
+        A timeline pode conter múltiplas trilhas e clipes, incluindo vídeos, áudios, textos e legendas.
+        
+        ### Tipos de Assets Suportados:
+        - **image**: Imagens estáticas (JPG, PNG, etc.)
+        - **video**: Arquivos de vídeo (MP4, MOV, etc.)
+        - **audio**: Arquivos de áudio (MP3, WAV, etc.)
+        - **text**: Texto renderizado dinamicamente
+        - **subtitle**: Legendas em formato SRT
+        
+        ### Exemplo com Legendas:
+        ```json
+        {
+          "timeline": {
+            "tracks": [
+              {
+                "clips": [
+                  {
+                    "asset": {
+                      "type": "image",
+                      "source": "url",
+                      "src": "https://example.com/background.jpg"
+                    },
+                    "start": 0,
+                    "length": 30
+                  }
+                ]
+              },
+              {
+                "clips": [
+                  {
+                    "asset": {
+                      "type": "audio",
+                      "source": "url", 
+                      "src": "https://example.com/audio.mp3"
+                    },
+                    "start": 0,
+                    "length": 30
+                  }
+                ]
+              },
+              {
+                "clips": [
+                  {
+                    "asset": {
+                      "type": "subtitle",
+                      "source": "url",
+                      "src": "https://example.com/subtitles.srt",
+                      "style": {
+                        "fontSize": 42,
+                        "fontColor": "#FFFFFF",
+                        "outlineColor": "#000000",
+                        "bold": true,
+                        "alignment": "center",
+                        "position": "bottom"
+                      }
+                    },
+                    "start": 0,
+                    "length": 30
+                  }
+                ]
+              }
+            ]
+          },
+          "output": {
+            "format": "mp4",
+            "resolution": "1280x720",
+            "quality": "medium",
+            "fps": 30
+          }
+        }
+        ```
       requestBody:
         required: true
         content:
@@ -216,6 +295,7 @@ components:
         - video
         - audio
         - text
+        - subtitle
       description: Tipo de mídia
     AssetSource:
       type: string
@@ -306,11 +386,85 @@ components:
             - right
           default: center
           description: Alinhamento do texto
+    SubtitleStyle:
+      type: object
+      properties:
+        fontFamily:
+          type: string
+          description: Família da fonte
+          default: DejaVu Serif
+          example: Arial
+        fontSize:
+          type: number
+          description: Tamanho da fonte
+          default: 42
+          minimum: 8
+          maximum: 200
+        fontColor:
+          type: string
+          description: Cor da fonte em formato hexadecimal
+          default: "#FFFFFF"
+          pattern: "^#[0-9A-Fa-f]{6}$"
+          example: "#FFFFFF"
+        outlineColor:
+          type: string
+          description: Cor do contorno em formato hexadecimal
+          default: "#000000"
+          pattern: "^#[0-9A-Fa-f]{6}$"
+          example: "#000000"
+        backgroundColor:
+          type: string
+          description: Cor de fundo em formato hexadecimal
+          pattern: "^#[0-9A-Fa-f]{6}$"
+          example: "#000000"
+        alignment:
+          type: string
+          enum:
+            - left
+            - center
+            - right
+          default: center
+          description: Alinhamento horizontal do texto
+        position:
+          type: string
+          enum:
+            - top
+            - center
+            - bottom
+          default: bottom
+          description: Posição vertical das legendas
+        marginV:
+          type: number
+          description: Margem vertical em pixels
+          default: 100
+          minimum: 0
+          maximum: 500
+        outline:
+          type: number
+          description: Espessura do contorno
+          default: 3
+          minimum: 0
+          maximum: 10
+        shadow:
+          type: number
+          description: Intensidade da sombra
+          default: 1
+          minimum: 0
+          maximum: 10
+        bold:
+          type: boolean
+          description: Texto em negrito
+          default: true
+        italic:
+          type: boolean
+          description: Texto em itálico
+          default: false
     Asset:
       type: object
       oneOf:
         - $ref: '#/components/schemas/MediaAsset'
         - $ref: '#/components/schemas/TextAsset'
+        - $ref: '#/components/schemas/SubtitleAsset'
     MediaAsset:
       type: object
       required:
@@ -340,6 +494,25 @@ components:
           description: Texto para renderizar
         style:
           $ref: '#/components/schemas/TextStyle'
+    SubtitleAsset:
+      type: object
+      required:
+        - type
+        - source
+        - src
+      properties:
+        type:
+          type: string
+          enum:
+            - subtitle
+        source:
+          $ref: '#/components/schemas/AssetSource'
+        src:
+          type: string
+          description: URL ou caminho do arquivo SRT
+          example: "https://example.com/subtitles.srt"
+        style:
+          $ref: '#/components/schemas/SubtitleStyle'
     Clip:
       type: object
       required:

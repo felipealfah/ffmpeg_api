@@ -151,6 +151,279 @@ Content-Type: application/json
   }
 }
 
+### Criar um job com composição de fotos e áudio (2 minutos)
+POST {{baseUrl}}/media/render
+Content-Type: application/json
+
+{
+  "timeline": {
+    "duration": 120,
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1280/720?random=1"
+            },
+            "start": 0,
+            "length": 60
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1280/720?random=2"
+            },
+            "start": 0,
+            "length": 60
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+            },
+            "start": 0,
+            "length": 120
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium",
+    "fps": 30
+  }
+}
+
+### Criar slideshow de imagens com áudio (2 minutos) - Sequencial
+POST {{baseUrl}}/media/render
+Content-Type: application/json
+
+{
+  "timeline": {
+    "duration": 120,
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1280/720?random=1"
+            },
+            "start": 0,
+            "length": 30
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1280/720?random=2"
+            },
+            "start": 0,
+            "length": 30
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1280/720?random=3"
+            },
+            "start": 0,
+            "length": 30
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1280/720?random=4"
+            },
+            "start": 0,
+            "length": 30
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+            },
+            "start": 0,
+            "length": 120
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium",
+    "fps": 30
+  }
+}
+
+### Teste simples com imagens fixas (2 minutos)
+POST {{baseUrl}}/media/render
+Content-Type: application/json
+
+{
+  "timeline": {
+    "duration": 120,
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1280&h=720&fit=crop"
+            },
+            "start": 0,
+            "length": 60
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1280&h=720&fit=crop"
+            },
+            "start": 0,
+            "length": 60
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+            },
+            "start": 0,
+            "length": 120
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium",
+    "fps": 30
+  }
+}
+
+### Teste ultra simples - Uma imagem + áudio (30 segundos)
+POST {{baseUrl}}/media/render
+Content-Type: application/json
+
+{
+  "timeline": {
+    "duration": 30,
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1280&h=720&fit=crop"
+            },
+            "start": 0,
+            "length": 30
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+            },
+            "start": 0,
+            "length": 30
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium",
+    "fps": 30
+  }
+}
+
+### Teste com duração automática - 2 imagens de 60s cada (total 120s)
+POST {{baseUrl}}/media/render
+Content-Type: application/json
+
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1280&h=720&fit=crop"
+            },
+            "start": 0,
+            "length": 60
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1280&h=720&fit=crop"
+            },
+            "start": 0,
+            "length": 60
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+            },
+            "start": 0,
+            "length": 120
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium",
+    "fps": 30
+  }
+}
+
 ### Verificar status de um job
 GET {{baseUrl}}/media/render/{{jobId}}
 

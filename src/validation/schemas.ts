@@ -26,7 +26,23 @@ const textStyleSchema = Joi.object({
   alignment: Joi.string().optional().valid('left', 'center', 'right').default('center').description('Alinhamento do texto')
 });
 
-// Schema para validar assets (imagens, vídeos, áudios)
+// Schema para validar estilos de legendas
+const subtitleStyleSchema = Joi.object({
+  fontFamily: Joi.string().optional().default('DejaVu Serif').description('Família da fonte'),
+  fontSize: Joi.number().optional().default(42).description('Tamanho da fonte'),
+  fontColor: Joi.string().optional().default('#FFFFFF').description('Cor da fonte'),
+  outlineColor: Joi.string().optional().default('#404040').description('Cor do contorno'),
+  backgroundColor: Joi.string().optional().description('Cor de fundo'),
+  alignment: Joi.string().optional().valid('left', 'center', 'right').default('center').description('Alinhamento do texto'),
+  position: Joi.string().optional().valid('top', 'center', 'bottom').default('bottom').description('Posição vertical'),
+  marginV: Joi.number().optional().default(100).description('Margem vertical em pixels'),
+  outline: Joi.number().optional().default(3).description('Espessura do contorno'),
+  shadow: Joi.number().optional().default(1).description('Offset da sombra'),
+  bold: Joi.boolean().optional().default(false).description('Texto em negrito'),
+  italic: Joi.boolean().optional().default(false).description('Texto em itálico')
+});
+
+// Schema para validar assets (imagens, vídeos, áudios, legendas)
 const assetSchema = Joi.object({
   type: Joi.string().required().valid(...Object.values(MediaType)).description('Tipo de mídia'),
   source: Joi.string().when('type', {
@@ -44,11 +60,13 @@ const assetSchema = Joi.object({
     then: Joi.string().required(),
     otherwise: Joi.forbidden()
   }).description('Texto para renderizar'),
-  style: Joi.when('type', {
-    is: MediaType.TEXT,
-    then: textStyleSchema.optional(),
+  style: Joi.alternatives().conditional('type', {
+    switch: [
+      { is: MediaType.TEXT, then: textStyleSchema.optional() },
+      { is: MediaType.SUBTITLE, then: subtitleStyleSchema.optional() }
+    ],
     otherwise: Joi.forbidden()
-  }).description('Estilo do texto')
+  }).description('Estilo do texto ou legenda')
 });
 
 // Schema para validar um clipe

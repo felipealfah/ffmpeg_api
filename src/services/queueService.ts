@@ -107,13 +107,11 @@ renderQueue.process(async (job) => {
 
 // Handle completed jobs
 renderQueue.on('completed', (job) => {
-  const jobId = job.data.id;
+  const jobId = job.data?.id;
   console.info(`Job ${jobId} completed successfully`);
   
-  // Clean up temp files if needed
-  const tempDir = path.join(config.tempPath, jobId);
-  cleanupDirectory(tempDir)
-    .catch(err => console.error(`Error removing temp directory ${tempDir}`, { error: err }));
+  // Limpeza de arquivos temporários agora é feita no mediaService
+  // para garantir que aconteça após o processamento completo
 });
 
 // Handle failed jobs

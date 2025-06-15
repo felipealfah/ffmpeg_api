@@ -3,7 +3,8 @@ export enum MediaType {
   IMAGE = 'image',
   VIDEO = 'video',
   AUDIO = 'audio',
-  TEXT = 'text'
+  TEXT = 'text',
+  SUBTITLE = 'subtitle'
 }
 
 export enum AssetSource {
@@ -56,8 +57,26 @@ export interface TextAsset {
   };
 }
 
+export interface SubtitleAsset extends AssetConfig {
+  type: MediaType.SUBTITLE;
+  style?: {
+    fontFamily?: string;
+    fontSize?: number;
+    fontColor?: string;
+    outlineColor?: string;
+    backgroundColor?: string;
+    alignment?: 'left' | 'center' | 'right';
+    position?: 'top' | 'center' | 'bottom';
+    marginV?: number; // Vertical margin in pixels
+    outline?: number; // Outline thickness
+    shadow?: number; // Shadow offset
+    bold?: boolean;
+    italic?: boolean;
+  };
+}
+
 export interface Clip {
-  asset: ImageAsset | VideoAsset | AudioAsset | TextAsset;
+  asset: ImageAsset | VideoAsset | AudioAsset | TextAsset | SubtitleAsset;
   start: number; // Start time in seconds
   length: number; // Duration in seconds
   position?: {

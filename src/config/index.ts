@@ -16,19 +16,25 @@ try {
   console.error('Erro ao criar diretórios:', err);
 }
 
-// Configuração simples
+// Configuração
 const config = {
-  port: 3000,
-  ffmpegPath: '/opt/homebrew/bin/ffmpeg',
-  ffprobePath: '/opt/homebrew/bin/ffprobe',
+  port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
+  ffmpegPath: process.env.FFMPEG_PATH || '/opt/homebrew/bin/ffmpeg',
+  ffprobePath: process.env.FFPROBE_PATH || '/opt/homebrew/bin/ffprobe',
   redis: {
-    host: 'localhost',
-    port: 6379
+    host: process.env.REDIS_HOST || 'localhost',
+    port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 6379
   },
   storagePath: STORAGE_PATH,
   tempPath: TEMP_PATH,
   outputPath: OUTPUT_PATH,
   defaultTimeout: 300000 // 5 minutos
 };
+
+console.log('Config carregado:', {
+  ffmpegPath: config.ffmpegPath,
+  ffprobePath: config.ffprobePath,
+  storagePath: config.storagePath
+});
 
 export default config; 

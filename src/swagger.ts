@@ -7,7 +7,7 @@ import path from 'path';
 // Carrega o arquivo YAML da documentação OpenAPI
 const openApiDocument = yaml.load(
   fs.readFileSync(path.join(__dirname, '../openapi.yaml'), 'utf8')
-);
+) as swaggerUi.JsonObject;
 
 // Configurações do Swagger UI
 const swaggerOptions = {

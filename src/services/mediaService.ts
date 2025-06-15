@@ -7,11 +7,83 @@ import { Readable } from 'stream';
 import { finished } from 'stream/promises';
 import { RenderJob, Clip, Track, Timeline, MediaType, AssetSource } from '../types/media';
 import axios from 'axios';
-import { downloadFile, ensureDirectory } from '../utils/file';
+import { downloadFile, ensureDirectory, cleanupDirectory } from '../utils/file';
+
+// Debug do config
+console.log('Config no mediaService:', {
+  ffmpegPath: config?.ffmpegPath,
+  ffprobePath: config?.ffprobePath,
+  configType: typeof config,
+  configKeys: config ? Object.keys(config) : 'config is null/undefined'
+});
 
 // Configurar FFmpeg com caminhos explícitos
-ffmpeg.setFfmpegPath('/opt/homebrew/bin/ffmpeg');
-ffmpeg.setFfprobePath('/opt/homebrew/bin/ffprobe');
+if (config?.ffmpegPath) {
+  ffmpeg.setFfmpegPath(config.ffmpegPath);
+  console.log('FFmpeg path configurado:', config.ffmpegPath);
+} else {
+  console.warn('FFmpeg path não encontrado no config, usando padrão do sistema');
+}
+
+if (config?.ffprobePath) {
+  ffmpeg.setFfprobePath(config.ffprobePath);
+  console.log('FFprobe path configurado:', config.ffprobePath);
+} else {
+  console.warn('FFprobe path não encontrado no config, usando padrão do sistema');
+}
+
+// Função para limpar arquivos temporários
+const cleanupTempFiles = async (tempDir: string): Promise<void> => {
+  try {
+    await cleanupDirectory(tempDir);
+    console.log(`Diretório temporário removido: ${tempDir}`);
+  } catch (error) {
+    console.error(`Erro ao remover diretório temporário ${tempDir}:`, error);
+    throw error;
+  }
+};
+
+// Função para calcular a duração total da timeline baseada nos clips
+const calculateTimelineDuration = (timeline: Timeline): number => {
+  let totalDuration = 0;
+  
+  // Para cada track, calcular a duração baseada nos clips
+  timeline.tracks.forEach((track, trackIndex) => {
+    let trackDuration = 0;
+    
+    if (track.clips.length === 0) {
+      trackDuration = 0;
+    } else if (track.clips.length === 1) {
+      // Se há apenas um clip, usar sua duração
+      trackDuration = track.clips[0].start + track.clips[0].length;
+    } else {
+      // Para múltiplos clips na mesma track:
+      // - Se são do mesmo tipo (ex: múltiplos áudios), eles são mixados (paralelos)
+      // - Se são tipos diferentes ou imagens sequenciais, são sequenciais
+      
+      const hasMultipleAudios = track.clips.filter(clip => clip.asset.type === 'audio').length > 1;
+      const hasMultipleImages = track.clips.filter(clip => clip.asset.type === 'image').length > 1;
+      
+      if (hasMultipleAudios && !hasMultipleImages) {
+        // Múltiplos áudios na mesma track = mixagem (paralelo)
+        // A duração é a maior duração entre os áudios
+        trackDuration = Math.max(...track.clips.map(clip => clip.start + clip.length));
+      } else {
+        // Clips sequenciais (imagens ou mix de tipos)
+        trackDuration = Math.max(...track.clips.map(clip => clip.start + clip.length));
+      }
+    }
+    
+    console.log(`Track ${trackIndex} duração:`, trackDuration);
+    
+    // A duração total é a maior duração entre todas as tracks
+    // (pois tracks rodam em paralelo)
+    totalDuration = Math.max(totalDuration, trackDuration);
+  });
+  
+  console.log('Duração total calculada:', totalDuration);
+  return totalDuration;
+};
 
 // Get media information
 export const getMediaInfo = async (url: string): Promise<any> => {
@@ -76,7 +148,7 @@ const prepareClip = async (clip: Clip, tempDir: string): Promise<string> => {
     });
     
     // Handle different asset types
-    if (asset.type === MediaType.IMAGE || asset.type === MediaType.VIDEO || asset.type === MediaType.AUDIO) {
+    if (asset.type === MediaType.IMAGE || asset.type === MediaType.VIDEO || asset.type === MediaType.AUDIO || asset.type === MediaType.SUBTITLE) {
       if (asset.source === AssetSource.URL) {
         // Download from URL
         const extension = path.extname(asset.src) || (asset.type === MediaType.IMAGE ? '.jpg' : '.mp4');
@@ -219,79 +291,267 @@ export const renderVideo = async (
           command = command.addInput(path);
         });
         
-        // Add filter complex for compositing
-        let filterComplex = '';
-        let currentInput = 0;
+        // Calcular duração total baseada nos clips
+        const timelineDuration = calculateTimelineDuration(timeline);
         
-        // Get timeline duration
-        const timelineDuration = timeline.duration || 
-          Math.max(...timeline.tracks.flatMap(t => 
-            t.clips.map(c => c.start + c.length)
-          ));
+        console.log('Duração calculada da timeline:', timelineDuration);
         
         console.log('Duração da timeline:', timelineDuration);
         
-        // Process each track and its clips
-        preparedClips.forEach(({ track, clipInfo }, trackIndex) => {
-          clipInfo.forEach(({ clip }, clipIndex) => {
-            const inputIndex = currentInput++;
-            const outputLabel = `v${trackIndex}_${clipIndex}`;
-            
-            // Scale and position the clip if position is specified
-            if (clip.position) {
-              const { x, y, width, height } = clip.position;
-              const scale = width ? `:scale=${width}*iw/100:${height || -1}*ih/100` : '';
-              const position = `overlay=${x}*W/100:${y}*H/100:enable='between(t,${clip.start},${clip.start + clip.length})'`;
-              
-              filterComplex += `[${inputIndex}]trim=duration=${clip.length},setpts=PTS-STARTPTS${scale}[${outputLabel}];`;
-              
-              if (trackIndex === 0 && clipIndex === 0) {
-                filterComplex += `[${outputLabel}]${position}[out];`;
-              } else {
-                filterComplex += `[out][${outputLabel}]${position}[out];`;
-              }
-            }
-          });
+        // Separate video and audio tracks
+        const videoTracks = preparedClips.filter(({ track }) => 
+          track.clips.some(clip => clip.asset.type === 'image' || clip.asset.type === 'video')
+        );
+        const audioTracks = preparedClips.filter(({ track }) => 
+          track.clips.some(clip => clip.asset.type === 'audio')
+        );
+        
+        console.log('Tracks separadas:', { 
+          videoTracks: videoTracks.length, 
+          audioTracks: audioTracks.length 
         });
         
-        console.log('Filter complex gerado:', filterComplex);
+        // Processar clips baseado na duração calculada
+        console.log('Processando clips com duração calculada automaticamente');
         
-        // Verificar se o filtro complexo está vazio
-        if (!filterComplex) {
-          console.log('Filtro complexo vazio, usando abordagem simplificada');
-          
-          // Usar uma abordagem simplificada quando não há posicionamento
-          if (flattenedClips.length > 0) {
-            // Usar o primeiro clip como base
-            const outputOptions = [
-              `-c:v ${output.format === 'gif' ? 'gif' : 'libx264'}`,
-              `-preset ${output.quality === 'low' ? 'ultrafast' : output.quality === 'high' ? 'slow' : 'medium'}`,
-              `-r ${output.fps || 30}`,
-              `-s ${output.resolution || '1280x720'}`,
-              `-b:v ${output.bitrate || '2000k'}`,
-            ];
-            
-            console.log('Opções de saída simplificadas:', outputOptions);
-            command = command.outputOptions(outputOptions);
-          } else {
-            throw new Error('Nenhum clip disponível para processamento');
-          }
-        } else {
-          // Set output options based on request with filter complex
-          const outputOptions = [
-            `-filter_complex "${filterComplex}"`,
-            '-map [out]',
-            // Audio mapping would go here
-            `-c:v ${output.format === 'gif' ? 'gif' : 'libx264'}`,
-            `-preset ${output.quality === 'low' ? 'ultrafast' : output.quality === 'high' ? 'slow' : 'medium'}`,
-            `-r ${output.fps || 30}`,
-            `-s ${output.resolution || '1280x720'}`,
-            `-b:v ${output.bitrate || '2000k'}`,
-          ];
-          
-          console.log('Opções de saída com filtro complexo:', outputOptions);
-          command = command.outputOptions(outputOptions);
+        // Separar clips de vídeo/imagem, áudio e legendas
+        const videoClips = preparedClips
+          .flatMap(p => p.clipInfo)
+          .filter(({ clip }) => clip.asset.type === 'image' || clip.asset.type === 'video');
+        
+        const audioClips = preparedClips
+          .flatMap(p => p.clipInfo)
+          .filter(({ clip }) => clip.asset.type === 'audio');
+        
+        const subtitleClips = preparedClips
+          .flatMap(p => p.clipInfo)
+          .filter(({ clip }) => clip.asset.type === 'subtitle');
+        
+        if (videoClips.length === 0) {
+          throw new Error('Nenhum clipe de vídeo ou imagem encontrado');
         }
+        
+        console.log(`Processando ${videoClips.length} clips de vídeo/imagem, ${audioClips.length} clips de áudio e ${subtitleClips.length} clips de legenda`);
+        
+        // Recriar comando FFmpeg com as opções corretas
+        command = ffmpeg();
+        
+        if (videoClips.length === 1 && videoClips[0].clip.asset.type === 'image') {
+          // Caso simples: uma imagem com duração específica
+          command = command
+            .addInput(videoClips[0].path)
+            .inputOptions(['-loop 1']);
+        } else if (videoClips.length > 1 && videoClips.every(({ clip }) => clip.asset.type === 'image')) {
+          // Caso de múltiplas imagens: criar filtro complexo para concatenação
+          console.log('Criando filtro complexo para múltiplas imagens');
+          
+          // Adicionar todas as imagens como inputs
+          videoClips.forEach(({ path }) => {
+            command = command.addInput(path);
+          });
+          
+          // Criar filtro complexo para concatenar as imagens com suas durações
+          const filterParts: string[] = [];
+          videoClips.forEach((_, index) => {
+            const clip = videoClips[index].clip;
+            const duration = clip.length;
+            filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.resolution || '1280x720'},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
+          });
+          
+          // Criar filtro de concatenação com durações específicas
+          let concatFilter = '';
+          videoClips.forEach((_, index) => {
+            const clip = videoClips[index].clip;
+            const duration = clip.length;
+            concatFilter += `[v${index}]trim=duration=${duration}[v${index}t];`;
+          });
+          
+          // Concatenar todos os segmentos
+          const concatInputs = videoClips.map((_, index) => `[v${index}t]`).join('');
+          concatFilter += `${concatInputs}concat=n=${videoClips.length}:v=1:a=0[outv]`;
+          
+          const fullFilter = filterParts.join(';') + ';' + concatFilter;
+          console.log('Filtro complexo criado:', fullFilter);
+          
+          command = command.complexFilter(fullFilter);
+        } else {
+          // Caso complexo: múltiplas imagens ou vídeos (fallback)
+          videoClips.forEach(({ path }) => {
+            command = command.addInput(path);
+          });
+        }
+        
+        // Adicionar áudio se disponível
+        if (audioClips.length > 0) {
+          audioClips.forEach(({ path }) => {
+            command = command.addInput(path);
+          });
+          
+          // Se há múltiplos áudios, criar filtro de mixagem
+          if (audioClips.length > 1) {
+            console.log(`Criando filtro de mixagem para ${audioClips.length} áudios`);
+            
+            // Criar filtro de mixagem para múltiplos áudios
+            const audioInputs = audioClips.map((_, index) => `[${videoClips.length + index}:a]`).join('');
+            const mixFilter = `${audioInputs}amix=inputs=${audioClips.length}:duration=first:dropout_transition=2[aout]`;
+            
+            // Sempre criar um novo filtro complexo para áudio
+            // Se já existe filtro para vídeo, será combinado nas opções de saída
+            command = command.complexFilter(mixFilter);
+          }
+        }
+        
+        // Configurar opções de saída
+        const outputOptions = [];
+        
+        // Definir duração total do vídeo
+        outputOptions.push(`-t ${timelineDuration}`);
+        
+        // Preparar filtro de legendas se disponível
+        let subtitleFilter = '';
+        if (subtitleClips.length > 0) {
+          console.log(`Preparando ${subtitleClips.length} arquivo(s) de legenda`);
+          
+          const subtitleClip = subtitleClips[0]; // Por enquanto, apenas a primeira legenda
+          const { clip, path } = subtitleClip;
+          const asset = clip.asset as any; // SubtitleAsset
+          
+          // Configurar estilo das legendas
+          const style = asset.style || {};
+          const fontFamily = style.fontFamily || 'DejaVu Serif';
+          const fontSize = style.fontSize || 42;
+          const fontColor = style.fontColor || '#FFFFFF';
+          const outlineColor = style.outlineColor || '#404040';
+          const outline = style.outline || 3;
+          const shadow = style.shadow || 1;
+          const bold = style.bold ? 1 : 0;
+          const marginV = style.marginV || 100;
+          const alignment = style.alignment === 'left' ? 1 : style.alignment === 'right' ? 3 : 2;
+          
+          // Converter cores para formato BGR do FFmpeg (inverter RGB)
+          const convertColor = (hexColor: string) => {
+            const hex = hexColor.replace('#', '');
+            if (hex.length === 6) {
+              const r = hex.substring(0, 2);
+              const g = hex.substring(2, 4);
+              const b = hex.substring(4, 6);
+              return `${b}${g}${r}`; // BGR format
+            }
+            return 'FFFFFF'; // fallback to white
+          };
+          
+          // Criar string de estilo para FFmpeg (simplificado)
+          const forceStyle = [
+            `FontName=${fontFamily}`,
+            `FontSize=${fontSize}`,
+            `PrimaryColour=&HFFFFFF&`,
+            `OutlineColour=&H000000&`,
+            `BorderStyle=1`,
+            `Outline=3`,
+            `Shadow=1`,
+            `Bold=1`,
+            `Alignment=2`,
+            `MarginV=100`
+          ].join(',');
+          
+          console.log('Preparando filtro de legenda:', {
+            arquivo: path,
+            estilo: forceStyle
+          });
+          
+          // Criar filtro de legenda (escapar aspas para FFmpeg)
+          const escapedPath = path.replace(/'/g, "\\'");
+          const escapedStyle = forceStyle.replace(/'/g, "\\'");
+          subtitleFilter = `subtitles='${escapedPath}':charenc=UTF-8:force_style='${escapedStyle}'`;
+          
+          if (subtitleClips.length > 1) {
+            console.warn('Múltiplas legendas não são totalmente suportadas ainda. Usando apenas a primeira.');
+          }
+        }
+        
+        if (videoClips.length === 1 && videoClips[0].clip.asset.type === 'image') {
+          // Para uma imagem, definir framerate
+          outputOptions.push(`-r ${output.fps || 30}`);
+          
+          // Aplicar legendas se disponível usando fluent-ffmpeg
+          if (subtitleFilter) {
+            command = command.videoFilters(subtitleFilter);
+          }
+          
+          if (audioClips.length > 1) {
+            outputOptions.push('-map 0:v', '-map [aout]'); // Mapear vídeo e áudio mixado
+          }
+        } else if (videoClips.length > 1 && videoClips.every(({ clip }) => clip.asset.type === 'image')) {
+          // Para múltiplas imagens com filtro complexo, mapear o output do filtro
+          // Se há legendas, precisamos modificar o filtro complexo
+          if (subtitleFilter) {
+            console.log('Aplicando legendas ao filtro complexo de múltiplas imagens');
+            
+            // Recriar o filtro complexo incluindo legendas
+            const filterParts: string[] = [];
+            videoClips.forEach((_, index) => {
+              const clip = videoClips[index].clip;
+              const duration = clip.length;
+              filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.resolution || '1280x720'},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
+            });
+            
+            // Criar filtro de concatenação com durações específicas
+            let concatFilter = '';
+            videoClips.forEach((_, index) => {
+              const clip = videoClips[index].clip;
+              const duration = clip.length;
+              concatFilter += `[v${index}]trim=duration=${duration}[v${index}t];`;
+            });
+            
+            // Concatenar todos os segmentos
+            const concatInputs = videoClips.map((_, index) => `[v${index}t]`).join('');
+            concatFilter += `${concatInputs}concat=n=${videoClips.length}:v=1:a=0[video_concat];`;
+            
+            // Aplicar legendas ao vídeo concatenado
+            concatFilter += `[video_concat]${subtitleFilter}[outv]`;
+            
+            const fullFilter = filterParts.join(';') + ';' + concatFilter;
+            console.log('Filtro complexo com legendas:', fullFilter);
+            
+            // Recriar comando com novo filtro incluindo todos os inputs
+            command = ffmpeg();
+            
+            // Adicionar inputs de vídeo/imagem
+            videoClips.forEach(({ path }) => {
+              command = command.addInput(path);
+            });
+            
+            // Adicionar inputs de áudio
+            audioClips.forEach(({ path }) => {
+              command = command.addInput(path);
+            });
+            
+            command = command.complexFilter(fullFilter);
+          }
+          
+          outputOptions.push('-map [outv]');
+          if (audioClips.length > 1) {
+            outputOptions.push('-map [aout]'); // Mapear áudio mixado
+          } else if (audioClips.length === 1) {
+            // Quando há legendas e filtro complexo, o áudio está no índice correto
+            const audioIndex = subtitleFilter ? videoClips.length : videoClips.length;
+            outputOptions.push(`-map ${audioIndex}:a`); // Mapear áudio único
+          }
+        }
+        
+        // Configurações de codec
+        outputOptions.push(
+          `-c:v ${output.format === 'gif' ? 'gif' : 'libx264'}`,
+          `-preset ${output.quality === 'low' ? 'ultrafast' : output.quality === 'high' ? 'slow' : 'medium'}`,
+          `-b:v ${output.bitrate || '2000k'}`
+        );
+        
+        if (audioClips.length > 0) {
+          outputOptions.push('-c:a aac', '-b:a 128k');
+        }
+        
+        console.log('Opções de saída:', outputOptions);
+        command = command.outputOptions(outputOptions);
         
         // Set output format specific options
         if (output.format === 'hls') {
@@ -309,12 +569,32 @@ export const renderVideo = async (
             const percent = Math.round((progress.percent || 0) * 100) / 100;
             progressCallback(percent);
           })
-          .on('end', () => {
+          .on('end', async () => {
             console.log('Renderização concluída com sucesso:', outputPath);
+            
+            // Limpar arquivos temporários após sucesso
+            try {
+              console.log('Limpando arquivos temporários...');
+              await cleanupTempFiles(tempDir);
+              console.log('Arquivos temporários removidos com sucesso');
+            } catch (cleanupError) {
+              console.warn('Erro ao limpar arquivos temporários:', cleanupError);
+              // Não falhar o job por causa da limpeza
+            }
+            
             resolve(outputPath);
           })
-          .on('error', (err) => {
+          .on('error', async (err) => {
             console.error('Erro na renderização:', err);
+            
+            // Limpar arquivos temporários mesmo em caso de erro
+            try {
+              console.log('Limpando arquivos temporários após erro...');
+              await cleanupTempFiles(tempDir);
+            } catch (cleanupError) {
+              console.warn('Erro ao limpar arquivos temporários após falha:', cleanupError);
+            }
+            
             reject(err);
           });
         
