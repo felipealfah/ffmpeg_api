@@ -18,11 +18,6 @@ export function validate(schema: Joi.ObjectSchema) {
         type: detail.type
       }));
 
-      logger.warn('Erro de validação na requisição', { 
-        path: req.originalUrl,
-        errors: errorDetails 
-      });
-
       // Formatando o erro como RFC 7807 Problem Details
       const errorResponse = {
         type: 'https://api.example.com/errors/validation',

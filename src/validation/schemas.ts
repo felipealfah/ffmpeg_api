@@ -1,6 +1,9 @@
 import Joi from 'joi';
 import { MediaType, AssetSource, OutputFormat } from '../types/media';
 
+// Regex para validar cores hexadecimais
+const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+
 // Schema para validar posições de elementos na timeline
 const positionSchema = Joi.object({
   x: Joi.number().required().min(0).max(100).description('Posição X em porcentagem da largura da tela'),
@@ -29,18 +32,18 @@ const textStyleSchema = Joi.object({
 // Schema para validar estilos de legendas
 const subtitleStyleSchema = Joi.object({
   fontFamily: Joi.string().optional().default('DejaVu Serif').description('Família da fonte'),
-  fontSize: Joi.number().optional().default(42).description('Tamanho da fonte'),
-  fontColor: Joi.string().optional().default('#FFFFFF').description('Cor da fonte'),
-  outlineColor: Joi.string().optional().default('#404040').description('Cor do contorno'),
-  backgroundColor: Joi.string().optional().description('Cor de fundo'),
-  alignment: Joi.string().optional().valid('left', 'center', 'right').default('center').description('Alinhamento do texto'),
-  position: Joi.string().optional().valid('top', 'center', 'bottom').default('bottom').description('Posição vertical'),
-  marginV: Joi.number().optional().default(100).description('Margem vertical em pixels'),
-  outline: Joi.number().optional().default(3).description('Espessura do contorno'),
-  shadow: Joi.number().optional().default(1).description('Offset da sombra'),
-  bold: Joi.boolean().optional().default(false).description('Texto em negrito'),
+  fontSize: Joi.number().optional().default(42).min(8).max(200).description('Tamanho da fonte'),
+  fontColor: Joi.string().pattern(HEX_COLOR_REGEX).optional().default('#FFFFFF').description('Cor da fonte em formato hexadecimal'),
+  outlineColor: Joi.string().pattern(HEX_COLOR_REGEX).optional().default('#000000').description('Cor do contorno em formato hexadecimal'),
+  backgroundColor: Joi.string().pattern(HEX_COLOR_REGEX).optional().description('Cor de fundo em formato hexadecimal'),
+  alignment: Joi.string().optional().valid('left', 'center', 'right').default('center').description('Alinhamento horizontal do texto'),
+  position: Joi.string().optional().valid('top', 'center', 'bottom').default('bottom').description('Posição vertical das legendas'),
+  marginV: Joi.number().optional().default(100).min(0).max(500).description('Margem vertical em pixels'),
+  outline: Joi.number().optional().default(3).min(0).max(10).description('Espessura do contorno'),
+  shadow: Joi.number().optional().default(1).min(0).max(10).description('Intensidade da sombra'),
+  bold: Joi.boolean().optional().default(true).description('Texto em negrito'),
   italic: Joi.boolean().optional().default(false).description('Texto em itálico')
-});
+}).unknown(false);
 
 // Schema para validar assets (imagens, vídeos, áudios, legendas)
 const assetSchema = Joi.object({

@@ -151,7 +151,10 @@ const prepareClip = async (clip: Clip, tempDir: string): Promise<string> => {
     if (asset.type === MediaType.IMAGE || asset.type === MediaType.VIDEO || asset.type === MediaType.AUDIO || asset.type === MediaType.SUBTITLE) {
       if (asset.source === AssetSource.URL) {
         // Download from URL
-        const extension = path.extname(asset.src) || (asset.type === MediaType.IMAGE ? '.jpg' : '.mp4');
+        const extension = path.extname(asset.src) ||
+          (asset.type === MediaType.IMAGE ? '.jpg' :
+           asset.type === MediaType.AUDIO ? '.mp3' :
+           asset.type === MediaType.SUBTITLE ? '.srt' : '.mp4');
         const localPath = path.join(tempDir, `asset_${Date.now()}${extension}`);
         
         console.log('Baixando arquivo de URL:', { 
@@ -196,6 +199,115 @@ const prepareClip = async (clip: Clip, tempDir: string): Promise<string> => {
     console.error('Erro no prepareClip:', error);
     throw error;
   }
+};
+
+// Helper function to create subtitle filter
+const createSubtitleFilter = (subtitleClip: any): string => {
+  const { clip, path } = subtitleClip;
+  const asset = clip.asset as any;
+  const style = asset.style || {};
+  
+  const forceStyle = [
+    `FontName=${style.fontFamily || 'DejaVu Serif'}`,
+    `FontSize=${style.fontSize || 42}`,
+    `PrimaryColour=&HFFFFFF&`,
+    `OutlineColour=&H000000&`,
+    `BorderStyle=1`,
+    `Outline=3`,
+    `Shadow=1`,
+    `Bold=1`,
+    `Alignment=2`,
+    `MarginV=100`
+  ].join(',');
+  
+  const escapedPath = path.replace(/'/g, "\\'");
+  const escapedStyle = forceStyle.replace(/'/g, "\\'");
+  return `subtitles='${escapedPath}':charenc=UTF-8:force_style='${escapedStyle}'`;
+};
+
+// Helper function to create complex filter for multiple images
+const createComplexFilterForImages = (
+  videoClips: any[], 
+  audioClips: any[], 
+  subtitleClips: any[], 
+  output: any
+): string => {
+  const filterParts: string[] = [];
+  
+  // Create filter parts for each video clip
+  videoClips.forEach((_, index) => {
+    const clip = videoClips[index].clip;
+    filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.resolution || '1280x720'},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
+  });
+  
+  // Create concatenation filter with specific durations
+  let concatFilter = '';
+  videoClips.forEach((_, index) => {
+    const clip = videoClips[index].clip;
+    const duration = clip.length;
+    concatFilter += `[v${index}]trim=duration=${duration}[v${index}t];`;
+  });
+  
+  // Concatenate all segments
+  const concatInputs = videoClips.map((_, index) => `[v${index}t]`).join('');
+  concatFilter += `${concatInputs}concat=n=${videoClips.length}:v=1:a=0[video_concat]`;
+  
+  // Apply subtitles if available
+  if (subtitleClips.length > 0) {
+    const subtitleFilter = createSubtitleFilter(subtitleClips[0]);
+    concatFilter += `;[video_concat]${subtitleFilter}[outv]`;
+  } else {
+    concatFilter += `;[video_concat]copy[outv]`;
+  }
+  
+  return filterParts.join(';') + ';' + concatFilter;
+};
+
+// Helper function to build output options
+const buildOutputOptions = (
+  videoClips: any[], 
+  audioClips: any[], 
+  subtitleClips: any[], 
+  output: any, 
+  timelineDuration: number
+): string[] => {
+  const outputOptions = [];
+  
+  // Set total video duration
+  outputOptions.push(`-t ${timelineDuration}`);
+  
+  // Handle video mapping based on scenario
+  if (videoClips.length === 1 && videoClips[0].clip.asset.type === 'image') {
+    // Simple case: single image
+    outputOptions.push(`-r ${output.fps || 30}`);
+    
+    if (audioClips.length > 1) {
+      outputOptions.push('-map 0:v', '-map [aout]');
+    }
+  } else if (videoClips.length > 1) {
+    // Complex case: multiple images with complex filter
+    outputOptions.push('-map [outv]');
+    
+    if (audioClips.length > 1) {
+      outputOptions.push('-map [aout]');
+    } else if (audioClips.length === 1) {
+      const audioIndex = videoClips.length;
+      outputOptions.push(`-map ${audioIndex}:a`);
+    }
+  }
+  
+  // Codec settings
+  outputOptions.push(
+    `-c:v ${output.format === 'gif' ? 'gif' : 'libx264'}`,
+    `-preset ${output.quality === 'low' ? 'ultrafast' : output.quality === 'high' ? 'slow' : 'medium'}`,
+    `-b:v ${output.bitrate || '2000k'}`
+  );
+  
+  if (audioClips.length > 0) {
+    outputOptions.push('-c:a aac', '-b:a 128k');
+  }
+  
+  return outputOptions;
 };
 
 // Render the video from the timeline
@@ -279,42 +391,11 @@ export const renderVideo = async (
     // Build FFmpeg command based on timeline structure
     return new Promise((resolve, reject) => {
       try {
-        // Start with an empty FFmpeg command
-        let command = ffmpeg();
-        
-        // Add inputs for all clips
-        const flattenedClips = preparedClips.flatMap(p => p.clipInfo);
-        console.log('Adicionando inputs ao FFmpeg:', { clipCount: flattenedClips.length });
-        
-        flattenedClips.forEach(({ path }, index) => {
-          console.log(`Adicionando input ${index}:`, path);
-          command = command.addInput(path);
-        });
-        
         // Calcular duração total baseada nos clips
         const timelineDuration = calculateTimelineDuration(timeline);
-        
         console.log('Duração calculada da timeline:', timelineDuration);
         
-        console.log('Duração da timeline:', timelineDuration);
-        
-        // Separate video and audio tracks
-        const videoTracks = preparedClips.filter(({ track }) => 
-          track.clips.some(clip => clip.asset.type === 'image' || clip.asset.type === 'video')
-        );
-        const audioTracks = preparedClips.filter(({ track }) => 
-          track.clips.some(clip => clip.asset.type === 'audio')
-        );
-        
-        console.log('Tracks separadas:', { 
-          videoTracks: videoTracks.length, 
-          audioTracks: audioTracks.length 
-        });
-        
-        // Processar clips baseado na duração calculada
-        console.log('Processando clips com duração calculada automaticamente');
-        
-        // Separar clips de vídeo/imagem, áudio e legendas
+        // Separar clips de vídeo/imagem, áudio e legendas ANTES de criar o comando
         const videoClips = preparedClips
           .flatMap(p => p.clipInfo)
           .filter(({ clip }) => clip.asset.type === 'image' || clip.asset.type === 'video');
@@ -333,223 +414,73 @@ export const renderVideo = async (
         
         console.log(`Processando ${videoClips.length} clips de vídeo/imagem, ${audioClips.length} clips de áudio e ${subtitleClips.length} clips de legenda`);
         
-        // Recriar comando FFmpeg com as opções corretas
-        command = ffmpeg();
+        // CRIAR O COMANDO FFMPEG APENAS UMA VEZ
+        let command = ffmpeg();
         
+        // Adicionar TODOS os inputs de uma só vez
+        console.log('Adicionando inputs ao FFmpeg:', { 
+          videoClips: videoClips.length,
+          audioClips: audioClips.length,
+          subtitleClips: subtitleClips.length
+        });
+        
+        // 1. Adicionar inputs de vídeo/imagem
+        videoClips.forEach(({ path }, index) => {
+          console.log(`Adicionando input de vídeo ${index}:`, path);
+          if (videoClips[index].clip.asset.type === 'image') {
+            // Para imagens, adicionar com opção de loop
+            command = command.addInput(path).inputOptions(['-loop 1']);
+          } else {
+            command = command.addInput(path);
+          }
+        });
+        
+        // 2. Adicionar inputs de áudio
+        audioClips.forEach(({ path }, index) => {
+          console.log(`Adicionando input de áudio ${index}:`, path);
+          command = command.addInput(path);
+        });
+        
+        // Determinar a lógica de processamento baseada nos tipos de clips
         if (videoClips.length === 1 && videoClips[0].clip.asset.type === 'image') {
           // Caso simples: uma imagem com duração específica
-          command = command
-            .addInput(videoClips[0].path)
-            .inputOptions(['-loop 1']);
+          console.log('Processando caso simples: uma imagem');
+          
+          // Aplicar legendas se disponível
+          if (subtitleClips.length > 0) {
+            console.log('Aplicando legendas ao caso simples');
+            const subtitleFilter = createSubtitleFilter(subtitleClips[0]);
+            command = command.videoFilters(subtitleFilter);
+          }
+          
         } else if (videoClips.length > 1 && videoClips.every(({ clip }) => clip.asset.type === 'image')) {
-          // Caso de múltiplas imagens: criar filtro complexo para concatenação
-          console.log('Criando filtro complexo para múltiplas imagens');
+          // Caso complexo: múltiplas imagens
+          console.log('Processando caso complexo: múltiplas imagens');
+          const complexFilter = createComplexFilterForImages(videoClips, audioClips, subtitleClips, output);
+          console.log('Filtro complexo criado:', complexFilter);
+          command = command.complexFilter(complexFilter);
           
-          // Adicionar todas as imagens como inputs
-          videoClips.forEach(({ path }) => {
-            command = command.addInput(path);
-          });
-          
-          // Criar filtro complexo para concatenar as imagens com suas durações
-          const filterParts: string[] = [];
-          videoClips.forEach((_, index) => {
-            const clip = videoClips[index].clip;
-            const duration = clip.length;
-            filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.resolution || '1280x720'},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
-          });
-          
-          // Criar filtro de concatenação com durações específicas
-          let concatFilter = '';
-          videoClips.forEach((_, index) => {
-            const clip = videoClips[index].clip;
-            const duration = clip.length;
-            concatFilter += `[v${index}]trim=duration=${duration}[v${index}t];`;
-          });
-          
-          // Concatenar todos os segmentos
-          const concatInputs = videoClips.map((_, index) => `[v${index}t]`).join('');
-          concatFilter += `${concatInputs}concat=n=${videoClips.length}:v=1:a=0[outv]`;
-          
-          const fullFilter = filterParts.join(';') + ';' + concatFilter;
-          console.log('Filtro complexo criado:', fullFilter);
-          
-          command = command.complexFilter(fullFilter);
         } else {
-          // Caso complexo: múltiplas imagens ou vídeos (fallback)
-          videoClips.forEach(({ path }) => {
-            command = command.addInput(path);
-          });
+          // Caso fallback: múltiplas imagens ou vídeos
+          console.log('Processando caso fallback');
+          // Para casos mais complexos, pode ser necessário lógica adicional
         }
         
-        // Adicionar áudio se disponível
-        if (audioClips.length > 0) {
-          audioClips.forEach(({ path }) => {
-            command = command.addInput(path);
-          });
+        // Configurar filtro de mixagem de áudio se necessário
+        if (audioClips.length > 1) {
+          console.log(`Criando filtro de mixagem para ${audioClips.length} áudios`);
+          const audioInputs = audioClips.map((_, index) => `[${videoClips.length + index}:a]`).join('');
+          const mixFilter = `${audioInputs}amix=inputs=${audioClips.length}:duration=first:dropout_transition=2[aout]`;
           
-          // Se há múltiplos áudios, criar filtro de mixagem
-          if (audioClips.length > 1) {
-            console.log(`Criando filtro de mixagem para ${audioClips.length} áudios`);
-            
-            // Criar filtro de mixagem para múltiplos áudios
-            const audioInputs = audioClips.map((_, index) => `[${videoClips.length + index}:a]`).join('');
-            const mixFilter = `${audioInputs}amix=inputs=${audioClips.length}:duration=first:dropout_transition=2[aout]`;
-            
-            // Sempre criar um novo filtro complexo para áudio
-            // Se já existe filtro para vídeo, será combinado nas opções de saída
+          // Se já existe um filtro complexo, precisamos combiná-los
+          // Por simplicidade, vamos aplicar o filtro de áudio separadamente se necessário
+          if (videoClips.length === 1) {
             command = command.complexFilter(mixFilter);
           }
         }
         
         // Configurar opções de saída
-        const outputOptions = [];
-        
-        // Definir duração total do vídeo
-        outputOptions.push(`-t ${timelineDuration}`);
-        
-        // Preparar filtro de legendas se disponível
-        let subtitleFilter = '';
-        if (subtitleClips.length > 0) {
-          console.log(`Preparando ${subtitleClips.length} arquivo(s) de legenda`);
-          
-          const subtitleClip = subtitleClips[0]; // Por enquanto, apenas a primeira legenda
-          const { clip, path } = subtitleClip;
-          const asset = clip.asset as any; // SubtitleAsset
-          
-          // Configurar estilo das legendas
-          const style = asset.style || {};
-          const fontFamily = style.fontFamily || 'DejaVu Serif';
-          const fontSize = style.fontSize || 42;
-          const fontColor = style.fontColor || '#FFFFFF';
-          const outlineColor = style.outlineColor || '#404040';
-          const outline = style.outline || 3;
-          const shadow = style.shadow || 1;
-          const bold = style.bold ? 1 : 0;
-          const marginV = style.marginV || 100;
-          const alignment = style.alignment === 'left' ? 1 : style.alignment === 'right' ? 3 : 2;
-          
-          // Converter cores para formato BGR do FFmpeg (inverter RGB)
-          const convertColor = (hexColor: string) => {
-            const hex = hexColor.replace('#', '');
-            if (hex.length === 6) {
-              const r = hex.substring(0, 2);
-              const g = hex.substring(2, 4);
-              const b = hex.substring(4, 6);
-              return `${b}${g}${r}`; // BGR format
-            }
-            return 'FFFFFF'; // fallback to white
-          };
-          
-          // Criar string de estilo para FFmpeg (simplificado)
-          const forceStyle = [
-            `FontName=${fontFamily}`,
-            `FontSize=${fontSize}`,
-            `PrimaryColour=&HFFFFFF&`,
-            `OutlineColour=&H000000&`,
-            `BorderStyle=1`,
-            `Outline=3`,
-            `Shadow=1`,
-            `Bold=1`,
-            `Alignment=2`,
-            `MarginV=100`
-          ].join(',');
-          
-          console.log('Preparando filtro de legenda:', {
-            arquivo: path,
-            estilo: forceStyle
-          });
-          
-          // Criar filtro de legenda (escapar aspas para FFmpeg)
-          const escapedPath = path.replace(/'/g, "\\'");
-          const escapedStyle = forceStyle.replace(/'/g, "\\'");
-          subtitleFilter = `subtitles='${escapedPath}':charenc=UTF-8:force_style='${escapedStyle}'`;
-          
-          if (subtitleClips.length > 1) {
-            console.warn('Múltiplas legendas não são totalmente suportadas ainda. Usando apenas a primeira.');
-          }
-        }
-        
-        if (videoClips.length === 1 && videoClips[0].clip.asset.type === 'image') {
-          // Para uma imagem, definir framerate
-          outputOptions.push(`-r ${output.fps || 30}`);
-          
-          // Aplicar legendas se disponível usando fluent-ffmpeg
-          if (subtitleFilter) {
-            command = command.videoFilters(subtitleFilter);
-          }
-          
-          if (audioClips.length > 1) {
-            outputOptions.push('-map 0:v', '-map [aout]'); // Mapear vídeo e áudio mixado
-          }
-        } else if (videoClips.length > 1 && videoClips.every(({ clip }) => clip.asset.type === 'image')) {
-          // Para múltiplas imagens com filtro complexo, mapear o output do filtro
-          // Se há legendas, precisamos modificar o filtro complexo
-          if (subtitleFilter) {
-            console.log('Aplicando legendas ao filtro complexo de múltiplas imagens');
-            
-            // Recriar o filtro complexo incluindo legendas
-            const filterParts: string[] = [];
-            videoClips.forEach((_, index) => {
-              const clip = videoClips[index].clip;
-              const duration = clip.length;
-              filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.resolution || '1280x720'},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
-            });
-            
-            // Criar filtro de concatenação com durações específicas
-            let concatFilter = '';
-            videoClips.forEach((_, index) => {
-              const clip = videoClips[index].clip;
-              const duration = clip.length;
-              concatFilter += `[v${index}]trim=duration=${duration}[v${index}t];`;
-            });
-            
-            // Concatenar todos os segmentos
-            const concatInputs = videoClips.map((_, index) => `[v${index}t]`).join('');
-            concatFilter += `${concatInputs}concat=n=${videoClips.length}:v=1:a=0[video_concat];`;
-            
-            // Aplicar legendas ao vídeo concatenado
-            concatFilter += `[video_concat]${subtitleFilter}[outv]`;
-            
-            const fullFilter = filterParts.join(';') + ';' + concatFilter;
-            console.log('Filtro complexo com legendas:', fullFilter);
-            
-            // Recriar comando com novo filtro incluindo todos os inputs
-            command = ffmpeg();
-            
-            // Adicionar inputs de vídeo/imagem
-            videoClips.forEach(({ path }) => {
-              command = command.addInput(path);
-            });
-            
-            // Adicionar inputs de áudio
-            audioClips.forEach(({ path }) => {
-              command = command.addInput(path);
-            });
-            
-            command = command.complexFilter(fullFilter);
-          }
-          
-          outputOptions.push('-map [outv]');
-          if (audioClips.length > 1) {
-            outputOptions.push('-map [aout]'); // Mapear áudio mixado
-          } else if (audioClips.length === 1) {
-            // Quando há legendas e filtro complexo, o áudio está no índice correto
-            const audioIndex = subtitleFilter ? videoClips.length : videoClips.length;
-            outputOptions.push(`-map ${audioIndex}:a`); // Mapear áudio único
-          }
-        }
-        
-        // Configurações de codec
-        outputOptions.push(
-          `-c:v ${output.format === 'gif' ? 'gif' : 'libx264'}`,
-          `-preset ${output.quality === 'low' ? 'ultrafast' : output.quality === 'high' ? 'slow' : 'medium'}`,
-          `-b:v ${output.bitrate || '2000k'}`
-        );
-        
-        if (audioClips.length > 0) {
-          outputOptions.push('-c:a aac', '-b:a 128k');
-        }
-        
+        const outputOptions = buildOutputOptions(videoClips, audioClips, subtitleClips, output, timelineDuration);
         console.log('Opções de saída:', outputOptions);
         command = command.outputOptions(outputOptions);
         
@@ -601,6 +532,7 @@ export const renderVideo = async (
         // Run the command
         console.log('Iniciando processo de renderização...');
         command.run();
+        
       } catch (err) {
         console.error('Erro ao configurar FFmpeg:', err);
         reject(err);
