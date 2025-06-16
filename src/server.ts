@@ -1,5 +1,20 @@
-// Carregar configuração primeiro
-import config from './config';
+// Carrega dotenv PRIMEIRO antes de qualquer import
+require('dotenv').config();
+
+console.log('🔥 ENV no server.ts APÓS dotenv:');
+console.log('🔥 PORT:', process.env.PORT);
+console.log('🔥 FFMPEG_PATH:', process.env.FFMPEG_PATH);
+console.log('🔥 GOOGLE_CLOUD_STORAGE_ENABLED:', process.env.GOOGLE_CLOUD_STORAGE_ENABLED);
+
+// Carregar configuração DEPOIS do dotenv usando require para evitar problemas de cache
+console.log('🚀 Carregando config usando require...');
+const configModule = require('./config');
+console.log('🚀 Config module:', configModule);
+console.log('🚀 Config module.default:', configModule.default);
+const config = configModule.default || configModule;
+
+// DEBUG: Log do objeto config completo
+console.log('Config importado em server.ts:', config);
 
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
@@ -9,6 +24,35 @@ import mediaRoutes from './routes/mediaRoutes';
 import path from 'path';
 import swagger from './swagger';
 import { AppError } from './middleware/errorHandler';
+import { initializeStorageService } from './services/storageService';
+// import { logger } from './utils/logger'; // Temporariamente comentado para evitar erro
+
+// Inicializar serviço de storage do Google Cloud (se habilitado)
+console.log('=== DEBUG CONFIG NO SERVER ===');
+console.log('config object:', config);
+console.log('config.googleCloud:', config.googleCloud);
+console.log('================================');
+
+if (config.googleCloud && config.googleCloud.enabled) {
+  try {
+    initializeStorageService({
+      projectId: config.googleCloud.projectId,
+      keyFilename: config.googleCloud.keyFilename,
+      bucketName: config.googleCloud.bucketName
+    });
+    console.log('✅ Google Cloud Storage habilitado', {
+      bucketName: config.googleCloud.bucketName,
+      projectId: config.googleCloud.projectId
+    });
+  } catch (error) {
+    console.error('❌ Erro ao inicializar Google Cloud Storage', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    console.warn('⚠️  Google Cloud Storage não pôde ser inicializado. Usando armazenamento local.');
+  }
+} else {
+  console.log('Google Cloud Storage desabilitado ou não configurado. Usando armazenamento local.');
+}
 
 // Initialize Express app
 const app = express();

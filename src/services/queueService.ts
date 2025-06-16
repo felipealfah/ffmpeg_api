@@ -72,10 +72,30 @@ renderQueue.process(async (job) => {
       }
     });
     
+    // Determinar informações do storage baseado no tipo de URL retornada
+    let storageInfo;
+    if (outputPath.startsWith('https://storage.googleapis.com/')) {
+      // É uma URL do Google Cloud Storage
+      const fileName = outputPath.split('/').pop() || '';
+      storageInfo = {
+        type: 'gcs' as const,
+        url: outputPath,
+        fileName
+      };
+    } else {
+      // É um arquivo local
+      storageInfo = {
+        type: 'local' as const,
+        url: outputPath,
+        fileName: path.basename(outputPath)
+      };
+    }
+    
     // Update job status to completed
     updateJob(renderJob.id, { 
       status: JobStatus.COMPLETED,
       output: outputPath,
+      storage: storageInfo,
       updatedAt: new Date(),
       completedAt: new Date()
     });

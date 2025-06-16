@@ -8,6 +8,8 @@ import { finished } from 'stream/promises';
 import { RenderJob, Clip, Track, Timeline, MediaType, AssetSource } from '../types/media';
 import axios from 'axios';
 import { downloadFile, ensureDirectory, cleanupDirectory } from '../utils/file';
+import { getStorageService } from './storageService';
+import { logger } from '../utils/logger';
 
 // Debug do config
 console.log('Config no mediaService:', {
@@ -503,6 +505,54 @@ export const renderVideo = async (
           .on('end', async () => {
             console.log('Renderização concluída com sucesso:', outputPath);
             
+            let finalOutputUrl = outputPath;
+            
+            // Upload para Google Cloud Storage se habilitado
+            if (config.googleCloud.enabled) {
+              try {
+                console.log('Fazendo upload para Google Cloud Storage...');
+                const storageService = getStorageService();
+                
+                // Gerar nome único para o arquivo no GCS
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const fileName = `renders/${job.id}/${timestamp}_${path.basename(outputPath)}`;
+                
+                const uploadResult = await storageService.uploadFile(outputPath, {
+                  destination: fileName,
+                  public: true,
+                  metadata: {
+                    jobId: job.id,
+                    format: output.format,
+                    resolution: output.resolution,
+                    quality: output.quality || 'medium',
+                    createdAt: new Date().toISOString()
+                  }
+                });
+                
+                console.log('Upload para GCS concluído:', {
+                  fileName: uploadResult.fileName,
+                  size: uploadResult.size,
+                  publicUrl: uploadResult.publicUrl
+                });
+                
+                // Usar a URL pública do GCS como resultado final
+                finalOutputUrl = uploadResult.publicUrl;
+                
+                // Remover arquivo local após upload bem-sucedido
+                try {
+                  await fs.unlink(outputPath);
+                  console.log('Arquivo local removido após upload para GCS');
+                } catch (unlinkError) {
+                  console.warn('Erro ao remover arquivo local:', unlinkError);
+                }
+                
+              } catch (uploadError) {
+                console.error('Erro no upload para GCS:', uploadError);
+                console.log('Mantendo arquivo local como fallback');
+                // Continuar com o arquivo local se o upload falhar
+              }
+            }
+            
             // Limpar arquivos temporários após sucesso
             try {
               console.log('Limpando arquivos temporários...');
@@ -513,7 +563,7 @@ export const renderVideo = async (
               // Não falhar o job por causa da limpeza
             }
             
-            resolve(outputPath);
+            resolve(finalOutputUrl);
           })
           .on('error', async (err) => {
             console.error('Erro na renderização:', err);

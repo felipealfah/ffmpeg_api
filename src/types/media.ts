@@ -124,6 +124,15 @@ export interface RenderJob {
   progress?: number;
   request: RenderRequest;
   output?: string;
+  storage?: {
+    type: 'local' | 'gcs';
+    url: string;
+    fileName?: string;
+    size?: number;
+    metadata?: {
+      [key: string]: string;
+    };
+  };
   error?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -143,6 +152,12 @@ export interface JobStatusResponse {
     status: JobStatus;
     progress?: number;
     output?: string;
+    storage?: {
+      type: 'local' | 'gcs';
+      url: string;
+      fileName?: string;
+      size?: number;
+    };
     error?: string;
   };
 } 

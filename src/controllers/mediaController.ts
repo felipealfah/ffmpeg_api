@@ -6,6 +6,7 @@ import { JobStatus, RenderRequest } from '../types/media';
 import * as queueService from '../services/queueService';
 import fs from 'fs';
 import path from 'path';
+import config from '../config';
 
 // Create a new render job
 export const createRenderJob = async (req: Request, res: Response) => {
@@ -62,6 +63,7 @@ export const getRenderJobStatus = async (req: Request, res: Response) => {
       jobId: job.id,
       status: job.status,
       progress: job.progress,
+      storage: job.storage,
       error: job.error
     }
   });
@@ -90,7 +92,8 @@ export const getRenderJobResult = async (req: Request, res: Response) => {
     data: {
       jobId: job.id,
       status: job.status,
-      output: job.output
+      output: job.output,
+      storage: job.storage
     }
   });
 };
@@ -111,6 +114,11 @@ export const getRenderJobFile = async (req: Request, res: Response) => {
   
   if (!job.output) {
     throw new AppError(`Job com ID ${jobId} não possui arquivo de saída disponível`, 500);
+  }
+  
+  // Se o arquivo está no Google Cloud Storage, redirecionar para a URL pública
+  if (job.storage?.type === 'gcs' && job.storage.url) {
+    return res.redirect(job.storage.url);
   }
   
   // Check if file exists
