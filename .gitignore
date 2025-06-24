@@ -67,3 +67,4 @@ public/thumbnails/
 # Arquivos específicos do projeto
 redis-data/
 dump.rdb
+cleanup-for-production.sh

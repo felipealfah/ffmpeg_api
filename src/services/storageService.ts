@@ -1,13 +1,7 @@
 import { Storage } from '@google-cloud/storage';
 import path from 'path';
 import fs from 'fs/promises';
-// import { logger } from '../utils/logger'; // Temporariamente desabilitado
-
-// Logger simples para substituir o logger problemático
-const logger = {
-  info: (message: string, data?: any) => console.log(`ℹ️ ${message}`, data || ''),
-  error: (message: string, data?: any) => console.error(`❌ ${message}`, data || ''),
-};
+import { logger } from '../utils/logger';
 
 interface StorageConfig {
   projectId?: string;

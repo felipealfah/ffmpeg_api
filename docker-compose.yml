@@ -1,23 +1,54 @@
 version: '3.8'
 
 services:
-  # Serviço n8n
-  n8n:
-    image: n8nio/n8n
+  # Serviço Redis para filas
+  redis:
+    image: redis:7-alpine
     ports:
-      - "5678:5678"
-    environment:
-      - N8N_HOST=n8n
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - N8N_EDITOR_BASE_URL=http://localhost:5678
-      - WEBHOOK_URL=http://localhost:5678/
-      - GENERIC_TIMEZONE=America/Sao_Paulo
+      - "6379:6379"
     volumes:
-      - n8n-data:/home/node/.n8n
+      - redis-data:/data
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Nossa API FFmpeg
+  ffmpeg-api:
+    # DESENVOLVIMENTO: Descomente a linha abaixo para build local
+    # build: .
+    
+    # PRODUÇÃO: Use imagem pré-construída (recomendado)
+    image: ffmpeg-api:latest
+    
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - FFMPEG_PATH=/usr/bin/ffmpeg
+      - FFPROBE_PATH=/usr/bin/ffprobe
+      - GOOGLE_CLOUD_STORAGE_ENABLED=true
+      # Adicione suas variáveis do Google Cloud aqui:
+      # - GOOGLE_CLOUD_PROJECT_ID=seu-projeto
+      # - GOOGLE_CLOUD_BUCKET_NAME=seu-bucket
+    volumes:
+      - ./storage:/app/storage
+      - ./src/config:/app/src/config
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
-  n8n-data: 
+  redis-data: 

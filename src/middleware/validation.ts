@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
 import { AppError } from './errorHandler';
 import { logger } from '../utils/logger';
+import { circuitBreaker } from './circuitBreaker';
 
 // Middleware de validação que recebe um schema do Joi
 export function validate(schema: Joi.ObjectSchema) {
@@ -18,6 +19,18 @@ export function validate(schema: Joi.ObjectSchema) {
         type: detail.type
       }));
 
+      // Log do erro de validação
+      logger.warn('Erro de validação detectado', {
+        url: req.originalUrl,
+        errors: errorDetails,
+        body: req.body
+      });
+
+      // Registrar falha no circuit breaker
+      const key = circuitBreaker.getKey(req);
+      const errorMessage = errorDetails.map(e => `${e.field}: ${e.message}`).join('; ');
+      circuitBreaker.recordFailure(key, errorMessage);
+
       // Formatando o erro como RFC 7807 Problem Details
       const errorResponse = {
         type: 'https://api.example.com/errors/validation',
@@ -27,6 +40,13 @@ export function validate(schema: Joi.ObjectSchema) {
         instance: req.originalUrl,
         errors: errorDetails
       };
+
+      // Headers para indicar que não deve ser feito retry
+      res.set({
+        'X-No-Retry': 'true',
+        'X-Final-Error': 'true',
+        'Retry-After': '86400' // 24 horas - indica que não deve tentar novamente
+      });
 
       res.status(422).json(errorResponse);
       return;

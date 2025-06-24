@@ -8,13 +8,49 @@ import fs from 'fs';
 import path from 'path';
 import config from '../config';
 
+// Validate render request without processing
+export const validateRenderRequest = async (req: Request, res: Response) => {
+  try {
+    console.info('Validando requisição de renderização');
+    
+    const renderRequest = req.body as RenderRequest;
+    console.debug('Requisição válida:', { 
+      timelineTracks: renderRequest.timeline.tracks.length,
+      outputFormat: renderRequest.output.format,
+      hasWebhook: !!renderRequest.webhook 
+    });
+    
+    return res.status(200).json({
+      data: {
+        valid: true,
+        message: 'Requisição de renderização é válida',
+        summary: {
+          tracks: renderRequest.timeline.tracks.length,
+          totalClips: renderRequest.timeline.tracks.reduce((acc, track) => acc + track.clips.length, 0),
+          format: renderRequest.output.format,
+          resolution: renderRequest.output.resolution,
+          hasWebhook: !!renderRequest.webhook
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Erro na validação:', { error: (error as Error).message });
+    throw error;
+  }
+};
+
 // Create a new render job
 export const createRenderJob = async (req: Request, res: Response) => {
   try {
+    console.info('=== INÍCIO createRenderJob ===');
     console.info('Recebendo requisição para criar job de renderização');
     
     const renderRequest = req.body as RenderRequest;
-    console.debug('Corpo da requisição:', { request: renderRequest });
+    console.debug('Corpo da requisição:', { 
+      timelineTracks: renderRequest.timeline?.tracks?.length,
+      outputFormat: renderRequest.output?.format,
+      hasWebhook: !!renderRequest.webhook
+    });
     
     // Generate job ID and create job
     const jobId = uuidv4();
@@ -36,15 +72,34 @@ export const createRenderJob = async (req: Request, res: Response) => {
       throw error;
     }
     
-    return res.status(201).json({
+    const response = {
       data: {
         jobId,
-        status: JobStatus.QUEUED
+        status: JobStatus.QUEUED,
+        timestamp: new Date().toISOString()
       }
-    });
+    };
+    
+    console.info('=== ENVIANDO RESPOSTA 201 ===', response);
+    
+    // Ensure no double response
+    if (res.headersSent) {
+      console.error('Headers already sent! Cannot send response.');
+      return;
+    }
+    
+    res.status(201).json(response);
+    console.info('=== RESPOSTA ENVIADA COM SUCESSO ===');
+    
   } catch (error) {
-    console.error('Erro ao criar job de renderização:', { error: (error as Error).message, stack: (error as Error).stack });
-    throw error;
+    console.error('=== ERRO NO createRenderJob ===', { 
+      error: (error as Error).message, 
+      stack: (error as Error).stack 
+    });
+    
+    if (!res.headersSent) {
+      throw error; // Let error handler deal with it
+    }
   }
 };
 

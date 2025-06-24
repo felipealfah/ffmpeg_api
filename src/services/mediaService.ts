@@ -562,6 +562,47 @@ export const renderVideo = async (
               console.warn('Erro ao limpar arquivos temporários:', cleanupError);
               // Não falhar o job por causa da limpeza
             }
+
+            // Disparar webhook se fornecido
+            if (job.request.webhook) {
+              console.log('🔔 Disparando webhook:', job.request.webhook);
+              try {
+                const webhookPayload = {
+                  jobId: job.id,
+                  status: 'completed',
+                  outputUrl: finalOutputUrl,
+                  metadata: {
+                    format: output.format,
+                    resolution: output.resolution,
+                    quality: output.quality || 'medium',
+                    fps: output.fps || 30,
+                    storageType: config.googleCloud.enabled ? 'gcs' : 'local'
+                  },
+                  completedAt: new Date().toISOString()
+                };
+
+                const response = await axios.post(job.request.webhook, webhookPayload, {
+                  timeout: 10000, // 10 segundos de timeout
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'FFmpeg-API-Webhook/1.0'
+                  }
+                });
+
+                console.log('✅ Webhook disparado com sucesso:', {
+                  url: job.request.webhook,
+                  status: response.status,
+                  jobId: job.id
+                });
+              } catch (webhookError) {
+                console.error('❌ Erro ao disparar webhook:', {
+                  url: job.request.webhook,
+                  error: webhookError instanceof Error ? webhookError.message : 'Unknown error',
+                  jobId: job.id
+                });
+                // Não falhar o job principal por causa do webhook
+              }
+            }
             
             resolve(finalOutputUrl);
           })
@@ -574,6 +615,38 @@ export const renderVideo = async (
               await cleanupTempFiles(tempDir);
             } catch (cleanupError) {
               console.warn('Erro ao limpar arquivos temporários após falha:', cleanupError);
+            }
+
+            // Disparar webhook em caso de erro (se fornecido)
+            if (job.request.webhook) {
+              console.log('🔔 Disparando webhook de erro:', job.request.webhook);
+              try {
+                const webhookPayload = {
+                  jobId: job.id,
+                  status: 'failed',
+                  error: err.message || 'Unknown error during video processing',
+                  failedAt: new Date().toISOString()
+                };
+
+                await axios.post(job.request.webhook, webhookPayload, {
+                  timeout: 10000,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'FFmpeg-API-Webhook/1.0'
+                  }
+                });
+
+                console.log('✅ Webhook de erro disparado com sucesso:', {
+                  url: job.request.webhook,
+                  jobId: job.id
+                });
+              } catch (webhookError) {
+                console.error('❌ Erro ao disparar webhook de erro:', {
+                  url: job.request.webhook,
+                  error: webhookError instanceof Error ? webhookError.message : 'Unknown error',
+                  jobId: job.id
+                });
+              }
             }
             
             reject(err);

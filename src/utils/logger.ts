@@ -11,7 +11,8 @@ const formatMessage = (level: string, message: string, meta?: any): string => {
 
 const logLevel = process.env.NODE_ENV === 'production' ? 'info' : 'debug';
 
-export const logger = {
+// Logger principal
+const logger = {
   debug: (message: string, meta?: any): void => {
     if (['debug', 'trace'].includes(logLevel)) {
       console.debug(formatMessage('debug', message, meta));
@@ -33,4 +34,7 @@ export const logger = {
   }
 };
 
+console.log('🔧 Logger inicializado com sucesso');
+
+export { logger };
 export default logger; 

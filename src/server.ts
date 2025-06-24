@@ -21,11 +21,12 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { json, urlencoded } from 'body-parser';
 import mediaRoutes from './routes/mediaRoutes';
+import adminRoutes from './routes/adminRoutes';
 import path from 'path';
 import swagger from './swagger';
 import { AppError } from './middleware/errorHandler';
 import { initializeStorageService } from './services/storageService';
-// import { logger } from './utils/logger'; // Temporariamente comentado para evitar erro
+import { logger } from './utils/logger';
 
 // Inicializar serviço de storage do Google Cloud (se habilitado)
 console.log('=== DEBUG CONFIG NO SERVER ===');
@@ -71,6 +72,7 @@ swagger.setup(app);
 
 // Routes
 app.use('/api/v1/media', mediaRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
