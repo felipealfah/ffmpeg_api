@@ -10,8 +10,8 @@ const jobsMap = new Map<string, RenderJob>();
 
 // Configuração Redis simplificada
 const redisConfig = {
-  host: 'localhost',
-  port: 6379
+  host: config.redis.host,
+  port: config.redis.port
 };
 
 console.log('Iniciando serviço de fila');
