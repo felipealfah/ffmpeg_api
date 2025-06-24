@@ -7,7 +7,7 @@ package-lock.json
 yarn.lock
 
 # Arquivos de ambiente
-.env
+
 .env.local
 .env.development
 .env.test
