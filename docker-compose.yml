@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Serviço Redis para filas
   redis:
@@ -34,9 +32,9 @@ services:
       - FFMPEG_PATH=/usr/bin/ffmpeg
       - FFPROBE_PATH=/usr/bin/ffprobe
       - GOOGLE_CLOUD_STORAGE_ENABLED=true
-      # Adicione suas variáveis do Google Cloud aqui:
-      # - GOOGLE_CLOUD_PROJECT_ID=seu-projeto
-      # - GOOGLE_CLOUD_BUCKET_NAME=seu-bucket
+      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+      - GOOGLE_CLOUD_KEY_FILE=${GOOGLE_CLOUD_KEY_FILE}
+      - GOOGLE_CLOUD_BUCKET_NAME=${GOOGLE_CLOUD_BUCKET_NAME}
     volumes:
       - ./storage:/app/storage
       - ./src/config:/app/src/config
