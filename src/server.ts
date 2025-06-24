@@ -59,27 +59,8 @@ if (config.googleCloud && config.googleCloud.enabled) {
 const app = express();
 
 // Apply middleware
-app.use('/api-docs', (req: Request, res: Response, next: NextFunction) => {
-  // Aplicar helmet sem CSP para Swagger UI
-  helmet({
-    contentSecurityPolicy: false
-  })(req, res, next);
-});
-
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https:", "data:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "data:"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      fontSrc: ["'self'", "https:", "data:"],
-      connectSrc: ["'self'", "https:", "data:"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'self'"]
-    }
-  }
+  contentSecurityPolicy: false  // Desabilitar CSP completamente
 }));
 app.use(cors());
 app.use(json({ limit: '50mb' }));
