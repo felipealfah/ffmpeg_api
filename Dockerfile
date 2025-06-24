@@ -16,14 +16,17 @@ WORKDIR /app
 # Copiar arquivos de dependências primeiro (para cache do Docker)
 COPY package*.json ./
 
-# Instalar dependências de produção
-RUN npm ci --only=production && npm cache clean --force
+# Instalar TODAS as dependências (incluindo devDependencies para o build)
+RUN npm ci && npm cache clean --force
 
 # Copiar código fonte
 COPY . .
 
 # Compilar TypeScript
 RUN npm run build
+
+# Remover devDependencies após o build
+RUN npm prune --production
 
 # Criar diretórios necessários e ajustar permissões
 RUN mkdir -p storage/temp storage/output && \
