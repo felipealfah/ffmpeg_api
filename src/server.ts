@@ -60,9 +60,10 @@ const app = express();
 
 // Apply middleware
 app.use('/api-docs', (req: Request, res: Response, next: NextFunction) => {
-  // Desabilitar CSP completamente para o Swagger UI
-  res.removeHeader('Content-Security-Policy');
-  next();
+  // Aplicar helmet sem CSP para Swagger UI
+  helmet({
+    contentSecurityPolicy: false
+  })(req, res, next);
 });
 
 app.use(helmet({
