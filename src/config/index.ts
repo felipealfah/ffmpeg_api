@@ -61,6 +61,6 @@ console.log('Final config object in config/index.ts:', config);
 
 console.log('🔧 EXPORTANDO CONFIG:', config);
 
-export default config;
+export default config; 
 module.exports = config;
 module.exports.default = config; 

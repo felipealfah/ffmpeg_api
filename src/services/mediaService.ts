@@ -432,10 +432,10 @@ export const renderVideo = async (
           if (videoClips[index].clip.asset.type === 'image') {
             // Para imagens, adicionar com opção de loop
             command = command.addInput(path).inputOptions(['-loop 1']);
-          } else {
+              } else {
             command = command.addInput(path);
-          }
-        });
+            }
+          });
         
         // 2. Adicionar inputs de áudio
         audioClips.forEach(({ path }, index) => {
@@ -484,7 +484,7 @@ export const renderVideo = async (
         // Configurar opções de saída
         const outputOptions = buildOutputOptions(videoClips, audioClips, subtitleClips, output, timelineDuration);
         console.log('Opções de saída:', outputOptions);
-        command = command.outputOptions(outputOptions);
+          command = command.outputOptions(outputOptions);
         
         // Set output format specific options
         if (output.format === 'hls') {

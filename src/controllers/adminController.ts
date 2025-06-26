@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { circuitBreaker, resetCircuitBreaker } from '../middleware/circuitBreaker';
 import { logger } from '../utils/logger';
+import * as queueService from '../services/queueService';
 
 // Get circuit breaker status
 export const getCircuitBreakerStatus = async (req: Request, res: Response) => {
@@ -75,6 +76,46 @@ export const emergencyStop = async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Erro no emergency stop:', error);
+    throw error;
+  }
+};
+
+// Manual cleanup endpoint
+export const manualCleanup = async (req: Request, res: Response) => {
+  try {
+    const { maxAgeHours = 24 } = req.body;
+    
+    logger.info('Iniciando limpeza manual', { maxAgeHours });
+    
+    // Executar limpeza
+    const results = await queueService.performManualCleanup(maxAgeHours);
+    
+    return res.status(200).json({
+      data: {
+        message: 'Limpeza manual executada com sucesso',
+        results,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Erro na limpeza manual:', error);
+    throw error;
+  }
+};
+
+// Get storage statistics
+export const getStorageStats = async (req: Request, res: Response) => {
+  try {
+    const stats = await queueService.getStorageStatistics();
+    
+    return res.status(200).json({
+      data: {
+        storage: stats,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Erro ao obter estatísticas de storage:', error);
     throw error;
   }
 }; 

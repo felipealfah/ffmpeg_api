@@ -11,4 +11,10 @@ router.get('/circuit-breaker/status', asyncHandler(adminController.getCircuitBre
 router.post('/circuit-breaker/reset', asyncHandler(adminController.resetCircuitBreakerEndpoint));
 router.post('/emergency-stop', asyncHandler(adminController.emergencyStop));
 
+/**
+ * Rotas administrativas para limpeza e estatísticas
+ */
+router.post('/cleanup', asyncHandler(adminController.manualCleanup));
+router.get('/storage/stats', asyncHandler(adminController.getStorageStats));
+
 export default router; 
