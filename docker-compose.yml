@@ -16,11 +16,11 @@ services:
 
   # Nossa API FFmpeg
   ffmpeg-api:
-    # DESENVOLVIMENTO: Descomente a linha abaixo para build local
-    # build: .
+    # DESENVOLVIMENTO: Build local
+    build: .
     
-    # PRODUÇÃO: Use imagem pré-construída (recomendado)
-    image: ffmpeg-api:latest
+    # PRODUÇÃO: Use imagem pré-construída (descomente linha abaixo)
+    # image: ffmpeg-api:latest
     
     ports:
       - "3000:3000"
@@ -48,5 +48,51 @@ services:
       timeout: 10s
       retries: 3
 
+  # Prometheus para coleta de métricas
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana para visualização de métricas
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
-  redis-data: 
+  redis-data:
+  prometheus-data:
+  grafana-data: 

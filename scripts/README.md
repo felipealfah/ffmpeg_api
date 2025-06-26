@@ -188,6 +188,49 @@ docker-compose ps
 docker-compose logs ffmpeg-api
 ```
 
+## 🚀 **Análise de Performance**
+
+### **Script de Dimensionamento:**
+```bash
+# Análise completa (sem executar testes)
+./scripts/performance-analysis.sh http://localhost:3000 0 0 --analysis-only
+
+# Teste de carga local (10 jobs simultâneos)
+./scripts/performance-analysis.sh
+
+# Teste de produção (30 jobs, 2 minutos)
+./scripts/performance-analysis.sh https://sua-api.com 30 120
+```
+
+### **Documentação Completa:**
+- 📊 **Dimensionamento**: Ver `docs/production-sizing.md`
+- 🎯 **Cenários**: 20, 30, 50+ jobs simultâneos
+- 💰 **Custos**: Análise por provider cloud
+- ⚙️ **Otimizações**: Configurações de código e Docker
+
+## 📊 **Monitoramento (Prometheus + Grafana)**
+
+### **Testar Sistema de Monitoramento:**
+```bash
+# Teste completo do stack de monitoramento
+./scripts/test-monitoring.sh
+
+# Subir stack completa (API + Prometheus + Grafana)
+docker-compose up -d
+
+# Acessar serviços
+# - API: http://localhost:3000
+# - Métricas: http://localhost:3000/metrics
+# - Prometheus: http://localhost:9090
+# - Grafana: http://localhost:3001 (admin/admin123)
+```
+
+### **Documentação de Monitoramento:**
+- 📈 **Setup Completo**: Ver `docs/monitoring.md`
+- 📊 **Dashboard Grafana**: Importado automaticamente
+- 🎯 **Métricas**: HTTP, Jobs FFmpeg, Storage, Sistema
+- ⚠️ **Alertas**: Queries Prometheus para produção
+
 ## 📝 **Logs e Debug**
 
 Para ver logs detalhados durante os testes:

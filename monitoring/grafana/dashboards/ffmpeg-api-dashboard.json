@@ -1,0 +1,230 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "FFmpeg API Monitoring",
+    "tags": ["ffmpeg", "api", "monitoring"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "API Overview",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 10},
+                {"color": "red", "value": 50}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Active Jobs",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(ffmpeg_jobs_active)",
+            "legendFormat": "Active Jobs"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 10},
+                {"color": "red", "value": 20}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "CPU Usage",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total[5m]) * 100",
+            "legendFormat": "CPU %"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Memory Usage",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes / 1024 / 1024",
+            "legendFormat": "Memory MB"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decbytes",
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 1000000000},
+                {"color": "red", "value": 2000000000}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "HTTP Requests per Second",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{method}} {{route}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "yAxes": [
+          {"label": "requests/sec", "show": true},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "HTTP Response Times",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "50th percentile"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "yAxes": [
+          {"label": "seconds", "show": true},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "FFmpeg Jobs Status",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "ffmpeg_jobs_active",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 16}
+      },
+      {
+        "id": 8,
+        "title": "Job Processing Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(ffmpeg_job_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(ffmpeg_job_duration_seconds_bucket[5m]))",
+            "legendFormat": "50th percentile"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 16},
+        "yAxes": [
+          {"label": "seconds", "show": true},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Storage Directories",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "storage_directories_count",
+            "legendFormat": "{{type}} directories"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 16},
+        "yAxes": [
+          {"label": "count", "show": true},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Error Rates",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status_code=~\"4..|5..\"}[5m])",
+            "legendFormat": "{{status_code}} errors/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "yAxes": [
+          {"label": "errors/sec", "show": true},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Node.js Event Loop Lag",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "nodejs_eventloop_lag_seconds",
+            "legendFormat": "Event loop lag"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "yAxes": [
+          {"label": "seconds", "show": true},
+          {"show": false}
+        ]
+      }
+    ]
+  }
+} 

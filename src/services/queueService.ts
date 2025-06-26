@@ -5,6 +5,14 @@ import * as mediaService from './mediaService';
 import path from 'path';
 import { cleanupDirectory } from '../utils/file';
 import fs from 'fs/promises';
+import { 
+  updateJobMetrics, 
+  updateStorageMetrics, 
+  recordJobStart, 
+  recordJobComplete, 
+  recordCleanup,
+  queueSize 
+} from '../middleware/metrics';
 
 // In-memory storage for jobs (in production, use a database)
 const jobsMap = new Map<string, RenderJob>();
@@ -62,7 +70,11 @@ const cleanupOldJobs = async (maxAgeHours: number = 24): Promise<void> => {
     
     if (removedCount > 0) {
       console.log(`🧹 Limpeza automática: ${removedCount} jobs antigos removidos da memória`);
+      recordCleanup('automatic', removedCount);
     }
+    
+    // Atualizar métricas de jobs
+    updateJobMetrics(jobsMap);
   } catch (error) {
     console.error('Erro na limpeza de jobs antigos:', error);
   }
@@ -145,9 +157,13 @@ const startPeriodicCleanup = (): void => {
 // Process jobs
 renderQueue.process(async (job) => {
   const renderJob = job.data as RenderJob;
+  const startTime = Date.now();
   
   try {
     console.info(`Processing job ${renderJob.id}`, { jobId: renderJob.id });
+    
+    // Registrar início do job
+    recordJobStart(renderJob.id);
     
     // Update job status
     updateJob(renderJob.id, { 
@@ -210,6 +226,10 @@ renderQueue.process(async (job) => {
       outputPath 
     });
     
+    // Registrar conclusão do job
+    const duration = Date.now() - startTime;
+    recordJobComplete(renderJob.id, 'completed', duration);
+    
     return { success: true, outputPath };
   } catch (error) {
     console.error(`Error processing job ${renderJob.id}`, { 
@@ -225,6 +245,10 @@ renderQueue.process(async (job) => {
       updatedAt: new Date(),
       completedAt: new Date()
     });
+    
+    // Registrar falha do job
+    const duration = Date.now() - startTime;
+    recordJobComplete(renderJob.id, 'failed', duration);
     
     throw error;
   }
@@ -320,6 +344,12 @@ export const performManualCleanup = async (maxAgeHours: number = 24) => {
   };
   
   console.log(`🧹 Limpeza manual concluída:`, results);
+  
+  // Registrar limpeza manual
+  if (removedJobs > 0) {
+    recordCleanup('manual', removedJobs);
+  }
+  
   return results;
 };
 
@@ -347,6 +377,9 @@ export const getStorageStatistics = async () => {
         output: 0
       }
     };
+    
+    // Atualizar métricas antes de calcular estatísticas
+    updateJobMetrics(jobsMap);
     
     // Analisar jobs em memória
     for (const job of jobsMap.values()) {
@@ -380,6 +413,9 @@ export const getStorageStatistics = async () => {
       // Diretório não existe ou sem permissão
       stats.directories.output = 0;
     }
+    
+    // Atualizar métricas de storage
+    await updateStorageMetrics(stats);
     
     return stats;
   } catch (error) {

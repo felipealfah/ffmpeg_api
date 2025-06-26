@@ -27,6 +27,7 @@ import swagger from './swagger';
 import { AppError } from './middleware/errorHandler';
 import { initializeStorageService } from './services/storageService';
 import { logger } from './utils/logger';
+import { metricsMiddleware, metricsHandler } from './middleware/metrics';
 
 // Inicializar serviço de storage do Google Cloud (se habilitado)
 console.log('=== DEBUG CONFIG NO SERVER ===');
@@ -66,6 +67,9 @@ app.use(cors());
 app.use(json({ limit: '50mb' }));
 app.use(urlencoded({ extended: true, limit: '50mb' }));
 
+// Metrics middleware (deve vir antes das rotas)
+app.use(metricsMiddleware);
+
 // Configura diretório para arquivos estáticos
 app.use('/static', express.static(path.join(__dirname, '../public')));
 
@@ -80,6 +84,9 @@ app.use('/api/v1/admin', adminRoutes);
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Metrics endpoint for Prometheus
+app.get('/metrics', metricsHandler);
 
 // Error handler middleware
 app.use((err: Error | AppError, req: Request, res: Response, next: NextFunction) => {
