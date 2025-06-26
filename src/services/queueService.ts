@@ -11,7 +11,11 @@ import {
   recordJobStart, 
   recordJobComplete, 
   recordCleanup,
-  queueSize 
+  queueSize,
+  updateCostMetrics,
+  updateHourlyCost,
+  determineComplexity,
+  calculateVideoCost
 } from '../middleware/metrics';
 
 // In-memory storage for jobs (in production, use a database)
@@ -162,6 +166,9 @@ renderQueue.process(async (job) => {
   try {
     console.info(`Processing job ${renderJob.id}`, { jobId: renderJob.id });
     
+    // Análise de custo do job
+    await analyzeJobCost(renderJob);
+    
     // Registrar início do job
     recordJobStart(renderJob.id);
     
@@ -226,8 +233,14 @@ renderQueue.process(async (job) => {
       outputPath 
     });
     
-    // Registrar conclusão do job
+    // Registrar conclusão do job com análise de custo final
     const duration = Date.now() - startTime;
+    
+    // Atualizar métricas de custo com dados finais
+    const complexity = determineComplexity(renderJob.request || {});
+    const actualDuration = renderJob.request?.timeline?.duration || 60;
+    updateCostMetrics(actualDuration, complexity, 'completed');
+    
     recordJobComplete(renderJob.id, 'completed', duration);
     
     return { success: true, outputPath };
@@ -246,8 +259,14 @@ renderQueue.process(async (job) => {
       completedAt: new Date()
     });
     
-    // Registrar falha do job
+    // Registrar falha do job com análise de custo
     const duration = Date.now() - startTime;
+    
+    // Atualizar métricas de custo mesmo para jobs falhados
+    const complexity = determineComplexity(renderJob.request || {});
+    const actualDuration = renderJob.request?.timeline?.duration || 60;
+    updateCostMetrics(actualDuration, complexity, 'failed');
+    
     recordJobComplete(renderJob.id, 'failed', duration);
     
     throw error;
@@ -421,5 +440,35 @@ export const getStorageStatistics = async () => {
   } catch (error) {
     console.error('Erro ao obter estatísticas:', error);
     throw error;
+  }
+};
+
+// Funções auxiliares para análise de custo
+export const analyzeJobCost = async (renderJob: RenderJob): Promise<void> => {
+  try {
+    // Determinar complexidade baseado na timeline do job
+    const complexity = determineComplexity(renderJob.request || {});
+    
+    // Estimar duração do vídeo (baseado na timeline ou output)
+    const estimatedDuration = renderJob.request?.timeline?.duration || 60; // Default 60s
+    
+    // Calcular custo estimado
+    const estimatedCost = calculateVideoCost(estimatedDuration, complexity);
+    
+    console.log(`💰 Job ${renderJob.id} cost analysis:`, {
+      complexity,
+      estimatedDuration,
+      estimatedCost: `$${estimatedCost.toFixed(6)}`
+    });
+    
+    // Atualizar métricas de custo
+    updateCostMetrics(estimatedDuration, complexity, 'started');
+    
+    // Atualizar custo por hora baseado em jobs ativos
+    const activeJobsCount = jobsMap.size;
+    updateHourlyCost(activeJobsCount);
+    
+  } catch (error) {
+    console.error('Erro na análise de custo:', error);
   }
 }; 

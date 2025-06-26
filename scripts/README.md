@@ -237,4 +237,155 @@ Para ver logs detalhados durante os testes:
 ```bash
 # Remover redirecionamento em test-cleanup.sh
 ./scripts/create-test-job.sh "$API_BASE"  # Sem > /dev/null 2>&1
-``` 
+```
+
+## 💰 **Análise de Custos**
+
+### **`cost-calculator.sh`**
+Calculadora completa de custos de renderização:
+
+```bash
+# Sintaxe
+./scripts/cost-calculator.sh [API_BASE] [DURATION_SECONDS] [COMPLEXITY]
+
+# Exemplos
+./scripts/cost-calculator.sh http://localhost:3000 60 medium    # 1 minuto, médio
+./scripts/cost-calculator.sh http://localhost:3000 600 high    # 10 minutos, alto
+./scripts/cost-calculator.sh http://localhost:3000 30 low      # 30 segundos, simples
+```
+
+**Recursos da Calculadora:**
+- ✅ Análise por complexidade (low/medium/high)
+- ✅ Comparação entre provedores cloud (DO, AWS, GCP)
+- ✅ Breakdown detalhado de custos (CPU, storage, bandwidth)
+- ✅ Projeções de volume mensal
+- ✅ Comparação com concorrentes (Cloudinary, AWS MediaConvert, etc.)
+- ✅ Recomendações de otimização
+- ✅ Análise de ROI e break-even
+
+## 🎯 **Exemplos de Uso**
+
+### **Teste Completo da API**
+```bash
+# 1. Testar funcionalidades básicas
+./scripts/test-api.sh
+
+# 2. Verificar sistema de limpeza
+./scripts/test-cleanup.sh
+
+# 3. Validar monitoramento
+./scripts/test-monitoring.sh
+
+# 4. Analisar custos para vídeo de 5 minutos
+./scripts/cost-calculator.sh http://localhost:3000 300 medium
+```
+
+### **Análise de Produção**
+```bash
+# Análise de performance detalhada
+./scripts/performance-analysis.sh
+
+# Cálculo de custos para diferentes cenários
+./scripts/cost-calculator.sh http://localhost:3000 60 low      # Vídeos simples
+./scripts/cost-calculator.sh http://localhost:3000 300 medium  # Vídeos médios
+./scripts/cost-calculator.sh http://localhost:3000 600 high    # Vídeos complexos
+```
+
+## 📊 **Interpretação dos Resultados**
+
+### **Custos por Complexidade**
+
+| Complexidade | Fator Renderização | Uso CPU | Exemplo de Conteúdo |
+|--------------|-------------------|---------|---------------------|
+| **Low** | 0.5x tempo real | 30% | Slideshow, texto sobre imagem |
+| **Medium** | 1.5x tempo real | 60% | Transições, efeitos básicos |
+| **High** | 3.0x tempo real | 90% | Compositing, efeitos 3D |
+
+### **Custos Estimados (Servidor DO 16GB)**
+
+| Duração | Complexidade | Custo/vídeo | 1k vídeos/mês | 10k vídeos/mês |
+|---------|--------------|-------------|---------------|----------------|
+| 1 min | Low | $0.0054 | $5.40 | $54.00 |
+| 1 min | Medium | $0.0108 | $10.80 | $108.00 |
+| 1 min | High | $0.0217 | $21.70 | $217.00 |
+| 10 min | Medium | $0.0724 | $72.40 | $724.00 |
+
+### **Comparação com Concorrentes**
+
+**Sua API vs Mercado (vídeo 1 minuto):**
+- Cloudinary: $0.0200 vs Sua API: $0.0108 (**46% mais barato**)
+- AWS MediaConvert: $0.0150 vs Sua API: $0.0108 (**28% mais barato**)
+- Google Video AI: $0.0250 vs Sua API: $0.0108 (**57% mais barato**)
+
+## 🚀 **Otimizações Recomendadas**
+
+### **Para Reduzir Custos**
+1. **Instâncias Spot/Preemptible**: 50-90% de desconto
+2. **Cache de Assets**: Reutilizar recursos comuns
+3. **Pré-validação**: Evitar processamento de jobs inválidos
+4. **Queue Prioritária**: Processar vídeos simples primeiro
+
+### **Para Aumentar Performance**
+1. **Hardware Encoding**: Usar aceleração de GPU quando disponível
+2. **Batch Processing**: Agrupar jobs similares
+3. **Auto-scaling**: Ajustar recursos baseado na demanda
+4. **CDN**: Otimizar entrega de assets
+
+## 📈 **Métricas de Monitoramento**
+
+Os scripts coletam e validam estas métricas essenciais:
+
+### **Métricas da API**
+- `http_requests_total` - Total de requests HTTP
+- `http_request_duration_seconds` - Latência das requisições
+- `http_requests_active` - Requests ativas
+
+### **Métricas FFmpeg**
+- `ffmpeg_jobs_active` - Jobs ativos por status
+- `ffmpeg_job_duration_seconds` - Tempo de processamento
+- `ffmpeg_jobs_total` - Total de jobs processados
+
+### **Métricas de Sistema**
+- `process_cpu_seconds_total` - Uso de CPU
+- `process_resident_memory_bytes` - Uso de memória
+- `nodejs_eventloop_lag_seconds` - Event loop lag
+
+### **Métricas de Storage**
+- `storage_directories_total` - Contadores de diretórios
+- `cleanup_operations_total` - Operações de limpeza
+
+## 🔍 **Troubleshooting**
+
+### **Problemas Comuns**
+
+**Script não executa:**
+```bash
+chmod +x scripts/*.sh
+```
+
+**API não responde:**
+```bash
+# Verificar se a API está rodando
+curl http://localhost:3000/health
+```
+
+**Métricas não aparecem:**
+```bash
+# Verificar endpoint de métricas
+curl http://localhost:3000/metrics
+```
+
+**Docker não sobe:**
+```bash
+# Rebuild dos containers
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+## 📚 **Documentação Relacionada**
+
+- [`../docs/monitoring.md`](../docs/monitoring.md) - Sistema de monitoramento completo
+- [`../docs/cost-analysis.md`](../docs/cost-analysis.md) - Análise detalhada de custos
+- [`../docs/production-sizing.md`](../docs/production-sizing.md) - Dimensionamento para produção
+- [`../README.md`](../README.md) - Documentação principal da API 
