@@ -83,14 +83,14 @@ curl -X POST http://localhost:3000/api/v1/media/render \
             "length": 30
           }]
         },
-        {
+            {
           "clips": [{
-            "asset": {
+              "asset": {
               "type": "audio",
-              "source": "url",
+                "source": "url",
               "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-            },
-            "start": 0,
+              },
+              "start": 0,
             "length": 30
           }]
         },
