@@ -79,6 +79,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_SERVER_ROOT_URL=http://75.119.156.254:3001
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
@@ -95,4 +96,4 @@ services:
 volumes:
   redis-data:
   prometheus-data:
-  grafana-data: 
+  grafana-data:
