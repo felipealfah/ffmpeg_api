@@ -55,24 +55,33 @@ const calculateTimelineDuration = (timeline: Timeline): number => {
     
     if (track.clips.length === 0) {
       trackDuration = 0;
-    } else if (track.clips.length === 1) {
-      // Se há apenas um clip, usar sua duração
-      trackDuration = track.clips[0].start + track.clips[0].length;
     } else {
-      // Para múltiplos clips na mesma track:
-      // - Se são do mesmo tipo (ex: múltiplos áudios), eles são mixados (paralelos)
-      // - Se são tipos diferentes ou imagens sequenciais, são sequenciais
+      // Verificar se há clips otimizados
+      const optimizedClips = optimizeSequentialClips(track.clips);
       
-      const hasMultipleAudios = track.clips.filter(clip => clip.asset.type === 'audio').length > 1;
-      const hasMultipleImages = track.clips.filter(clip => clip.asset.type === 'image').length > 1;
-      
-      if (hasMultipleAudios && !hasMultipleImages) {
-        // Múltiplos áudios na mesma track = mixagem (paralelo)
-        // A duração é a maior duração entre os áudios
-        trackDuration = Math.max(...track.clips.map(clip => clip.start + clip.length));
+      if (optimizedClips.length === 1 && optimizedClips[0]._optimized) {
+        // Se temos um clip otimizado, usar sua duração total
+        const optimizedClip = optimizedClips[0];
+        trackDuration = optimizedClip.length;
+        console.log(`Track ${trackIndex} otimizada:`, {
+          originalClips: track.clips.length,
+          optimizedLength: trackDuration
+        });
       } else {
-        // Clips sequenciais (imagens ou mix de tipos)
-        trackDuration = Math.max(...track.clips.map(clip => clip.start + clip.length));
+        // Para múltiplos clips na mesma track:
+        // - Se são do mesmo tipo (ex: múltiplos áudios), eles são mixados (paralelos)
+        // - Se são tipos diferentes ou imagens sequenciais, são sequenciais
+        const hasMultipleAudios = track.clips.filter(clip => clip.asset.type === 'audio').length > 1;
+        const hasMultipleImages = track.clips.filter(clip => clip.asset.type === 'image').length > 1;
+        
+        if (hasMultipleAudios && !hasMultipleImages) {
+          // Múltiplos áudios na mesma track = mixagem (paralelo)
+          // A duração é a maior duração entre os áudios
+          trackDuration = Math.max(...track.clips.map(clip => clip.start + clip.length));
+        } else {
+          // Clips sequenciais (imagens ou mix de tipos)
+          trackDuration = Math.max(...track.clips.map(clip => clip.start + clip.length));
+        }
       }
     }
     
@@ -311,6 +320,30 @@ const validateAndDiagnoseVideo = async (filePath: string, requestedClips: Clip[]
     console.log(`   📊 Resolução: ${metadata.streams[0].width}x${metadata.streams[0].height}`);
     console.log(`   🎬 FPS: ${eval(metadata.streams[0].r_frame_rate) || 'N/A'}`);
     console.log(`   💾 Tamanho: ${(metadata.format.size / 1024 / 1024).toFixed(2)}MB`);
+    console.log(`   🎯 Codec: ${metadata.streams[0].codec_name}`);
+    console.log(`   🔊 Áudio: ${metadata.streams.some(s => s.codec_type === 'audio') ? 'Sim' : 'Não'}`);
+    
+    // Verificar se o arquivo é realmente um vídeo
+    if (!metadata.streams.some(s => s.codec_type === 'video')) {
+      issues.push('Arquivo não contém stream de vídeo válido');
+      suggestions.push('Verificar se o arquivo é um vídeo válido e acessível');
+      isValid = false;
+      return { duration: 0, isValid, issues, suggestions };
+    }
+    
+    // Verificar tamanho do arquivo
+    if (metadata.format.size < 1024) { // Menos de 1KB
+      issues.push('Arquivo muito pequeno, possível erro no download');
+      suggestions.push('Verificar URL do vídeo e tentar novamente');
+      isValid = false;
+    }
+    
+    // Verificar duração
+    if (duration < 0.1) {
+      issues.push('Duração do vídeo muito curta ou inválida');
+      suggestions.push('Verificar se o vídeo foi baixado corretamente');
+      isValid = false;
+    }
     
     // Verificar cada clip solicitado
     requestedClips.forEach((clip, index) => {
@@ -329,6 +362,16 @@ const validateAndDiagnoseVideo = async (filePath: string, requestedClips: Clip[]
       }
     });
     
+    // Verificar resolução
+    const videoStream = metadata.streams.find(s => s.codec_type === 'video');
+    if (videoStream) {
+      if (!videoStream.width || !videoStream.height) {
+        issues.push('Não foi possível detectar resolução do vídeo');
+        suggestions.push('Verificar se o arquivo de vídeo está corrompido');
+        isValid = false;
+      }
+    }
+    
     // Sugestões de configuração ideal
     if (duration < 30) {
       suggestions.push(`Vídeo curto (${duration}s): considere clips menores ou sequenciais`);
@@ -339,10 +382,12 @@ const validateAndDiagnoseVideo = async (filePath: string, requestedClips: Clip[]
     }
     
     // Exemplos de configuração válida
-    console.log('💡 CONFIGURAÇÕES RECOMENDADAS:');
-    console.log(`   📋 Duração máxima por clip: ${Math.floor(duration)}s`);
-    console.log(`   🎯 Exemplo de clip válido: {"start": 0, "length": ${Math.min(10, Math.floor(duration))}}`);
-    console.log(`   🔄 Clips sequenciais máximos: ${Math.floor(duration / 10)} clips de 10s`);
+    if (isValid) {
+      console.log('💡 CONFIGURAÇÕES RECOMENDADAS:');
+      console.log(`   📋 Duração máxima por clip: ${Math.floor(duration)}s`);
+      console.log(`   🎯 Exemplo de clip válido: {"start": 0, "length": ${Math.min(10, Math.floor(duration))}}`);
+      console.log(`   🔄 Clips sequenciais máximos: ${Math.floor(duration / 10)} clips de 10s`);
+    }
     
     return {
       duration,
@@ -625,15 +670,19 @@ const buildOutputOptions = (
   outputOptions.push(
     `-c:v ${output.format === 'gif' ? 'gif' : 'libx264'}`,
     `-preset ${output.quality === 'low' ? 'ultrafast' : output.quality === 'high' ? 'slow' : 'medium'}`,
-    `-b:v ${output.bitrate || '2000k'}`
+    `-b:v ${output.bitrate || '4000k'}`,  // Aumentar bitrate padrão
+    '-movflags +faststart',  // Otimizar para streaming
+    '-max_muxing_queue_size 9999',  // Aumentar fila de muxing
+    '-pix_fmt yuv420p'  // Garantir compatibilidade
   );
-  
+
   // Configurações de áudio
   if (audioClips.length > 0 || videoClips.some(({clip}) => clip.asset.type === 'video')) {
     outputOptions.push(
       '-c:a aac',
-      '-b:a 128k',
-      '-ar 44100'  // Garantir sample rate consistente
+      '-b:a 192k',  // Aumentar qualidade do áudio
+      '-ar 48000',  // Aumentar sample rate
+      '-ac 2'  // Forçar stereo
     );
   }
   
@@ -800,6 +849,15 @@ export const renderVideo = async (
         
         // CRIAR O COMANDO FFMPEG APENAS UMA VEZ
         let command = ffmpeg();
+        
+        // Configurar opções globais do FFmpeg
+        command = command
+          .addOptions([
+            '-hwaccel auto',  // Habilitar aceleração de hardware
+            '-analyzeduration 100M',  // Aumentar tempo de análise
+            '-probesize 100M',  // Aumentar tamanho de probe
+            '-thread_queue_size 4096'  // Aumentar fila de threads
+          ]);
         
         // Adicionar TODOS os inputs de uma só vez
         console.log('Adicionando inputs ao FFmpeg:', { 
