@@ -46,7 +46,7 @@ const cleanupTempFiles = async (tempDir: string): Promise<void> => {
 };
 
 // Função para calcular a duração total da timeline baseada nos clips
-const calculateTimelineDuration = (timeline: Timeline): number => {
+export const calculateTimelineDuration = (timeline: Timeline): number => {
   let totalDuration = 0;
   
   // Para cada track, calcular a duração baseada nos clips
@@ -574,6 +574,14 @@ const buildOutputOptions = (
   }
   
   return outputOptions;
+};
+
+// Função para preparar o output
+const prepareOutput = (outputPath: string): string => {
+  if (!outputPath) {
+    throw new Error('Output path é obrigatório');
+  }
+  return outputPath;
 };
 
 // Render the video from the timeline

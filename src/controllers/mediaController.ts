@@ -2,11 +2,13 @@ import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { AppError } from '../middleware/errorHandler';
 import * as mediaService from '../services/mediaService';
-import { JobStatus, RenderRequest } from '../types/media';
+import { JobStatus, RenderRequest, RenderJob } from '../types/media';
 import * as queueService from '../services/queueService';
 import fs from 'fs';
 import path from 'path';
 import config from '../config';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { validateRenderRequest } from '../validation/schemas';
 
 // Validate render request without processing
 export const validateRenderRequest = async (req: Request, res: Response) => {
@@ -39,90 +41,74 @@ export const validateRenderRequest = async (req: Request, res: Response) => {
   }
 };
 
-// Create a new render job
-export const createRenderJob = async (req: Request, res: Response) => {
+// Webhook handler
+const handleWebhook = async (job: RenderJob): Promise<void> => {
+  if (!job.request.webhook) return;
+
   try {
-    console.info('=== INÍCIO createRenderJob ===');
-    console.info('Recebendo requisição para criar job de renderização');
-    
-    const renderRequest = req.body as RenderRequest;
-    console.debug('Corpo da requisição:', { 
-      timelineTracks: renderRequest.timeline?.tracks?.length,
-      outputFormat: renderRequest.output?.format,
-      hasWebhook: !!renderRequest.webhook
+    const response = await fetch(job.request.webhook, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        jobId: job.id,
+        status: job.status,
+        output: job.output,
+        error: job.error,
+        completedAt: job.completedAt
+      })
     });
-    
-    // Generate job ID and create job
-    const jobId = uuidv4();
-    console.info(`Job ID gerado: ${jobId}`);
-    
-    // Add job to queue
-    try {
-      console.info('Adicionando job à fila...');
-      await queueService.addRenderJob({
-        id: jobId,
-        status: JobStatus.QUEUED,
-        request: renderRequest,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      console.info('Job adicionado à fila com sucesso');
-    } catch (error) {
-      console.error('Erro ao adicionar job à fila:', { error: (error as Error).message });
-      throw error;
+
+    if (!response.ok) {
+      throw new Error(`Webhook falhou com status ${response.status}`);
     }
-    
-    const response = {
-      data: {
-        jobId,
-        status: JobStatus.QUEUED,
-        timestamp: new Date().toISOString()
-      }
-    };
-    
-    console.info('=== ENVIANDO RESPOSTA 201 ===', response);
-    
-    // Ensure no double response
-    if (res.headersSent) {
-      console.error('Headers already sent! Cannot send response.');
-      return;
-    }
-    
-    res.status(201).json(response);
-    console.info('=== RESPOSTA ENVIADA COM SUCESSO ===');
-    
   } catch (error) {
-    console.error('=== ERRO NO createRenderJob ===', { 
-      error: (error as Error).message, 
-      stack: (error as Error).stack 
-    });
-    
-    if (!res.headersSent) {
-      throw error; // Let error handler deal with it
-    }
+    console.error(`Erro ao enviar webhook para job ${job.id}:`, error);
   }
 };
 
-// Get job status
-export const getRenderJobStatus = async (req: Request, res: Response) => {
+// Rota para criar um novo job de renderização
+export const createRenderJob = asyncHandler(async (req: Request, res: Response) => {
+  // Validar request
+  const { error } = validateRenderRequest(req.body);
+  if (error) {
+    return res.status(400).json({
+      error: 'Requisição inválida',
+      details: error.details.map(d => d.message)
+    });
+  }
+
+  // Criar job
+  const job = await queueService.createJob(req.body);
+  
+  // Retornar resposta
+  res.status(201).json({
+    jobId: job.id,
+    status: job.status
+  });
+});
+
+// Rota para obter o status de um job
+export const getRenderJobStatus = asyncHandler(async (req: Request, res: Response) => {
   const { jobId } = req.params;
   
-  const job = await queueService.getRenderJob(jobId);
-  
+  const job = await queueService.getJob(jobId);
   if (!job) {
-    throw new AppError(`Job com ID ${jobId} não encontrado`, 404);
+    return res.status(404).json({
+      error: 'Job não encontrado'
+    });
   }
   
-  return res.status(200).json({
-    data: {
-      jobId: job.id,
-      status: job.status,
-      progress: job.progress,
-      storage: job.storage,
-      error: job.error
-    }
+  res.json({
+    jobId: job.id,
+    status: job.status,
+    progress: job.progress,
+    error: job.error,
+    output: job.output,
+    completedAt: job.completedAt
   });
-};
+});
 
 // Get job result
 export const getRenderJobResult = async (req: Request, res: Response) => {
