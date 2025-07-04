@@ -234,8 +234,8 @@ export const validateVideoForClips = async (req: Request, res: Response) => {
       const writer = fs.createWriteStream(tempFile);
       response.data.pipe(writer);
       
-      await new Promise((resolve, reject) => {
-        writer.on('finish', resolve);
+      await new Promise<void>((resolve, reject) => {
+        writer.on('finish', () => resolve());
         writer.on('error', reject);
       });
       

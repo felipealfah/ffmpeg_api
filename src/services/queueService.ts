@@ -193,91 +193,44 @@ renderQueue.process(async (job) => {
     console.debug('Diretórios para processamento:', { tempDir, outputDir });
     
     // Process the job
-    const outputPath = await mediaService.renderVideo(renderJob, (progress) => {
+    const { renderVideo } = await import('./mediaService');
+    const outputPath = await renderVideo(renderJob, (progress: number) => {
       // Update job progress
       updateJob(renderJob.id, { 
         progress,
         updatedAt: new Date()
       });
-      
-      // Update Bull job progress
-      job.progress(progress);
-      
-      if (progress % 10 === 0) {
-        console.debug(`Job ${renderJob.id} progress: ${progress}%`);
+    });
+    
+    // Update job with result
+    updateJob(renderJob.id, {
+      status: JobStatus.COMPLETED,
+      output: outputPath,
+      progress: 100,
+      completedAt: new Date(),
+      updatedAt: new Date(),
+      storage: {
+        type: config.storage.type as 'gcs' | 'local',
+        tempDir,
+        outputDir,
+        url: config.storage.type === 'gcs' ? outputPath : undefined,
+        fileName: path.basename(outputPath)
       }
     });
     
-    // Determinar informações do storage baseado no tipo de URL retornada
-    let storageInfo;
-    if (outputPath.startsWith('https://storage.googleapis.com/')) {
-      // É uma URL do Google Cloud Storage
-      const fileName = outputPath.split('/').pop() || '';
-      storageInfo = {
-        type: 'gcs' as const,
-        url: outputPath,
-        fileName
-      };
-    } else {
-      // É um arquivo local
-      storageInfo = {
-        type: 'local' as const,
-        url: outputPath,
-        fileName: path.basename(outputPath)
-      };
-    }
+    // Registrar conclusão do job
+    recordJobComplete(renderJob.id, Date.now() - startTime);
     
-    // Update job status to completed
-    updateJob(renderJob.id, { 
-      status: JobStatus.COMPLETED,
-      output: outputPath,
-      storage: storageInfo,
-      updatedAt: new Date(),
-      completedAt: new Date()
-    });
+    console.info(`Job ${renderJob.id} completed successfully`);
     
-    console.info(`Job ${renderJob.id} completed`, { 
-      jobId: renderJob.id, 
-      outputPath 
-    });
-    
-    // Registrar conclusão do job com análise de custo final
-    const duration = Date.now() - startTime;
-    
-    // Atualizar métricas de custo com dados finais
-    const complexity = determineComplexity(renderJob.request || {});
-    const actualDuration = renderJob.request?.timeline?.duration || 60;
-    updateCostMetrics(actualDuration, complexity, 'completed');
-    
-    recordJobComplete(renderJob.id, 'completed', duration);
-    
-    return { success: true, outputPath };
   } catch (error) {
-    console.error(`Error processing job ${renderJob.id}`, { 
-      jobId: renderJob.id, 
-      error: (error as Error).message,
-      stack: (error as Error).stack
-    });
+    console.error(`Job ${renderJob.id} failed:`, error);
     
-    // Update job status to failed
-    updateJob(renderJob.id, { 
+    updateJob(renderJob.id, {
       status: JobStatus.FAILED,
-      error: (error as Error).message || 'Unknown error occurred',
-      updatedAt: new Date(),
-      completedAt: new Date()
+      error: error instanceof Error ? error.message : 'Unknown error',
+      updatedAt: new Date()
     });
-    
-    // Registrar falha do job com análise de custo
-    const duration = Date.now() - startTime;
-    
-    // Atualizar métricas de custo mesmo para jobs falhados
-    const complexity = determineComplexity(renderJob.request || {});
-    const actualDuration = renderJob.request?.timeline?.duration || 60;
-    updateCostMetrics(actualDuration, complexity, 'failed');
-    
-    recordJobComplete(renderJob.id, 'failed', duration);
-    
-    throw error;
   }
 });
 
@@ -331,8 +284,40 @@ export const addRenderJob = async (job: RenderJob) => {
   }
 };
 
+// Create a new job
+export const createJob = async (request: RenderRequest): Promise<RenderJob> => {
+  const jobId = uuidv4();
+  const now = new Date();
+  
+  // Criar diretórios para o job
+  const storage: StorageInfo = {
+    type: 'local',
+    tempDir: `/app/storage/temp/${jobId}`,
+    outputDir: `/app/storage/output/${jobId}`,
+    fileName: `${now.toISOString().replace(/[:.]/g, '-')}_output.mp4`,
+    url: undefined
+  };
+
+  const job: RenderJob = {
+    id: jobId,
+    status: JobStatus.QUEUED,
+    request,
+    storage,
+    createdAt: now,
+    updatedAt: now
+  };
+
+  // Store job in memory
+  jobsMap.set(jobId, job);
+  
+  // Add to queue
+  await renderQueue.add(job);
+  
+  return job;
+};
+
 // Get a job by ID
-export const getRenderJob = async (jobId: string): Promise<RenderJob | null> => {
+export const getJob = async (jobId: string): Promise<RenderJob | null> => {
   return jobsMap.get(jobId) || null;
 };
 

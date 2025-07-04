@@ -577,7 +577,7 @@ const buildOutputOptions = (
 };
 
 // Função para preparar o output
-const prepareOutput = (outputPath: string): string => {
+const prepareOutput = (outputPath: string | undefined): string => {
   if (!outputPath) {
     throw new Error('Output path é obrigatório');
   }

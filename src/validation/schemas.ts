@@ -113,4 +113,9 @@ export const renderRequestSchema = Joi.object({
 // Schema para validar a requisição de informação de mídia
 export const mediaInfoRequestSchema = Joi.object({
   url: Joi.string().uri().required().description('URL da mídia para analisar')
-}).required(); 
+}).required();
+
+// Função para validar requisição de renderização
+export const validateRenderRequest = (data: any) => {
+  return renderRequestSchema.validate(data, { abortEarly: false });
+}; 
