@@ -7,11 +7,16 @@ yarn-error.log
 yarn.lock
 
 # Arquivos de ambiente
-
+.env
 .env.local
 .env.development
 .env.test
 .env.production
+
+# Credenciais do Google Cloud (CRÍTICO - NÃO COMMITAR!)
+src/config/gcp-service-account.json
+gcp-service-account.json
+**/gcp-service-account.json
 
 # Arquivos de build
 dist/

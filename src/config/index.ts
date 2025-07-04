@@ -27,6 +27,7 @@ console.log('🔧 FFPROBE_PATH:', process.env.FFPROBE_PATH);
 console.log('🔧 GOOGLE_CLOUD_STORAGE_ENABLED:', process.env.GOOGLE_CLOUD_STORAGE_ENABLED);
 console.log('🔧 GOOGLE_CLOUD_PROJECT_ID:', process.env.GOOGLE_CLOUD_PROJECT_ID);
 console.log('🔧 REDIS_HOST:', process.env.REDIS_HOST);
+console.log('🔧 REDIS_PASSWORD:', process.env.REDIS_PASSWORD ? '***' : 'NOT SET');
 console.log('🔧 ======================================');
 
 // Configuração
@@ -36,7 +37,9 @@ const config = {
   ffprobePath: process.env.FFPROBE_PATH || '/opt/homebrew/bin/ffprobe',
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
-    port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 6379
+    port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 6379,
+    password: process.env.REDIS_PASSWORD,
+    db: 0
   },
   storagePath: STORAGE_PATH,
   tempPath: TEMP_PATH,

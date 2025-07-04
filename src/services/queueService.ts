@@ -21,14 +21,21 @@ import {
 // In-memory storage for jobs (in production, use a database)
 const jobsMap = new Map<string, RenderJob>();
 
-// Configuração Redis simplificada
+// Configuração Redis com autenticação
 const redisConfig = {
   host: config.redis.host,
-  port: config.redis.port
+  port: config.redis.port,
+  password: config.redis.password,
+  db: config.redis.db || 0
 };
 
 console.log('Iniciando serviço de fila');
-console.log('Configuração Redis:', redisConfig);
+console.log('Configuração Redis:', {
+  host: redisConfig.host,
+  port: redisConfig.port,
+  password: redisConfig.password ? '***' : 'NOT SET',
+  db: redisConfig.db
+});
 
 // Create render queue with explicit Redis configuration
 const renderQueue = new Queue('video-render', {

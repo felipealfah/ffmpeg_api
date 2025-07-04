@@ -1,18 +1,23 @@
 services:
-  # Serviço Redis para filas
+  # Serviço Redis para filas - PROTEGIDO
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # SEGURANÇA: Redis não exposto externamente
+    # ports:
+    #   - "6379:6379"  # REMOVIDO POR SEGURANÇA
     volumes:
       - redis-data:/data
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-secure_redis_password_2025}"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-secure_redis_password_2025}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-secure_redis_password_2025}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
+    networks:
+      - internal
 
   # Nossa API FFmpeg
   ffmpeg-api:
@@ -29,6 +34,7 @@ services:
       - PORT=3000
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-secure_redis_password_2025}
       - FFMPEG_PATH=/usr/bin/ffmpeg
       - FFPROBE_PATH=/usr/bin/ffprobe
       - GOOGLE_CLOUD_STORAGE_ENABLED=true
@@ -47,6 +53,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - internal
 
   # Prometheus para coleta de métricas
   prometheus:
@@ -69,6 +77,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - internal
 
   # Grafana para visualização de métricas
   grafana:
@@ -92,8 +102,15 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - internal
 
 volumes:
   redis-data:
   prometheus-data:
   grafana-data:
+
+networks:
+  internal:
+    driver: bridge
+    internal: false  # Permite acesso externo para serviços que precisam
