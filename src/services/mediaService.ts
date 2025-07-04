@@ -251,8 +251,9 @@ const createComplexFilterForMedia = (
       // Para imagens: usar loop e configurar duração
       filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.resolution || '1280x720'},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
     } else {
-      // Para vídeos: apenas escalar e ajustar fps
+      // Para vídeos: escalar vídeo e processar áudio
       filterParts.push(`[${index}:v]scale=${output.resolution || '1280x720'},fps=${output.fps || 30}[v${index}]`);
+      filterParts.push(`[${index}:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a${index}]`);
     }
   });
   
@@ -265,23 +266,34 @@ const createComplexFilterForMedia = (
     if (clip.asset.type === 'image') {
       concatFilter += `[v${index}]trim=duration=${duration}[v${index}t];`;
     } else {
-      // Para vídeos: usar trim start e end baseado no tempo
+      // Para vídeos: usar trim start e end baseado no tempo para vídeo e áudio
       const startTime = clip.start || 0;
       const endTime = startTime + duration;
       concatFilter += `[v${index}]trim=start=${startTime}:end=${endTime}[v${index}t];`;
+      concatFilter += `[a${index}]atrim=start=${startTime}:end=${endTime}[a${index}t];`;
     }
   });
   
-  // Concatenate all segments
-  const concatInputs = videoClips.map((_, index) => `[v${index}t]`).join('');
-  concatFilter += `${concatInputs}concat=n=${videoClips.length}:v=1:a=0[video_concat]`;
+  // Concatenate all video segments
+  const videoInputs = videoClips.map((_, index) => `[v${index}t]`).join('');
+  concatFilter += `${videoInputs}concat=n=${videoClips.length}:v=1:a=0[video_concat];`;
+  
+  // Concatenate all audio segments (apenas para vídeos)
+  const audioInputs = videoClips
+    .filter(({clip}) => clip.asset.type === 'video')
+    .map((_, index) => `[a${index}t]`).join('');
+  
+  if (audioInputs) {
+    const audioCount = videoClips.filter(({clip}) => clip.asset.type === 'video').length;
+    concatFilter += `${audioInputs}concat=n=${audioCount}:v=0:a=1[audio_concat];`;
+  }
   
   // Apply subtitles if available
   if (subtitleClips.length > 0) {
     const subtitleFilter = createSubtitleFilter(subtitleClips[0]);
-    concatFilter += `;[video_concat]${subtitleFilter}[outv]`;
+    concatFilter += `[video_concat]${subtitleFilter}[outv]`;
   } else {
-    concatFilter += `;[video_concat]copy[outv]`;
+    concatFilter += `[video_concat]copy[outv]`;
   }
   
   const finalFilter = filterParts.join(';') + ';' + concatFilter;
@@ -314,14 +326,20 @@ const buildOutputOptions = (
       outputOptions.push('-map 0:v', '-map [aout]');
     }
   } else if (videoClips.length > 1) {
-    // Complex case: multiple images with complex filter
+    // Complex case: multiple clips with complex filter
     outputOptions.push('-map [outv]');
+    
+    // Verificar se há vídeos com áudio para mapear
+    const hasVideoAudio = videoClips.some(({clip}) => clip.asset.type === 'video');
     
     if (audioClips.length > 1) {
       outputOptions.push('-map [aout]');
     } else if (audioClips.length === 1) {
       const audioIndex = videoClips.length;
       outputOptions.push(`-map ${audioIndex}:a`);
+    } else if (hasVideoAudio) {
+      // Mapear áudio concatenado dos vídeos
+      outputOptions.push('-map [audio_concat]');
     }
   }
   
@@ -332,7 +350,10 @@ const buildOutputOptions = (
     `-b:v ${output.bitrate || '2000k'}`
   );
   
-  if (audioClips.length > 0) {
+  // Verificar se há qualquer tipo de áudio (clips de áudio ou vídeos com áudio)
+  const hasAnyAudio = audioClips.length > 0 || videoClips.some(({clip}) => clip.asset.type === 'video');
+  
+  if (hasAnyAudio) {
     outputOptions.push('-c:a aac', '-b:a 128k');
   }
   
