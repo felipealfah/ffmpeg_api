@@ -524,6 +524,39 @@ export const renderVideo = async (
           
           const localPath = await prepareClip(clip, tempDir);
           console.log('Clip preparado:', { localPath });
+          
+          // 🔍 VERIFICAR DURAÇÃO DO VÍDEO ORIGINAL
+          if (clip.asset.type === 'video') {
+            try {
+              const metadata = await new Promise<any>((resolve, reject) => {
+                ffmpeg.ffprobe(localPath, (err, metadata) => {
+                  if (err) reject(err);
+                  else resolve(metadata);
+                });
+              });
+              
+              const duration = metadata.format.duration;
+              
+              console.log('📊 DURAÇÃO DO VÍDEO ORIGINAL:', {
+                localPath: localPath.split('/').pop(),
+                duration: `${duration}s`,
+                clipStart: clip.start,
+                clipLength: clip.length,
+                clipEnd: clip.start + clip.length,
+                optimized: clip._optimized || false
+              });
+              
+              if (duration < (clip.start + clip.length)) {
+                console.log('🚨 PROBLEMA DETECTADO: Vídeo original é menor que o clip solicitado!');
+                console.log(`   📹 Duração original: ${duration}s`);
+                console.log(`   ⏱️  Clip solicitado: ${clip.start}s - ${clip.start + clip.length}s`);
+                console.log(`   ❌ Faltam: ${(clip.start + clip.length) - duration}s`);
+              }
+            } catch (error) {
+              console.warn('⚠️  Não foi possível obter duração do vídeo:', error.message);
+            }
+          }
+          
           clipInfo.push({ path: localPath, clip });
         }
         
