@@ -1,33 +1,19 @@
-import express from 'express';
-import * as mediaController from '../controllers/mediaController';
+import { Router } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { validate } from '../middleware/validation';
-import { renderRequestSchema, mediaInfoRequestSchema } from '../validation/schemas';
-import { circuitBreakerMiddleware } from '../middleware/circuitBreaker';
+import * as mediaController from '../controllers/mediaController';
 
-const router = express.Router();
+const router = Router();
 
-/**
- * Rota para validar requisição de renderização (sem processar)
- */
-router.post('/render/validate', circuitBreakerMiddleware, validate(renderRequestSchema), asyncHandler(mediaController.validateRenderRequest));
+// Render video (create job)
+router.post('/render', asyncHandler(mediaController.renderVideo));
 
-/**
- * Rotas para renderização de vídeos
- */
-router.post('/render', circuitBreakerMiddleware, validate(renderRequestSchema), asyncHandler(mediaController.createRenderJob));
-router.get('/render/:jobId', asyncHandler(mediaController.getRenderJobStatus));
-router.get('/render/:jobId/result', asyncHandler(mediaController.getRenderJobResult));
-router.get('/render/:jobId/file', asyncHandler(mediaController.getRenderJobFile));
+// Get job status
+router.get('/job/:jobId/status', asyncHandler(mediaController.getJobStatus));
 
-/**
- * Rota para obter informações de mídia
- */
-router.post('/info', validate(mediaInfoRequestSchema), asyncHandler(mediaController.getMediaInfo));
+// Download rendered video
+router.get('/job/:jobId/download', asyncHandler(mediaController.downloadVideo));
 
-/**
- * 🔍 Rota para validar vídeo com clips específicos
- */
-router.post('/validate-video', asyncHandler(mediaController.validateVideoForClips));
+// Validate render request
+router.post('/validate', asyncHandler(mediaController.validateRequest));
 
 export default router; 

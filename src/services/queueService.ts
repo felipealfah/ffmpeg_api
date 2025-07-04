@@ -64,7 +64,7 @@ renderQueue.on('ready', () => {
 /**
  * Limpa jobs em memória mais antigos que X horas
  */
-const cleanupOldJobs = async (maxAgeHours: number = 24): Promise<void> => {
+const cleanupOldJobs = async (maxAgeHours: number = 24): Promise<number> => {
   try {
     const now = new Date();
     const maxAge = maxAgeHours * 60 * 60 * 1000; // Converter para millisegundos
@@ -87,8 +87,10 @@ const cleanupOldJobs = async (maxAgeHours: number = 24): Promise<void> => {
     
     // Atualizar métricas de jobs
     updateJobMetrics(jobsMap);
+    return removedCount;
   } catch (error) {
     console.error('Erro na limpeza de jobs antigos:', error);
+    return 0;
   }
 };
 
@@ -193,14 +195,17 @@ renderQueue.process(async (job) => {
     console.debug('Diretórios para processamento:', { tempDir, outputDir });
     
     // Process the job
-    const { renderVideo } = await import('./mediaService');
-    const outputPath = await renderVideo(renderJob, (progress: number) => {
+    const mediaService = await import('./mediaService.js');
+    const outputPath = await mediaService.renderVideo(renderJob, (progress: number) => {
       // Update job progress
       updateJob(renderJob.id, { 
         progress,
         updatedAt: new Date()
       });
     });
+    
+    // Determinar tipo de storage baseado na configuração
+    const storageType = config.googleCloud?.enabled ? 'gcs' : 'local';
     
     // Update job with result
     updateJob(renderJob.id, {
@@ -210,10 +215,10 @@ renderQueue.process(async (job) => {
       completedAt: new Date(),
       updatedAt: new Date(),
       storage: {
-        type: config.storage.type as 'gcs' | 'local',
+        type: storageType,
         tempDir,
         outputDir,
-        url: config.storage.type === 'gcs' ? outputPath : undefined,
+        url: storageType === 'gcs' ? outputPath : undefined,
         fileName: path.basename(outputPath)
       }
     });
@@ -334,35 +339,31 @@ export const updateJob = (jobId: string, updates: Partial<RenderJob>) => {
   return null;
 };
 
-/**
- * Executa limpeza manual - pode ser chamado via API
- */
+// Manual cleanup function
 export const performManualCleanup = async (maxAgeHours: number = 24) => {
-  console.log(`🧹 Iniciando limpeza manual (jobs > ${maxAgeHours}h)...`);
-  
-  const initialJobCount = jobsMap.size;
-  
-  // Executar limpezas
-  await cleanupOldJobs(maxAgeHours);
-  await cleanupOrphanedDirectories();
-  
-  const finalJobCount = jobsMap.size;
-  const removedJobs = initialJobCount - finalJobCount;
-  
-  const results = {
-    removedJobs,
-    remainingJobs: finalJobCount,
-    maxAgeHours
-  };
-  
-  console.log(`🧹 Limpeza manual concluída:`, results);
-  
-  // Registrar limpeza manual
-  if (removedJobs > 0) {
-    recordCleanup('manual', removedJobs);
+  try {
+    console.log(`🧹 Iniciando limpeza manual (jobs mais antigos que ${maxAgeHours}h)...`);
+    
+    const removedJobs = await cleanupOldJobs(maxAgeHours);
+    await cleanupOrphanedDirectories();
+    
+    const results = {
+      removedJobs,
+      message: `Limpeza concluída: ${removedJobs} jobs removidos`
+    };
+    
+    console.log(`🧹 Limpeza manual concluída:`, results);
+    
+    // Registrar limpeza manual
+    if (removedJobs > 0) {
+      recordCleanup('manual', removedJobs);
+    }
+    
+    return results;
+  } catch (error) {
+    console.error('Erro na limpeza manual:', error);
+    throw error;
   }
-  
-  return results;
 };
 
 /**
@@ -396,7 +397,10 @@ export const getStorageStatistics = async () => {
     // Analisar jobs em memória
     for (const job of jobsMap.values()) {
       // Contar por status
-      stats.jobs[job.status.toLowerCase() as keyof typeof stats.jobs]++;
+      const status = job.status.toLowerCase() as keyof typeof stats.jobs;
+      if (status in stats.jobs && typeof stats.jobs[status] === 'number') {
+        (stats.jobs[status] as number)++;
+      }
       
       // Contar por idade
       const ageHours = (now.getTime() - job.createdAt.getTime()) / (1000 * 60 * 60);
@@ -464,4 +468,4 @@ export const analyzeJobCost = async (renderJob: RenderJob): Promise<void> => {
   } catch (error) {
     console.error('Erro na análise de custo:', error);
   }
-}; 
+};
