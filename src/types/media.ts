@@ -92,6 +92,7 @@ export interface Clip {
     outDuration?: number; // Duration in seconds
   };
   filter?: string[]; // Array of FFmpeg filter strings
+  _optimized?: boolean; // Internal flag for optimized sequential clips
 }
 
 export interface Track {

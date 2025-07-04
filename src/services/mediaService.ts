@@ -140,6 +140,87 @@ const createTextImage = async (
   });
 };
 
+// Função para otimizar clips sequenciais do mesmo vídeo
+const optimizeSequentialClips = (clips: Clip[]): Clip[] => {
+  console.log('🔍 Analisando clips para otimização...');
+  
+  // Agrupar clips por URL
+  const clipsByUrl = new Map<string, Clip[]>();
+  
+  clips.forEach(clip => {
+    if (clip.asset.type === 'video' && 'src' in clip.asset) {
+      const url = clip.asset.src;
+      if (!clipsByUrl.has(url)) {
+        clipsByUrl.set(url, []);
+      }
+      clipsByUrl.get(url)!.push(clip);
+    }
+  });
+  
+  const optimizedClips: Clip[] = [];
+  
+  clipsByUrl.forEach((urlClips, url) => {
+    if (urlClips.length <= 1) {
+      // Não há otimização possível para clips únicos
+      optimizedClips.push(...urlClips);
+      return;
+    }
+    
+    // Ordenar clips por tempo de início
+    urlClips.sort((a, b) => a.start - b.start);
+    
+    // Verificar se são sequenciais (sem gaps)
+    let isSequential = true;
+    for (let i = 1; i < urlClips.length; i++) {
+      const prevClip = urlClips[i - 1];
+      const currentClip = urlClips[i];
+      const prevEnd = prevClip.start + prevClip.length;
+      
+      if (Math.abs(currentClip.start - prevEnd) > 0.1) { // Tolerância de 0.1s
+        isSequential = false;
+        break;
+      }
+    }
+    
+    if (isSequential) {
+      // Otimizar: criar um único clip que cobre toda a sequência
+      const firstClip = urlClips[0];
+      const lastClip = urlClips[urlClips.length - 1];
+      const totalLength = (lastClip.start + lastClip.length) - firstClip.start;
+      
+      const optimizedClip: Clip = {
+        asset: firstClip.asset,
+        start: firstClip.start,
+        length: totalLength,
+        // Marcar como otimizado para usar trim simples em vez de concatenação
+        _optimized: true
+      };
+      
+      console.log(`✅ OTIMIZAÇÃO MÁXIMA: ${urlClips.length} clips sequenciais do mesmo vídeo`);
+      console.log(`   📹 URL: ${url.substring(0, 50)}...`);
+      console.log(`   ⏱️  Tempo: ${firstClip.start}s - ${lastClip.start + lastClip.length}s (${totalLength}s total)`);
+      console.log(`   🚀 Performance: ${urlClips.length}x downloads + concatenação → 1x download + trim simples`);
+      console.log(`   🎯 Estratégia: ffmpeg -i video.mp4 -ss ${firstClip.start} -t ${totalLength} output.mp4`);
+      
+      optimizedClips.push(optimizedClip);
+    } else {
+      // Não é sequencial, manter clips separados
+      console.log(`ℹ️  Clips do mesmo vídeo mas não sequenciais: ${url.substring(0, 50)}...`);
+      optimizedClips.push(...urlClips);
+    }
+  });
+  
+  // Adicionar clips de outros tipos (não vídeo)
+  clips.forEach(clip => {
+    if (clip.asset.type !== 'video' || !('src' in clip.asset)) {
+      optimizedClips.push(clip);
+    }
+  });
+  
+  console.log(`📊 Otimização concluída: ${clips.length} clips → ${optimizedClips.length} clips`);
+  return optimizedClips;
+};
+
 // Prepare a clip for the timeline
 const prepareClip = async (clip: Clip, tempDir: string): Promise<string> => {
   try {
@@ -314,12 +395,24 @@ const buildOutputOptions = (
 ): string[] => {
   const outputOptions = [];
   
-  // Set total video duration
-  outputOptions.push(`-t ${timelineDuration}`);
-  
   // Handle video mapping based on scenario
-  if (videoClips.length === 1 && videoClips[0].clip.asset.type === 'image') {
+  if (videoClips.length === 1 && videoClips[0].clip._optimized) {
+    // Caso OTIMIZADO: trim simples - sem -t adicional pois já está no inputOptions
+    console.log('🚀 Opções de saída otimizadas: trim simples');
+    // Não adicionar -t pois já está controlado pelo inputOptions (-ss e -t)
+    
+    // Mapear streams diretamente
+    outputOptions.push('-map 0:v');
+    
+    if (audioClips.length > 1) {
+      outputOptions.push('-map [aout]');
+    } else {
+      outputOptions.push('-map 0:a');
+    }
+    
+  } else if (videoClips.length === 1 && videoClips[0].clip.asset.type === 'image') {
     // Simple case: single image
+    outputOptions.push(`-t ${timelineDuration}`);
     outputOptions.push(`-r ${output.fps || 30}`);
     
     if (audioClips.length > 1) {
@@ -408,11 +501,20 @@ export const renderVideo = async (
       for (const track of timeline.tracks) {
         const clipInfo = [];
         
-        for (const clip of track.clips) {
+        // 🚀 APLICAR OTIMIZAÇÃO SEQUENCIAL ANTES DO PREPARO
+        console.log('🔍 Verificando otimizações sequenciais...');
+        const optimizedClips = optimizeSequentialClips(track.clips);
+        
+        if (optimizedClips.length !== track.clips.length) {
+          console.log(`✅ OTIMIZAÇÃO APLICADA! ${track.clips.length} clips → ${optimizedClips.length} clips`);
+        }
+        
+        for (const clip of optimizedClips) {
           console.log('Preparando clip:', { 
             type: clip.asset.type, 
             start: clip.start, 
-            length: clip.length 
+            length: clip.length,
+            optimized: clip._optimized || false
           });
           
           const localPath = await prepareClip(clip, tempDir);
@@ -492,7 +594,28 @@ export const renderVideo = async (
         });
         
         // Determinar a lógica de processamento baseada nos tipos de clips
-        if (videoClips.length === 1 && videoClips[0].clip.asset.type === 'image') {
+        if (videoClips.length === 1 && videoClips[0].clip._optimized) {
+          // Caso OTIMIZADO: clip único de um vídeo sequencial - usar trim simples
+          const optimizedClip = videoClips[0].clip;
+          console.log('🚀 Processando caso OTIMIZADO: trim simples');
+          console.log(`   ⏱️  Trim: ${optimizedClip.start}s - ${optimizedClip.start + optimizedClip.length}s`);
+          
+          // Usar trim simples e eficiente
+          const trimOptions = [
+            `-ss ${optimizedClip.start}`,
+            `-t ${optimizedClip.length}`
+          ];
+          
+          command = command.inputOptions(trimOptions);
+          
+          // Aplicar legendas se disponível
+          if (subtitleClips.length > 0) {
+            console.log('Aplicando legendas ao caso otimizado');
+            const subtitleFilter = createSubtitleFilter(subtitleClips[0]);
+            command = command.videoFilters(subtitleFilter);
+          }
+          
+        } else if (videoClips.length === 1 && videoClips[0].clip.asset.type === 'image') {
           // Caso simples: uma imagem com duração específica
           console.log('Processando caso simples: uma imagem');
           
