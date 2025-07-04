@@ -239,6 +239,7 @@ const createComplexFilterForImages = (
   // Create filter parts for each video clip
   videoClips.forEach((_, index) => {
     const clip = videoClips[index].clip;
+    const duration = clip.length || 5; // Default 5 seconds se não especificado
     filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.resolution || '1280x720'},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
   });
   
@@ -246,7 +247,7 @@ const createComplexFilterForImages = (
   let concatFilter = '';
   videoClips.forEach((_, index) => {
     const clip = videoClips[index].clip;
-    const duration = clip.length;
+    const duration = clip.length || 5; // Default 5 seconds se não especificado
     concatFilter += `[v${index}]trim=duration=${duration}[v${index}t];`;
   });
   
@@ -259,10 +260,15 @@ const createComplexFilterForImages = (
     const subtitleFilter = createSubtitleFilter(subtitleClips[0]);
     concatFilter += `;[video_concat]${subtitleFilter}[outv]`;
   } else {
-    concatFilter += `;[video_concat]copy[outv]`;
+    concatFilter += `;[video_concat]null[outv]`;
   }
   
-  return filterParts.join(';') + ';' + concatFilter;
+  const finalFilter = filterParts.join(';') + ';' + concatFilter;
+  
+  // Log do filtro para depuração
+  console.log('🔧 Filtro complexo criado:', finalFilter);
+  
+  return finalFilter;
 };
 
 // Helper function to build output options
