@@ -140,7 +140,7 @@ const optimizeSequentialClips = (clips: Clip[]): Clip[] => {
   
   const optimizedClips: Clip[] = [];
   let currentGroup: Clip[] = [clips[0]];
-  let currentSource = clips[0].asset.src;
+  let currentSource = 'src' in clips[0].asset ? clips[0].asset.src : null;
   
   for (let i = 1; i < clips.length; i++) {
     const clip = clips[i];
@@ -148,6 +148,8 @@ const optimizeSequentialClips = (clips: Clip[]): Clip[] => {
     
     // Verificar se é o mesmo vídeo e se é sequencial
     if (
+      'src' in clip.asset &&
+      currentSource &&
       clip.asset.src === currentSource &&
       clip.start === prevClip.start + prevClip.length
     ) {
@@ -162,7 +164,7 @@ const optimizeSequentialClips = (clips: Clip[]): Clip[] => {
       
       // Iniciar novo grupo
       currentGroup = [clip];
-      currentSource = clip.asset.src;
+      currentSource = 'src' in clip.asset ? clip.asset.src : null;
     }
   }
   
@@ -194,7 +196,7 @@ const prepareClip = async (clip: Clip, tempDir: string): Promise<string> => {
     const { asset } = clip;
     console.log('Preparando asset:', { 
       type: asset.type,
-      source: 'source' in asset ? asset.source : 'text'
+      source: 'src' in asset ? asset.src : 'text'
     });
     
     // Handle different asset types
@@ -286,8 +288,9 @@ const validateAndDiagnoseVideo = async (filePath: string, requestedClips: Clip[]
       adjustedClips: undefined
     };
   } catch (error) {
-    console.error('Erro ao validar vídeo:', error instanceof Error ? error.message : String(error));
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao validar vídeo';
+    console.error('Erro ao validar vídeo:', errorMessage);
+    throw new Error(errorMessage);
   }
 };
 

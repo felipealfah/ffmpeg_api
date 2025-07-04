@@ -13,6 +13,7 @@ export enum AssetSource {
 }
 
 export enum JobStatus {
+  QUEUED = 'queued',
   PENDING = 'pending',
   PROCESSING = 'processing',
   COMPLETED = 'completed',
@@ -23,7 +24,8 @@ export enum OutputFormat {
   MP4 = 'mp4',
   GIF = 'gif',
   MOV = 'mov',
-  WEBM = 'webm'
+  WEBM = 'webm',
+  HLS = 'hls'
 }
 
 // Interface base para todos os assets
@@ -119,6 +121,14 @@ export interface RenderRequest {
   webhook?: string;
 }
 
+export interface StorageInfo {
+  type: 'gcs' | 'local';
+  tempDir: string;
+  outputDir: string;
+  url?: string;
+  fileName?: string;
+}
+
 export interface RenderJob {
   id: string;
   status: JobStatus;
@@ -126,10 +136,7 @@ export interface RenderJob {
   error?: string;
   progress?: number;
   output?: string;
-  storage?: {
-    tempDir: string;
-    outputDir: string;
-  };
+  storage?: StorageInfo;
   createdAt: Date;
   updatedAt: Date;
   completedAt?: Date;
