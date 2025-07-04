@@ -93,7 +93,7 @@ export interface SubtitleStyle {
 export interface Clip {
   asset: Asset;
   start: number;
-  length: number;
+  length: number | "auto";
   _optimized?: boolean;
   _inputIndex?: number;
 }

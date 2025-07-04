@@ -76,7 +76,10 @@ const assetSchema = Joi.object({
 const clipSchema = Joi.object({
   asset: assetSchema.required().description('Asset a ser usado no clipe'),
   start: Joi.number().required().min(0).description('Tempo de início em segundos'),
-  length: Joi.number().required().min(0).description('Duração em segundos'),
+  length: Joi.alternatives().try(
+    Joi.number().min(0).description('Duração em segundos'),
+    Joi.string().valid('auto').description('Usa toda a duração disponível do vídeo')
+  ).required().description('Duração em segundos ou "auto" para usar toda a duração disponível'),
   position: positionSchema.optional().description('Posição e tamanho do clipe'),
   transition: transitionSchema.optional().description('Transições de entrada e saída'),
   filter: Joi.array().items(Joi.string()).optional().description('Filtros FFmpeg a serem aplicados')

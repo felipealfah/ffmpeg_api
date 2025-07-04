@@ -63,7 +63,7 @@ export const calculateTimelineDuration = (timeline: Timeline): number => {
       if (optimizedClips.length === 1 && optimizedClips[0]._optimized) {
         // Se temos um clip otimizado, usar sua duração total
         const optimizedClip = optimizedClips[0];
-        trackDuration = optimizedClip.length;
+        trackDuration = typeof optimizedClip.length === 'number' ? optimizedClip.length : 0;
         console.log(`Track ${trackIndex} otimizada:`, {
           originalClips: track.clips.length,
           duracaoTotal: trackDuration
@@ -71,7 +71,8 @@ export const calculateTimelineDuration = (timeline: Timeline): number => {
       } else {
         // Calcular duração baseada no último clip
         const lastClip = track.clips[track.clips.length - 1];
-        trackDuration = lastClip.start + lastClip.length;
+        const lastClipLength = typeof lastClip.length === 'number' ? lastClip.length : 0;
+        trackDuration = lastClip.start + lastClipLength;
       }
     }
     
@@ -148,11 +149,12 @@ const optimizeSequentialClips = (clips: Clip[]): Clip[] => {
     const prevClip = currentGroup[currentGroup.length - 1];
     
     // Verificar se é o mesmo vídeo e se é sequencial
+    const prevClipLength = typeof prevClip.length === 'number' ? prevClip.length : 0;
     if (
       'src' in clip.asset &&
       currentSource &&
       clip.asset.src === currentSource &&
-      clip.start === prevClip.start + prevClip.length
+      clip.start === prevClip.start + prevClipLength
     ) {
       currentGroup.push(clip);
     } else {
@@ -179,13 +181,38 @@ const optimizeSequentialClips = (clips: Clip[]): Clip[] => {
   return optimizedClips;
 };
 
+// Função para resolver length "auto" para um valor numérico
+const resolveClipLength = async (clip: Clip, filePath: string): Promise<number> => {
+  if (clip.length === "auto") {
+    // Obter a duração do vídeo
+    const metadata = await new Promise<any>((resolve, reject) => {
+      ffmpeg.ffprobe(filePath, (err, metadata) => {
+        if (err) reject(err);
+        else resolve(metadata);
+      });
+    });
+    
+    const videoDuration = metadata.format.duration;
+    const availableDuration = Math.max(0, videoDuration - clip.start);
+    
+    console.log(`🔄 Resolvendo length "auto": ${availableDuration}s (duração total: ${videoDuration}s, start: ${clip.start}s)`);
+    
+    return availableDuration;
+  }
+  
+  return clip.length as number;
+};
+
 // Função para criar um clip otimizado a partir de um grupo de clips
 const createOptimizedClip = (clips: Clip[]): Clip => {
   const firstClip = clips[0];
   const lastClip = clips[clips.length - 1];
   
+  // Para clips otimizados, assumir que length já foi resolvido para número
+  const lastClipLength = typeof lastClip.length === 'number' ? lastClip.length : 0;
+  
   // Calcular a duração real baseada no start do primeiro clip e o end do último clip
-  const realLength = (lastClip.start + lastClip.length) - firstClip.start;
+  const realLength = (lastClip.start + lastClipLength) - firstClip.start;
   
   return {
     ...firstClip,
@@ -654,6 +681,13 @@ export const renderVideo = async (
           const localPath = await prepareClip(clip, tempDir);
           console.log('Clip preparado:', { localPath });
           
+          // 🔄 RESOLVER length "auto" ANTES DA VALIDAÇÃO
+          if (clip.length === "auto" && (clip.asset.type === 'video' || clip.asset.type === 'audio')) {
+            const resolvedLength = await resolveClipLength(clip, localPath);
+            clip.length = resolvedLength;
+            console.log(`✅ Length "auto" resolvido para: ${resolvedLength}s`);
+          }
+          
           // 🔍 VALIDAÇÃO E DIAGNÓSTICO COMPLETO DO VÍDEO
           if (clip.asset.type === 'video') {
             try {
@@ -675,20 +709,22 @@ export const renderVideo = async (
                 const availableDuration = Math.max(0, diagnosis.duration - clip.start);
                 
                 if (availableDuration > 0) {
-                  const originalLength = clip.length;
-                  clip.length = Math.min(clip.length, availableDuration);
+                  const originalLength = typeof clip.length === 'number' ? clip.length : 0;
+                  const newLength = Math.min(originalLength, availableDuration);
+                  clip.length = newLength;
                   
                   console.log('🔧 AUTO-AJUSTE APLICADO:');
-                  console.log(`   ✂️  Clip ajustado: ${clip.start}s - ${clip.start + clip.length}s`);
-                  console.log(`   📏 Duração ajustada: ${originalLength}s → ${clip.length}s`);
-                  console.log(`   ✅ Utilizando: ${((clip.length / originalLength) * 100).toFixed(1)}% do clip original`);
+                  console.log(`   ✂️  Clip ajustado: ${clip.start}s - ${clip.start + newLength}s`);
+                  console.log(`   📏 Duração ajustada: ${originalLength}s → ${newLength}s`);
+                  console.log(`   ✅ Utilizando: ${((newLength / originalLength) * 100).toFixed(1)}% do clip original`);
                 } else {
                   console.log('❌ ERRO CRÍTICO: Start time maior que duração do vídeo!');
                   
                   // Ajustar para usar o máximo disponível
                   clip.start = 0;
-                  clip.length = Math.min(clip.length, diagnosis.duration);
-                  console.log(`   🔧 Ajuste automático aplicado: start=0, length=${clip.length}s`);
+                  const maxLength = Math.min(typeof clip.length === 'number' ? clip.length : 0, diagnosis.duration);
+                  clip.length = maxLength;
+                  console.log(`   🔧 Ajuste automático aplicado: start=0, length=${maxLength}s`);
                 }
               } else {
                 console.log('✅ VÍDEO VÁLIDO: Todas as configurações estão corretas');
@@ -794,7 +830,8 @@ export const renderVideo = async (
           // Caso OTIMIZADO: clip único de um vídeo sequencial - usar trim simples
           const optimizedClip = videoClips[0].clip;
           console.log('🚀 Processando caso OTIMIZADO: trim simples');
-          console.log(`   ⏱️  Trim: ${optimizedClip.start}s - ${optimizedClip.start + optimizedClip.length}s`);
+          const optimizedLength = typeof optimizedClip.length === 'number' ? optimizedClip.length : 0;
+          console.log(`   ⏱️  Trim: ${optimizedClip.start}s - ${optimizedClip.start + optimizedLength}s`);
           
           // Aplicar legendas se disponível
           if (subtitleClips.length > 0) {
