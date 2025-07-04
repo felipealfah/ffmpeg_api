@@ -196,7 +196,7 @@ renderQueue.process(async (job) => {
     
     // Process the job
     const mediaService = await import('./mediaService.js');
-    const outputPath = await mediaService.renderVideo(renderJob, (progress: number) => {
+    const outputPath = await mediaService.renderVideo(renderJob.request, (progress: number) => {
       // Update job progress
       updateJob(renderJob.id, { 
         progress,

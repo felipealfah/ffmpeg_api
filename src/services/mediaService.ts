@@ -8,7 +8,7 @@ import { finished } from 'stream/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { RenderJob, RenderRequest, Clip, Track, Timeline, MediaType, AssetSource } from '../types/media';
 import axios from 'axios';
-import { downloadFile, ensureDirectory, cleanupDirectory } from '../utils/file';
+import { downloadFile as downloadFileUtil, ensureDirectory, cleanupDirectory } from '../utils/file';
 import { getStorageService } from './storageService';
 import { logger } from '../utils/logger';
 
@@ -216,7 +216,7 @@ const prepareClip = async (clip: Clip, tempDir: string): Promise<string> => {
         });
         
         try {
-          await downloadFile(asset.src, localPath);
+          await downloadFileUtil(asset.src, localPath);
           console.log('Arquivo baixado com sucesso:', localPath);
           return localPath;
         } catch (err) {
@@ -906,7 +906,7 @@ export const renderVideo = async (
                 });
                 
                 // Usar a URL pública do GCS como resultado final
-                finalOutputUrl = uploadResult.publicUrl;
+                finalOutputUrl = uploadResult.publicUrl || outputPath;
                 
                 // Remover arquivo local após upload bem-sucedido
                 try {
