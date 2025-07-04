@@ -397,9 +397,14 @@ const buildOutputOptions = (
   
   // Handle video mapping based on scenario
   if (videoClips.length === 1 && videoClips[0].clip._optimized) {
-    // Caso OTIMIZADO: trim simples - sem -t adicional pois já está no inputOptions
+    // Caso OTIMIZADO: trim simples aplicado nas opções de saída
+    const optimizedClip = videoClips[0].clip;
     console.log('🚀 Opções de saída otimizadas: trim simples');
-    // Não adicionar -t pois já está controlado pelo inputOptions (-ss e -t)
+    console.log(`   🎬 Aplicando trim: -ss ${optimizedClip.start} -t ${optimizedClip.length}`);
+    
+    // Aplicar trim nas opções de saída
+    outputOptions.push(`-ss ${optimizedClip.start}`);
+    outputOptions.push(`-t ${optimizedClip.length}`);
     
     // Mapear streams diretamente
     outputOptions.push('-map 0:v');
@@ -599,14 +604,6 @@ export const renderVideo = async (
           const optimizedClip = videoClips[0].clip;
           console.log('🚀 Processando caso OTIMIZADO: trim simples');
           console.log(`   ⏱️  Trim: ${optimizedClip.start}s - ${optimizedClip.start + optimizedClip.length}s`);
-          
-          // Usar trim simples e eficiente
-          const trimOptions = [
-            `-ss ${optimizedClip.start}`,
-            `-t ${optimizedClip.length}`
-          ];
-          
-          command = command.inputOptions(trimOptions);
           
           // Aplicar legendas se disponível
           if (subtitleClips.length > 0) {
