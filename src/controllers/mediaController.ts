@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger';
-import { recordJobStart, recordJobComplete, recordJobError } from '../middleware/metrics';
+import { recordJobStart, recordJobComplete } from '../middleware/metrics';
 import { renderRequestSchema } from '../validation/schemas';
 import { RenderJob, JobStatus } from '../types/media';
 import { createJob, getJob, updateJob } from '../services/queueService';
@@ -53,10 +53,6 @@ export const renderVideo = async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Erro ao criar job:', error);
     
-    if (jobId) {
-      recordJobError(jobId, error instanceof Error ? error.message : 'Unknown error');
-    }
-    
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -74,17 +70,17 @@ const processJobInBackground = async (jobId: string, renderRequest: any) => {
     
     // Importar e executar renderização
     const mediaService = await getMediaService();
-    const result = await mediaService.renderVideo(renderRequest);
+    const outputPath = await mediaService.renderVideo(renderRequest);
     
     // Atualizar job com resultado
     updateJob(jobId, {
       status: JobStatus.COMPLETED,
-      result,
+      output: outputPath,
       completedAt: new Date()
     });
     
     // Registrar conclusão
-    recordJobComplete(jobId, true);
+    recordJobComplete(jobId, Date.now());
     
     logger.info(`✅ Job ${jobId} concluído com sucesso`);
     
@@ -99,8 +95,7 @@ const processJobInBackground = async (jobId: string, renderRequest: any) => {
     });
     
     // Registrar erro
-    recordJobError(jobId, error instanceof Error ? error.message : 'Unknown error');
-    recordJobComplete(jobId, false);
+    recordJobComplete(jobId, Date.now());
   }
 };
 
@@ -131,7 +126,7 @@ export const getJobStatus = async (req: Request, res: Response) => {
       status: job.status,
       createdAt: job.createdAt,
       completedAt: job.completedAt,
-      result: job.result,
+      output: job.output,
       error: job.error,
       progress: job.progress
     };
@@ -174,7 +169,7 @@ export const downloadVideo = async (req: Request, res: Response) => {
       });
     }
     
-    if (!job.result?.outputPath) {
+    if (!job.output) {
       return res.status(404).json({
         error: 'Arquivo de saída não encontrado'
       });
@@ -182,7 +177,14 @@ export const downloadVideo = async (req: Request, res: Response) => {
     
     // Importar função de download
     const mediaService = await getMediaService();
-    await mediaService.downloadFile(job.result.outputPath, res);
+    
+    // Verificar se downloadFile existe
+    if (typeof mediaService.downloadFile === 'function') {
+      await mediaService.downloadFile(job.output, res);
+    } else {
+      // Fallback para download simples
+      res.download(job.output);
+    }
     
   } catch (error) {
     logger.error('Erro ao fazer download:', error);

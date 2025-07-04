@@ -5,6 +5,7 @@ import fs from 'fs/promises';
 import { createWriteStream } from 'fs';
 import { Readable } from 'stream';
 import { finished } from 'stream/promises';
+import { v4 as uuidv4 } from 'uuid';
 import { RenderJob, Clip, Track, Timeline, MediaType, AssetSource } from '../types/media';
 import axios from 'axios';
 import { downloadFile, ensureDirectory, cleanupDirectory } from '../utils/file';
@@ -586,15 +587,13 @@ const prepareOutput = (outputPath: string | undefined): string => {
 
 // Render the video from the timeline
 export const renderVideo = async (
-  job: RenderJob, 
-  progressCallback: (progress: number) => void
+  renderRequest: RenderRequest, 
+  progressCallback: (progress: number) => void = () => {}
 ): Promise<string> => {
   try {
-    const { request } = job;
-    const { timeline, output } = request;
+    const { timeline, output } = renderRequest;
     
-    console.log('Iniciando renderização do vídeo para o job:', { 
-      jobId: job.id,
+    console.log('Iniciando renderização do vídeo:', { 
       timelineTracks: timeline?.tracks?.length || 0,
       outputFormat: output?.format
     });
@@ -609,8 +608,9 @@ export const renderVideo = async (
     }
     
     // Usar caminhos absolutos
-    const tempDir = path.join(process.cwd(), 'storage/temp', job.id);
-    const outputDir = path.join(process.cwd(), 'storage/output', job.id);
+    const jobId = uuidv4();
+    const tempDir = path.join(process.cwd(), 'storage/temp', jobId);
+    const outputDir = path.join(process.cwd(), 'storage/output', jobId);
     
     console.log('Diretórios para processamento:', { tempDir, outputDir });
     
@@ -691,7 +691,7 @@ export const renderVideo = async (
                 console.log('✅ VÍDEO VÁLIDO: Todas as configurações estão corretas');
               }
             } catch (error) {
-              console.warn('⚠️  Não foi possível validar o vídeo:', error.message);
+              console.warn('⚠️  Não foi possível validar o vídeo:', error instanceof Error ? error.message : String(error));
             }
           }
           
@@ -885,13 +885,13 @@ export const renderVideo = async (
                 
                 // Gerar nome único para o arquivo no GCS
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                const fileName = `renders/${job.id}/${timestamp}_${path.basename(outputPath)}`;
+                const fileName = `renders/${jobId}/${timestamp}_${path.basename(outputPath)}`;
                 
                 const uploadResult = await storageService.uploadFile(outputPath, {
                   destination: fileName,
                   public: true,
                   metadata: {
-                    jobId: job.id,
+                    jobId: jobId,
                     format: output.format,
                     resolution: output.resolution,
                     quality: output.quality || 'medium',
@@ -934,11 +934,11 @@ export const renderVideo = async (
             }
 
             // Disparar webhook se fornecido
-            if (job.request.webhook) {
-              console.log('🔔 Disparando webhook:', job.request.webhook);
+            if (renderRequest.webhook) {
+              console.log('🔔 Disparando webhook:', renderRequest.webhook);
               try {
                 const webhookPayload = {
-                  jobId: job.id,
+                  jobId: jobId,
                   status: 'completed',
                   outputUrl: finalOutputUrl,
                   metadata: {
@@ -951,7 +951,7 @@ export const renderVideo = async (
                   completedAt: new Date().toISOString()
                 };
 
-                const response = await axios.post(job.request.webhook, webhookPayload, {
+                const response = await axios.post(renderRequest.webhook, webhookPayload, {
                   timeout: 10000, // 10 segundos de timeout
                   headers: {
                     'Content-Type': 'application/json',
@@ -960,15 +960,15 @@ export const renderVideo = async (
                 });
 
                 console.log('✅ Webhook disparado com sucesso:', {
-                  url: job.request.webhook,
+                  url: renderRequest.webhook,
                   status: response.status,
-                  jobId: job.id
+                  jobId: jobId
                 });
               } catch (webhookError) {
                 console.error('❌ Erro ao disparar webhook:', {
-                  url: job.request.webhook,
+                  url: renderRequest.webhook,
                   error: webhookError instanceof Error ? webhookError.message : 'Unknown error',
-                  jobId: job.id
+                  jobId: jobId
                 });
                 // Não falhar o job principal por causa do webhook
               }
@@ -988,17 +988,17 @@ export const renderVideo = async (
             }
 
             // Disparar webhook em caso de erro (se fornecido)
-            if (job.request.webhook) {
-              console.log('🔔 Disparando webhook de erro:', job.request.webhook);
+            if (renderRequest.webhook) {
+              console.log('🔔 Disparando webhook de erro:', renderRequest.webhook);
               try {
                 const webhookPayload = {
-                  jobId: job.id,
+                  jobId: jobId,
                   status: 'failed',
                   error: err.message || 'Unknown error during video processing',
                   failedAt: new Date().toISOString()
                 };
 
-                await axios.post(job.request.webhook, webhookPayload, {
+                await axios.post(renderRequest.webhook, webhookPayload, {
                   timeout: 10000,
                   headers: {
                     'Content-Type': 'application/json',
@@ -1007,14 +1007,14 @@ export const renderVideo = async (
                 });
 
                 console.log('✅ Webhook de erro disparado com sucesso:', {
-                  url: job.request.webhook,
-                  jobId: job.id
+                  url: renderRequest.webhook,
+                  jobId: jobId
                 });
               } catch (webhookError) {
                 console.error('❌ Erro ao disparar webhook de erro:', {
-                  url: job.request.webhook,
+                  url: renderRequest.webhook,
                   error: webhookError instanceof Error ? webhookError.message : 'Unknown error',
-                  jobId: job.id
+                  jobId: jobId
                 });
               }
             }
