@@ -561,6 +561,7 @@ const buildOutputOptions = (
     `-b:v ${output.bitrate || '4000k'}`,  // Aumentar bitrate padrão
     '-movflags +faststart',  // Otimizar para streaming
     '-max_muxing_queue_size 9999',  // Aumentar fila de muxing
+    '-thread_queue_size 4096',  // Aumentar fila de threads
     '-pix_fmt yuv420p'  // Garantir compatibilidade
   );
 
@@ -745,15 +746,6 @@ export const renderVideo = async (
         // CRIAR O COMANDO FFMPEG APENAS UMA VEZ
         let command = ffmpeg();
         
-        // Configurar opções globais do FFmpeg
-        command = command
-          .addOptions([
-            '-hwaccel auto',  // Habilitar aceleração de hardware
-            '-analyzeduration 100M',  // Aumentar tempo de análise
-            '-probesize 100M',  // Aumentar tamanho de probe
-            '-thread_queue_size 4096'  // Aumentar fila de threads
-          ]);
-        
         // Adicionar TODOS os inputs de uma só vez
         console.log('Adicionando inputs ao FFmpeg:', { 
           videoClips: videoClips.length,
@@ -766,18 +758,30 @@ export const renderVideo = async (
           console.log(`Adicionando input de vídeo ${index}:`, path);
           if (videoClips[index].clip.asset.type === 'image') {
             // Para imagens, adicionar com opção de loop
-            command = command.addInput(path).inputOptions(['-loop 1']);
-              } else {
-            command = command.addInput(path);
-            }
-          });
+            command = command.addInput(path).inputOptions([
+              '-loop 1',
+              '-hwaccel auto',  // Habilitar aceleração de hardware
+              '-analyzeduration 100M',  // Aumentar tempo de análise
+              '-probesize 100M'  // Aumentar tamanho de probe
+            ]);
+          } else {
+            command = command.addInput(path).inputOptions([
+              '-hwaccel auto',  // Habilitar aceleração de hardware
+              '-analyzeduration 100M',  // Aumentar tempo de análise
+              '-probesize 100M'  // Aumentar tamanho de probe
+            ]);
+          }
+        });
         
         // 2. Adicionar inputs de áudio
         audioClips.forEach((clipInfo, index) => {
           clipInfo.clip._inputIndex = videoClips.length + index;
           const path = clipInfo.path;
           console.log(`Adicionando input de áudio ${index}:`, path);
-          command = command.addInput(path);
+          command = command.addInput(path).inputOptions([
+            '-analyzeduration 100M',  // Aumentar tempo de análise
+            '-probesize 100M'  // Aumentar tamanho de probe
+          ]);
         });
         
         // Determinar a lógica de processamento baseada nos tipos de clips
