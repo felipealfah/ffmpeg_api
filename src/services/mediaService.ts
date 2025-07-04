@@ -561,7 +561,6 @@ const buildOutputOptions = (
     `-b:v ${output.bitrate || '4000k'}`,  // Aumentar bitrate padrão
     '-movflags +faststart',  // Otimizar para streaming
     '-max_muxing_queue_size 9999',  // Aumentar fila de muxing
-    '-thread_queue_size 4096',  // Aumentar fila de threads
     '-pix_fmt yuv420p'  // Garantir compatibilidade
   );
 
@@ -762,13 +761,15 @@ export const renderVideo = async (
               '-loop 1',
               '-hwaccel auto',  // Habilitar aceleração de hardware
               '-analyzeduration 100M',  // Aumentar tempo de análise
-              '-probesize 100M'  // Aumentar tamanho de probe
+              '-probesize 100M',  // Aumentar tamanho de probe
+              '-thread_queue_size 4096'  // Aumentar fila de threads
             ]);
           } else {
             command = command.addInput(path).inputOptions([
               '-hwaccel auto',  // Habilitar aceleração de hardware
               '-analyzeduration 100M',  // Aumentar tempo de análise
-              '-probesize 100M'  // Aumentar tamanho de probe
+              '-probesize 100M',  // Aumentar tamanho de probe
+              '-thread_queue_size 4096'  // Aumentar fila de threads
             ]);
           }
         });
@@ -780,7 +781,8 @@ export const renderVideo = async (
           console.log(`Adicionando input de áudio ${index}:`, path);
           command = command.addInput(path).inputOptions([
             '-analyzeduration 100M',  // Aumentar tempo de análise
-            '-probesize 100M'  // Aumentar tamanho de probe
+            '-probesize 100M',  // Aumentar tamanho de probe
+            '-thread_queue_size 4096'  // Aumentar fila de threads
           ]);
         });
         
