@@ -182,11 +182,14 @@ const optimizeSequentialClips = (clips: Clip[]): Clip[] => {
 // Função para criar um clip otimizado a partir de um grupo de clips
 const createOptimizedClip = (clips: Clip[]): Clip => {
   const firstClip = clips[0];
-  const totalLength = clips.reduce((sum: number, clip: Clip) => sum + clip.length, 0);
+  const lastClip = clips[clips.length - 1];
+  
+  // Calcular a duração real baseada no start do primeiro clip e o end do último clip
+  const realLength = (lastClip.start + lastClip.length) - firstClip.start;
   
   return {
     ...firstClip,
-    length: totalLength,
+    length: realLength,
     _optimized: true
   };
 };

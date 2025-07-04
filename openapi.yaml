@@ -5,6 +5,64 @@ info:
   description: |
     API para processamento de vídeo usando FFmpeg.
     
+    ## Exemplos de Uso
+    
+    ### 1. Repetir o Mesmo Vídeo
+    Para repetir o mesmo vídeo múltiplas vezes:
+    ```json
+    {
+      "timeline": {
+        "tracks": [
+          {
+            "clips": [
+              {
+                "asset": {
+                  "type": "video",
+                  "source": "url",
+                  "src": "https://example.com/video.mp4"
+                },
+                "start": 0,
+                "length": "auto"
+              },
+              {
+                "asset": {
+                  "type": "video",
+                  "source": "url", 
+                  "src": "https://example.com/video.mp4"
+                },
+                "start": 0,
+                "length": "auto"
+              }
+            ]
+          }
+        ]
+      }
+    }
+    ```
+    
+    ### 2. Usar Partes Sequenciais de um Vídeo
+    Para usar diferentes partes do mesmo vídeo:
+    ```json
+    {
+      "clips": [
+        { "start": 0, "length": 10 },   // Primeiros 10 segundos
+        { "start": 10, "length": 10 },  // Segundos 10-20
+        { "start": 20, "length": 10 }   // Segundos 20-30
+      ]
+    }
+    ```
+    
+    ### 3. Duração Automática
+    Use `"auto"` quando não souber a duração exata:
+    ```json
+    {
+      "clip": {
+        "start": 0,
+        "length": "auto"  // Usa toda a duração disponível
+      }
+    }
+    ```
+    
     ## Áudio de Fundo (Background Audio)
     
     A API suporta tratamento especial para áudios de fundo, que são processados com volume reduzido
@@ -44,6 +102,67 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RenderRequest'
+            examples:
+              repeat_video:
+                summary: Repetir o mesmo vídeo 3 vezes
+                description: Exemplo de como repetir o mesmo vídeo múltiplas vezes
+                value:
+                  timeline:
+                    tracks:
+                      - clips:
+                          - asset:
+                              type: video
+                              source: url
+                              src: "https://drive.google.com/uc?id=1UciduHpndWbuh834ZFgVIiWgo6YVAeWU&export=download"
+                            start: 0
+                            length: "auto"
+                          - asset:
+                              type: video
+                              source: url
+                              src: "https://drive.google.com/uc?id=1UciduHpndWbuh834ZFgVIiWgo6YVAeWU&export=download"
+                            start: 0
+                            length: "auto"
+                          - asset:
+                              type: video
+                              source: url
+                              src: "https://drive.google.com/uc?id=1UciduHpndWbuh834ZFgVIiWgo6YVAeWU&export=download"
+                            start: 0
+                            length: "auto"
+                  output:
+                    format: mp4
+                    resolution: "1280x720"
+                    quality: medium
+                    fps: 30
+              sequential_parts:
+                summary: Usar partes sequenciais de um vídeo
+                description: Exemplo de como usar diferentes partes do mesmo vídeo
+                value:
+                  timeline:
+                    tracks:
+                      - clips:
+                          - asset:
+                              type: video
+                              source: url
+                              src: "https://example.com/video.mp4"
+                            start: 0
+                            length: 10
+                          - asset:
+                              type: video
+                              source: url
+                              src: "https://example.com/video.mp4"
+                            start: 10
+                            length: 10
+                          - asset:
+                              type: video
+                              source: url
+                              src: "https://example.com/video.mp4"
+                            start: 20
+                            length: 10
+                  output:
+                    format: mp4
+                    resolution: "1280x720"
+                    quality: medium
+                    fps: 30
       responses:
         '200':
           description: Job criado com sucesso
@@ -51,6 +170,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobResponse'
+  
+  /api/media/info:
+    get:
+      summary: Obtém informações de um arquivo de mídia
+      description: |
+        Retorna informações detalhadas sobre um arquivo de mídia, incluindo duração,
+        resolução, fps e formato. Útil para saber a duração antes de criar clips.
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+          description: URL do arquivo de mídia
+      responses:
+        '200':
+          description: Informações da mídia obtidas com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaInfo'
+        '400':
+          description: URL inválida ou arquivo não encontrado
+        '500':
+          description: Erro interno do servidor
 
 components:
   schemas:
@@ -123,8 +268,12 @@ components:
           type: number
           description: Tempo de início em segundos
         length:
-          type: number
-          description: Duração em segundos
+          oneOf:
+            - type: number
+              description: Duração em segundos
+            - type: string
+              enum: ["auto"]
+              description: Usa toda a duração disponível do vídeo
 
     Track:
       type: object
@@ -194,4 +343,35 @@ components:
         output:
           type: string
         error:
-          type: string 
+          type: string
+    
+    MediaInfo:
+      type: object
+      properties:
+        duration:
+          type: number
+          description: Duração em segundos
+        width:
+          type: number
+          description: Largura em pixels
+        height:
+          type: number
+          description: Altura em pixels
+        fps:
+          type: number
+          description: Frames por segundo
+        format:
+          type: string
+          description: Formato do arquivo (mp4, mov, etc.)
+        bitrate:
+          type: number
+          description: Bitrate em bits por segundo
+        size:
+          type: number
+          description: Tamanho do arquivo em bytes
+        hasAudio:
+          type: boolean
+          description: Se o arquivo contém áudio
+        hasVideo:
+          type: boolean
+          description: Se o arquivo contém vídeo 
