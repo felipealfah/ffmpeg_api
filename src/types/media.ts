@@ -12,6 +12,20 @@ export enum AssetSource {
   LOCAL = 'local'
 }
 
+export enum JobStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed'
+}
+
+export enum OutputFormat {
+  MP4 = 'mp4',
+  GIF = 'gif',
+  MOV = 'mov',
+  WEBM = 'webm'
+}
+
 // Interface base para todos os assets
 interface BaseAsset {
   type: MediaType;
@@ -79,6 +93,7 @@ export interface Clip {
   start: number;
   length: number;
   _optimized?: boolean;
+  _inputIndex?: number;
 }
 
 export interface Track {
@@ -87,10 +102,11 @@ export interface Track {
 
 export interface Timeline {
   tracks: Track[];
+  duration?: number;
 }
 
 export interface RenderOutput {
-  format: string;
+  format: OutputFormat;
   resolution?: string;
   quality?: 'low' | 'medium' | 'high';
   fps?: number;
@@ -105,11 +121,16 @@ export interface RenderRequest {
 
 export interface RenderJob {
   id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: JobStatus;
   request: RenderRequest;
   error?: string;
   progress?: number;
   output?: string;
+  storage?: {
+    tempDir: string;
+    outputDir: string;
+  };
   createdAt: Date;
   updatedAt: Date;
+  completedAt?: Date;
 } 

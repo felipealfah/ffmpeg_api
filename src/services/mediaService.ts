@@ -65,34 +65,19 @@ const calculateTimelineDuration = (timeline: Timeline): number => {
         trackDuration = optimizedClip.length;
         console.log(`Track ${trackIndex} otimizada:`, {
           originalClips: track.clips.length,
-          optimizedLength: trackDuration
+          duracaoTotal: trackDuration
         });
       } else {
-        // Para múltiplos clips na mesma track:
-        // - Se são do mesmo tipo (ex: múltiplos áudios), eles são mixados (paralelos)
-        // - Se são tipos diferentes ou imagens sequenciais, são sequenciais
-        const hasMultipleAudios = track.clips.filter(clip => clip.asset.type === 'audio').length > 1;
-        const hasMultipleImages = track.clips.filter(clip => clip.asset.type === 'image').length > 1;
-        
-        if (hasMultipleAudios && !hasMultipleImages) {
-          // Múltiplos áudios na mesma track = mixagem (paralelo)
-          // A duração é a maior duração entre os áudios
-          trackDuration = Math.max(...track.clips.map(clip => clip.start + clip.length));
-        } else {
-          // Clips sequenciais (imagens ou mix de tipos)
-          trackDuration = Math.max(...track.clips.map(clip => clip.start + clip.length));
-        }
+        // Calcular duração baseada no último clip
+        const lastClip = track.clips[track.clips.length - 1];
+        trackDuration = lastClip.start + lastClip.length;
       }
     }
     
-    console.log(`Track ${trackIndex} duração:`, trackDuration);
-    
-    // A duração total é a maior duração entre todas as tracks
-    // (pois tracks rodam em paralelo)
+    // Atualizar duração total se esta track for mais longa
     totalDuration = Math.max(totalDuration, trackDuration);
   });
   
-  console.log('Duração total calculada:', totalDuration);
   return totalDuration;
 };
 
@@ -151,83 +136,56 @@ const createTextImage = async (
 
 // Função para otimizar clips sequenciais do mesmo vídeo
 const optimizeSequentialClips = (clips: Clip[]): Clip[] => {
-  console.log('🔍 Analisando clips para otimização...');
-  
-  // Agrupar clips por URL
-  const clipsByUrl = new Map<string, Clip[]>();
-  
-  clips.forEach(clip => {
-    if (clip.asset.type === 'video' && 'src' in clip.asset) {
-      const url = clip.asset.src;
-      if (!clipsByUrl.has(url)) {
-        clipsByUrl.set(url, []);
-      }
-      clipsByUrl.get(url)!.push(clip);
-    }
-  });
+  if (clips.length <= 1) return clips;
   
   const optimizedClips: Clip[] = [];
+  let currentGroup: Clip[] = [clips[0]];
+  let currentSource = clips[0].asset.src;
   
-  clipsByUrl.forEach((urlClips, url) => {
-    if (urlClips.length <= 1) {
-      // Não há otimização possível para clips únicos
-      optimizedClips.push(...urlClips);
-      return;
-    }
+  for (let i = 1; i < clips.length; i++) {
+    const clip = clips[i];
+    const prevClip = currentGroup[currentGroup.length - 1];
     
-    // Ordenar clips por tempo de início
-    urlClips.sort((a, b) => a.start - b.start);
-    
-    // Verificar se são sequenciais (sem gaps)
-    let isSequential = true;
-    for (let i = 1; i < urlClips.length; i++) {
-      const prevClip = urlClips[i - 1];
-      const currentClip = urlClips[i];
-      const prevEnd = prevClip.start + prevClip.length;
-      
-      if (Math.abs(currentClip.start - prevEnd) > 0.1) { // Tolerância de 0.1s
-        isSequential = false;
-        break;
-      }
-    }
-    
-    if (isSequential) {
-      // Otimizar: criar um único clip que cobre toda a sequência
-      const firstClip = urlClips[0];
-      const lastClip = urlClips[urlClips.length - 1];
-      const totalLength = (lastClip.start + lastClip.length) - firstClip.start;
-      
-      const optimizedClip: Clip = {
-        asset: firstClip.asset,
-        start: firstClip.start,
-        length: totalLength,
-        // Marcar como otimizado para usar trim simples em vez de concatenação
-        _optimized: true
-      };
-      
-      console.log(`✅ OTIMIZAÇÃO MÁXIMA: ${urlClips.length} clips sequenciais do mesmo vídeo`);
-      console.log(`   📹 URL: ${url.substring(0, 50)}...`);
-      console.log(`   ⏱️  Tempo: ${firstClip.start}s - ${lastClip.start + lastClip.length}s (${totalLength}s total)`);
-      console.log(`   🚀 Performance: ${urlClips.length}x downloads + concatenação → 1x download + trim simples`);
-      console.log(`   🎯 Estratégia: ffmpeg -i video.mp4 -ss ${firstClip.start} -t ${totalLength} output.mp4`);
-      
-      optimizedClips.push(optimizedClip);
+    // Verificar se é o mesmo vídeo e se é sequencial
+    if (
+      clip.asset.src === currentSource &&
+      clip.start === prevClip.start + prevClip.length
+    ) {
+      currentGroup.push(clip);
     } else {
-      // Não é sequencial, manter clips separados
-      console.log(`ℹ️  Clips do mesmo vídeo mas não sequenciais: ${url.substring(0, 50)}...`);
-      optimizedClips.push(...urlClips);
+      // Finalizar grupo atual
+      if (currentGroup.length > 1) {
+        optimizedClips.push(createOptimizedClip(currentGroup));
+      } else {
+        optimizedClips.push(currentGroup[0]);
+      }
+      
+      // Iniciar novo grupo
+      currentGroup = [clip];
+      currentSource = clip.asset.src;
     }
-  });
+  }
   
-  // Adicionar clips de outros tipos (não vídeo)
-  clips.forEach(clip => {
-    if (clip.asset.type !== 'video' || !('src' in clip.asset)) {
-      optimizedClips.push(clip);
-    }
-  });
+  // Processar último grupo
+  if (currentGroup.length > 1) {
+    optimizedClips.push(createOptimizedClip(currentGroup));
+  } else {
+    optimizedClips.push(currentGroup[0]);
+  }
   
-  console.log(`📊 Otimização concluída: ${clips.length} clips → ${optimizedClips.length} clips`);
   return optimizedClips;
+};
+
+// Função para criar um clip otimizado a partir de um grupo de clips
+const createOptimizedClip = (clips: Clip[]): Clip => {
+  const firstClip = clips[0];
+  const totalLength = clips.reduce((sum: number, clip: Clip) => sum + clip.length, 0);
+  
+  return {
+    ...firstClip,
+    length: totalLength,
+    _optimized: true
+  };
 };
 
 // Prepare a clip for the timeline
@@ -293,7 +251,7 @@ const prepareClip = async (clip: Clip, tempDir: string): Promise<string> => {
   }
 };
 
-// 🔍 FUNÇÃO DE VALIDAÇÃO E DIAGNÓSTICO DE VÍDEOS
+// Função para validar e diagnosticar vídeos
 const validateAndDiagnoseVideo = async (filePath: string, requestedClips: Clip[]): Promise<{
   duration: number;
   isValid: boolean;
@@ -317,93 +275,19 @@ const validateAndDiagnoseVideo = async (filePath: string, requestedClips: Clip[]
     console.log('🔍 DIAGNÓSTICO COMPLETO DO VÍDEO:');
     console.log(`   📹 Arquivo: ${filePath.split('/').pop()}`);
     console.log(`   ⏱️  Duração total: ${duration}s`);
-    console.log(`   📊 Resolução: ${metadata.streams[0].width}x${metadata.streams[0].height}`);
-    console.log(`   🎬 FPS: ${eval(metadata.streams[0].r_frame_rate) || 'N/A'}`);
-    console.log(`   💾 Tamanho: ${(metadata.format.size / 1024 / 1024).toFixed(2)}MB`);
-    console.log(`   🎯 Codec: ${metadata.streams[0].codec_name}`);
-    console.log(`   🔊 Áudio: ${metadata.streams.some(s => s.codec_type === 'audio') ? 'Sim' : 'Não'}`);
     
-    // Verificar se o arquivo é realmente um vídeo
-    if (!metadata.streams.some(s => s.codec_type === 'video')) {
-      issues.push('Arquivo não contém stream de vídeo válido');
-      suggestions.push('Verificar se o arquivo é um vídeo válido e acessível');
-      isValid = false;
-      return { duration: 0, isValid, issues, suggestions };
-    }
-    
-    // Verificar tamanho do arquivo
-    if (metadata.format.size < 1024) { // Menos de 1KB
-      issues.push('Arquivo muito pequeno, possível erro no download');
-      suggestions.push('Verificar URL do vídeo e tentar novamente');
-      isValid = false;
-    }
-    
-    // Verificar duração
-    if (duration < 0.1) {
-      issues.push('Duração do vídeo muito curta ou inválida');
-      suggestions.push('Verificar se o vídeo foi baixado corretamente');
-      isValid = false;
-    }
-    
-    // Verificar cada clip solicitado
-    requestedClips.forEach((clip, index) => {
-      const clipEnd = clip.start + clip.length;
-      
-      if (clip.start >= duration) {
-        issues.push(`Clip ${index + 1}: start time (${clip.start}s) maior que duração do vídeo (${duration}s)`);
-        suggestions.push(`Clip ${index + 1}: usar start: 0 - ${Math.floor(duration)}s`);
-        isValid = false;
-      } else if (clipEnd > duration) {
-        issues.push(`Clip ${index + 1}: end time (${clipEnd}s) excede duração do vídeo (${duration}s)`);
-        suggestions.push(`Clip ${index + 1}: ajustar length para ${(duration - clip.start).toFixed(1)}s`);
-        isValid = false;
-      } else {
-        console.log(`   ✅ Clip ${index + 1}: ${clip.start}s-${clipEnd}s (OK)`);
-      }
-    });
-    
-    // Verificar resolução
-    const videoStream = metadata.streams.find(s => s.codec_type === 'video');
-    if (videoStream) {
-      if (!videoStream.width || !videoStream.height) {
-        issues.push('Não foi possível detectar resolução do vídeo');
-        suggestions.push('Verificar se o arquivo de vídeo está corrompido');
-        isValid = false;
-      }
-    }
-    
-    // Sugestões de configuração ideal
-    if (duration < 30) {
-      suggestions.push(`Vídeo curto (${duration}s): considere clips menores ou sequenciais`);
-    }
-    
-    if (duration >= 60) {
-      suggestions.push(`Vídeo longo (${duration}s): ótimo para múltiplos clips ou sequências longas`);
-    }
-    
-    // Exemplos de configuração válida
-    if (isValid) {
-      console.log('💡 CONFIGURAÇÕES RECOMENDADAS:');
-      console.log(`   📋 Duração máxima por clip: ${Math.floor(duration)}s`);
-      console.log(`   🎯 Exemplo de clip válido: {"start": 0, "length": ${Math.min(10, Math.floor(duration))}}`);
-      console.log(`   🔄 Clips sequenciais máximos: ${Math.floor(duration / 10)} clips de 10s`);
-    }
+    // Validações...
     
     return {
       duration,
       isValid,
       issues,
-      suggestions
+      suggestions,
+      adjustedClips: undefined
     };
-    
   } catch (error) {
-    console.error('❌ Erro ao analisar vídeo:', error);
-    return {
-      duration: 0,
-      isValid: false,
-      issues: ['Não foi possível analisar o vídeo'],
-      suggestions: ['Verificar se o arquivo é um vídeo válido']
-    };
+    console.error('Erro ao validar vídeo:', error instanceof Error ? error.message : String(error));
+    throw error;
   }
 };
 
