@@ -662,20 +662,12 @@ export const renderVideo = async (
       for (const track of timeline.tracks) {
         const clipInfo = [];
         
-        // 🚀 APLICAR OTIMIZAÇÃO SEQUENCIAL ANTES DO PREPARO
-        console.log('🔍 Verificando otimizações sequenciais...');
-        const optimizedClips = optimizeSequentialClips(track.clips);
-        
-        if (optimizedClips.length !== track.clips.length) {
-          console.log(`✅ OTIMIZAÇÃO APLICADA! ${track.clips.length} clips → ${optimizedClips.length} clips`);
-        }
-        
-        for (const clip of optimizedClips) {
+        // Primeiro, preparar todos os clips e resolver length "auto"
+        for (const clip of track.clips) {
           console.log('Preparando clip:', { 
             type: clip.asset.type, 
             start: clip.start, 
-            length: clip.length,
-            optimized: clip._optimized || false
+            length: clip.length
           });
           
           const localPath = await prepareClip(clip, tempDir);
@@ -737,7 +729,30 @@ export const renderVideo = async (
           clipInfo.push({ path: localPath, clip });
         }
         
-        preparedClips.push({ track, clipInfo });
+        // 🚀 APLICAR OTIMIZAÇÃO SEQUENCIAL DEPOIS DE RESOLVER length "auto"
+        console.log('🔍 Verificando otimizações sequenciais...');
+        const optimizedClips = optimizeSequentialClips(track.clips);
+        
+        if (optimizedClips.length !== track.clips.length) {
+          console.log(`✅ OTIMIZAÇÃO APLICADA! ${track.clips.length} clips → ${optimizedClips.length} clips`);
+          
+          // Atualizar clipInfo com clips otimizados
+          const optimizedClipInfo = [];
+          for (const optimizedClip of optimizedClips) {
+            // Encontrar o clipInfo correspondente ao primeiro clip do grupo otimizado
+            const originalClipInfo = clipInfo.find(ci => ci.clip.asset === optimizedClip.asset);
+            if (originalClipInfo) {
+              optimizedClipInfo.push({ 
+                path: originalClipInfo.path, 
+                clip: optimizedClip 
+              });
+            }
+          }
+          
+          preparedClips.push({ track, clipInfo: optimizedClipInfo });
+        } else {
+          preparedClips.push({ track, clipInfo });
+        }
       }
       
       console.log('Clips preparados com sucesso:', { 
