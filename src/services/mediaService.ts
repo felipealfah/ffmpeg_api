@@ -227,8 +227,8 @@ const createSubtitleFilter = (subtitleClip: any): string => {
   return `subtitles='${escapedPath}':charenc=UTF-8:force_style='${escapedStyle}'`;
 };
 
-// Helper function to create complex filter for multiple images
-const createComplexFilterForImages = (
+// Helper function to create complex filter for multiple media clips
+const createComplexFilterForMedia = (
   videoClips: any[], 
   audioClips: any[], 
   subtitleClips: any[], 
@@ -236,11 +236,24 @@ const createComplexFilterForImages = (
 ): string => {
   const filterParts: string[] = [];
   
+  // Verificar se são imagens ou vídeos
+  const hasImages = videoClips.some(({clip}) => clip.asset.type === 'image');
+  const hasVideos = videoClips.some(({clip}) => clip.asset.type === 'video');
+  
+  console.log('🎬 Tipo de mídia detectado:', { hasImages, hasVideos });
+  
   // Create filter parts for each video clip
   videoClips.forEach((_, index) => {
     const clip = videoClips[index].clip;
     const duration = clip.length || 5; // Default 5 seconds se não especificado
-    filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.resolution || '1280x720'},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
+    
+    if (clip.asset.type === 'image') {
+      // Para imagens: usar loop e configurar duração
+      filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.resolution || '1280x720'},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
+    } else {
+      // Para vídeos: apenas escalar e ajustar fps
+      filterParts.push(`[${index}:v]scale=${output.resolution || '1280x720'},fps=${output.fps || 30}[v${index}]`);
+    }
   });
   
   // Create concatenation filter with specific durations
@@ -248,7 +261,15 @@ const createComplexFilterForImages = (
   videoClips.forEach((_, index) => {
     const clip = videoClips[index].clip;
     const duration = clip.length || 5; // Default 5 seconds se não especificado
-    concatFilter += `[v${index}]trim=duration=${duration}[v${index}t];`;
+    
+    if (clip.asset.type === 'image') {
+      concatFilter += `[v${index}]trim=duration=${duration}[v${index}t];`;
+    } else {
+      // Para vídeos: usar trim start e end baseado no tempo
+      const startTime = clip.start || 0;
+      const endTime = startTime + duration;
+      concatFilter += `[v${index}]trim=start=${startTime}:end=${endTime}[v${index}t];`;
+    }
   });
   
   // Concatenate all segments
@@ -260,7 +281,7 @@ const createComplexFilterForImages = (
     const subtitleFilter = createSubtitleFilter(subtitleClips[0]);
     concatFilter += `;[video_concat]${subtitleFilter}[outv]`;
   } else {
-    concatFilter += `;[video_concat]null[outv]`;
+    concatFilter += `;[video_concat]copy[outv]`;
   }
   
   const finalFilter = filterParts.join(';') + ';' + concatFilter;
@@ -461,18 +482,23 @@ export const renderVideo = async (
             command = command.videoFilters(subtitleFilter);
           }
           
-        } else if (videoClips.length > 1 && videoClips.every(({ clip }) => clip.asset.type === 'image')) {
-          // Caso complexo: múltiplas imagens
-          console.log('Processando caso complexo: múltiplas imagens');
-          const complexFilter = createComplexFilterForImages(videoClips, audioClips, subtitleClips, output);
+        } else if (videoClips.length > 1) {
+          // Caso complexo: múltiplas imagens ou vídeos
+          console.log('Processando caso complexo: múltiplos clips');
+          const complexFilter = createComplexFilterForMedia(videoClips, audioClips, subtitleClips, output);
           console.log('Filtro complexo criado:', complexFilter);
           command = command.complexFilter(complexFilter);
           
         } else {
-          // Caso fallback: múltiplas imagens ou vídeos
-          console.log('Processando caso fallback');
-          // Para casos mais complexos, pode ser necessário lógica adicional
+          // Caso fallback: apenas um clip
+          console.log('Processando caso fallback: um clip');
+          // Para casos mais simples, pode ser necessário lógica adicional
         }
+        
+        // Configurar opções de saída
+        const outputOptions = buildOutputOptions(videoClips, audioClips, subtitleClips, output, timelineDuration);
+        console.log('Opções de saída:', outputOptions);
+        command = command.outputOptions(outputOptions);
         
         // Configurar filtro de mixagem de áudio se necessário
         if (audioClips.length > 1) {
@@ -486,11 +512,6 @@ export const renderVideo = async (
             command = command.complexFilter(mixFilter);
           }
         }
-        
-        // Configurar opções de saída
-        const outputOptions = buildOutputOptions(videoClips, audioClips, subtitleClips, output, timelineDuration);
-        console.log('Opções de saída:', outputOptions);
-          command = command.outputOptions(outputOptions);
         
         // Set output format specific options
         if (output.format === 'hls') {
