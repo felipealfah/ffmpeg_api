@@ -114,7 +114,7 @@ export const getRenderJobStatus = asyncHandler(async (req: Request, res: Respons
 export const getRenderJobResult = async (req: Request, res: Response) => {
   const { jobId } = req.params;
   
-  const job = await queueService.getRenderJob(jobId);
+  const job = await queueService.getJob(jobId);
   
   if (!job) {
     throw new AppError(`Job com ID ${jobId} não encontrado`, 404);
@@ -143,7 +143,7 @@ export const getRenderJobResult = async (req: Request, res: Response) => {
 export const getRenderJobFile = async (req: Request, res: Response) => {
   const { jobId } = req.params;
   
-  const job = await queueService.getRenderJob(jobId);
+  const job = await queueService.getJob(jobId);
   
   if (!job) {
     throw new AppError(`Job com ID ${jobId} não encontrado`, 404);

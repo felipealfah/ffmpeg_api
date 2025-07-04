@@ -369,13 +369,13 @@ export const recordJobStart = (jobId: string) => {
 /**
  * Registra fim de job
  */
-export const recordJobComplete = (jobId: string, status: 'completed' | 'failed', durationMs: number) => {
+export const recordJobComplete = (jobId: string, durationMs: number) => {
   const durationSeconds = durationMs / 1000;
   
-  ffmpegJobsTotal.inc({ status, complexity: 'unknown' });
-  ffmpegJobDuration.observe({ complexity: 'unknown', status }, durationSeconds);
+  ffmpegJobsTotal.inc({ status: 'completed', complexity: 'unknown' });
+  ffmpegJobDuration.observe({ complexity: 'unknown', status: 'completed' }, durationSeconds);
   
-  console.log(`📊 Metrics: Job ${jobId} ${status} in ${durationSeconds}s`);
+  console.log(`📊 Metrics: Job ${jobId} completed in ${durationSeconds}s`);
 };
 
 /**
