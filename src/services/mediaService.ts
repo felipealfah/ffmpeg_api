@@ -284,6 +284,84 @@ const prepareClip = async (clip: Clip, tempDir: string): Promise<string> => {
   }
 };
 
+// 🔍 FUNÇÃO DE VALIDAÇÃO E DIAGNÓSTICO DE VÍDEOS
+const validateAndDiagnoseVideo = async (filePath: string, requestedClips: Clip[]): Promise<{
+  duration: number;
+  isValid: boolean;
+  issues: string[];
+  suggestions: string[];
+  adjustedClips?: Clip[];
+}> => {
+  try {
+    const metadata = await new Promise<any>((resolve, reject) => {
+      ffmpeg.ffprobe(filePath, (err, metadata) => {
+        if (err) reject(err);
+        else resolve(metadata);
+      });
+    });
+    
+    const duration = metadata.format.duration;
+    const issues: string[] = [];
+    const suggestions: string[] = [];
+    let isValid = true;
+    
+    console.log('🔍 DIAGNÓSTICO COMPLETO DO VÍDEO:');
+    console.log(`   📹 Arquivo: ${filePath.split('/').pop()}`);
+    console.log(`   ⏱️  Duração total: ${duration}s`);
+    console.log(`   📊 Resolução: ${metadata.streams[0].width}x${metadata.streams[0].height}`);
+    console.log(`   🎬 FPS: ${eval(metadata.streams[0].r_frame_rate) || 'N/A'}`);
+    console.log(`   💾 Tamanho: ${(metadata.format.size / 1024 / 1024).toFixed(2)}MB`);
+    
+    // Verificar cada clip solicitado
+    requestedClips.forEach((clip, index) => {
+      const clipEnd = clip.start + clip.length;
+      
+      if (clip.start >= duration) {
+        issues.push(`Clip ${index + 1}: start time (${clip.start}s) maior que duração do vídeo (${duration}s)`);
+        suggestions.push(`Clip ${index + 1}: usar start: 0 - ${Math.floor(duration)}s`);
+        isValid = false;
+      } else if (clipEnd > duration) {
+        issues.push(`Clip ${index + 1}: end time (${clipEnd}s) excede duração do vídeo (${duration}s)`);
+        suggestions.push(`Clip ${index + 1}: ajustar length para ${(duration - clip.start).toFixed(1)}s`);
+        isValid = false;
+      } else {
+        console.log(`   ✅ Clip ${index + 1}: ${clip.start}s-${clipEnd}s (OK)`);
+      }
+    });
+    
+    // Sugestões de configuração ideal
+    if (duration < 30) {
+      suggestions.push(`Vídeo curto (${duration}s): considere clips menores ou sequenciais`);
+    }
+    
+    if (duration >= 60) {
+      suggestions.push(`Vídeo longo (${duration}s): ótimo para múltiplos clips ou sequências longas`);
+    }
+    
+    // Exemplos de configuração válida
+    console.log('💡 CONFIGURAÇÕES RECOMENDADAS:');
+    console.log(`   📋 Duração máxima por clip: ${Math.floor(duration)}s`);
+    console.log(`   🎯 Exemplo de clip válido: {"start": 0, "length": ${Math.min(10, Math.floor(duration))}}`);
+    console.log(`   🔄 Clips sequenciais máximos: ${Math.floor(duration / 10)} clips de 10s`);
+    
+    return {
+      duration,
+      isValid,
+      issues,
+      suggestions
+    };
+    
+  } catch (error) {
+    console.error('❌ Erro ao analisar vídeo:', error);
+    return {
+      duration: 0,
+      isValid: false,
+      issues: ['Não foi possível analisar o vídeo'],
+      suggestions: ['Verificar se o arquivo é um vídeo válido']
+    };
+  }
+};
+
 // Helper function to create subtitle filter
 const createSubtitleFilter = (subtitleClip: any): string => {
   const { clip, path } = subtitleClip;
@@ -385,6 +463,109 @@ const createComplexFilterForMedia = (
   return finalFilter;
 };
 
+// Helper function to detect if audio filename suggests it's background music
+const isBackgroundAudio = (audioSrc: string): boolean => {
+  const bgKeywords = ['background', 'bg', 'fundo', 'ambient'];
+  const filename = audioSrc.toLowerCase().split('/').pop() || '';
+  return bgKeywords.some(keyword => filename.includes(keyword));
+};
+
+// Helper function to process audio clips and match video duration
+const processAudioClips = (audioClips: any[], videoDuration: number): string => {
+  const filterParts: string[] = [];
+  
+  console.log('🎵 Processando clips de áudio:', {
+    numClips: audioClips.length,
+    videoDuration
+  });
+  
+  // Separar áudios de fundo dos principais
+  const backgroundClips = audioClips.filter(({clip}) => 
+    clip.asset.src && isBackgroundAudio(clip.asset.src)
+  );
+  const mainClips = audioClips.filter(({clip}) => 
+    !clip.asset.src || !isBackgroundAudio(clip.asset.src)
+  );
+  
+  console.log('🎵 Classificação de áudios:', {
+    total: audioClips.length,
+    background: backgroundClips.length,
+    main: mainClips.length
+  });
+  
+  // Processar áudios de fundo primeiro
+  backgroundClips.forEach(({clip}, index) => {
+    const inputLabel = `[${clip._inputIndex}:a]`;
+    const bgIndex = `bg${index}`;
+    
+    // Normalizar e ajustar volume do áudio de fundo (mais baixo)
+    filterParts.push(`${inputLabel}aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[norm${bgIndex}];`);
+    filterParts.push(`[norm${bgIndex}]volume=0.3[vol${bgIndex}];`); // Volume 30% para background
+    
+    // Aplicar delay se especificado
+    if (clip.start > 0) {
+      filterParts.push(`[vol${bgIndex}]adelay=${clip.start * 1000}|${clip.start * 1000}[delay${bgIndex}];`);
+    }
+    
+    // Garantir que cobre toda a duração com loop se necessário
+    filterParts.push(`[${clip.start > 0 ? 'delay' : 'vol'}${bgIndex}]aloop=loop=-1:size=2s:start=0[loop${bgIndex}];`);
+    filterParts.push(`[loop${bgIndex}]apad=whole_dur=${videoDuration}[pad${bgIndex}];`);
+  });
+  
+  // Processar áudios principais
+  mainClips.forEach(({clip}, index) => {
+    const inputLabel = `[${clip._inputIndex}:a]`;
+    const mainIndex = `main${index}`;
+    
+    // Normalizar e manter volume do áudio principal mais alto
+    filterParts.push(`${inputLabel}aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[norm${mainIndex}];`);
+    filterParts.push(`[norm${mainIndex}]volume=0.8[vol${mainIndex}];`); // Volume 80% para áudio principal
+    
+    // Aplicar delay se especificado
+    if (clip.start > 0) {
+      filterParts.push(`[vol${mainIndex}]adelay=${clip.start * 1000}|${clip.start * 1000}[delay${mainIndex}];`);
+    }
+    
+    // Garantir duração adequada
+    filterParts.push(`[${clip.start > 0 ? 'delay' : 'vol'}${mainIndex}]apad=whole_dur=${videoDuration}[pad${mainIndex}];`);
+  });
+  
+  // Mixar áudios de fundo primeiro (se houver)
+  if (backgroundClips.length > 0) {
+    const bgInputs = backgroundClips.map((_, i) => `[pad${'bg' + i}]`).join('');
+    if (backgroundClips.length > 1) {
+      filterParts.push(`${bgInputs}amix=inputs=${backgroundClips.length}:duration=first:dropout_transition=3[bgmix];`);
+    } else {
+      filterParts.push(`${bgInputs}acopy[bgmix];`);
+    }
+  }
+  
+  // Mixar áudios principais (se houver)
+  if (mainClips.length > 0) {
+    const mainInputs = mainClips.map((_, i) => `[pad${'main' + i}]`).join('');
+    if (mainClips.length > 1) {
+      filterParts.push(`${mainInputs}amix=inputs=${mainClips.length}:duration=first:dropout_transition=3[mainmix];`);
+    } else {
+      filterParts.push(`${mainInputs}acopy[mainmix];`);
+    }
+  }
+  
+  // Mix final entre background e principais
+  if (backgroundClips.length > 0 && mainClips.length > 0) {
+    // Mixar background com principais com volumes balanceados
+    filterParts.push('[bgmix][mainmix]amix=inputs=2:duration=first:weights=0.3 0.7[aout]');
+  } else if (backgroundClips.length > 0) {
+    filterParts.push('[bgmix]acopy[aout]');
+  } else if (mainClips.length > 0) {
+    filterParts.push('[mainmix]acopy[aout]');
+  }
+  
+  const finalFilter = filterParts.join('');
+  console.log('🔧 Filtro de áudio gerado:', finalFilter);
+  
+  return finalFilter;
+};
+
 // Helper function to build output options
 const buildOutputOptions = (
   videoClips: any[], 
@@ -409,7 +590,8 @@ const buildOutputOptions = (
     // Mapear streams diretamente
     outputOptions.push('-map 0:v');
     
-    if (audioClips.length > 1) {
+    // Se temos áudios, usar o áudio processado
+    if (audioClips.length > 0) {
       outputOptions.push('-map [aout]');
     } else {
       outputOptions.push('-map 0:a');
@@ -420,24 +602,22 @@ const buildOutputOptions = (
     outputOptions.push(`-t ${timelineDuration}`);
     outputOptions.push(`-r ${output.fps || 30}`);
     
-    if (audioClips.length > 1) {
+    if (audioClips.length > 0) {
       outputOptions.push('-map 0:v', '-map [aout]');
     }
   } else if (videoClips.length > 1) {
     // Complex case: multiple clips with complex filter
     outputOptions.push('-map [outv]');
     
-    // Verificar se há vídeos com áudio para mapear
-    const hasVideoAudio = videoClips.some(({clip}) => clip.asset.type === 'video');
-    
-    if (audioClips.length > 1) {
+    // Se temos áudios, usar o áudio processado
+    if (audioClips.length > 0) {
       outputOptions.push('-map [aout]');
-    } else if (audioClips.length === 1) {
-      const audioIndex = videoClips.length;
-      outputOptions.push(`-map ${audioIndex}:a`);
-    } else if (hasVideoAudio) {
-      // Mapear áudio concatenado dos vídeos
-      outputOptions.push('-map [audio_concat]');
+    } else {
+      // Verificar se há vídeos com áudio para mapear
+      const hasVideoAudio = videoClips.some(({clip}) => clip.asset.type === 'video');
+      if (hasVideoAudio) {
+        outputOptions.push('-map [audio_concat]');
+      }
     }
   }
   
@@ -448,11 +628,13 @@ const buildOutputOptions = (
     `-b:v ${output.bitrate || '2000k'}`
   );
   
-  // Verificar se há qualquer tipo de áudio (clips de áudio ou vídeos com áudio)
-  const hasAnyAudio = audioClips.length > 0 || videoClips.some(({clip}) => clip.asset.type === 'video');
-  
-  if (hasAnyAudio) {
-    outputOptions.push('-c:a aac', '-b:a 128k');
+  // Configurações de áudio
+  if (audioClips.length > 0 || videoClips.some(({clip}) => clip.asset.type === 'video')) {
+    outputOptions.push(
+      '-c:a aac',
+      '-b:a 128k',
+      '-ar 44100'  // Garantir sample rate consistente
+    );
   }
   
   return outputOptions;
@@ -525,35 +707,47 @@ export const renderVideo = async (
           const localPath = await prepareClip(clip, tempDir);
           console.log('Clip preparado:', { localPath });
           
-          // 🔍 VERIFICAR DURAÇÃO DO VÍDEO ORIGINAL
+          // 🔍 VALIDAÇÃO E DIAGNÓSTICO COMPLETO DO VÍDEO
           if (clip.asset.type === 'video') {
             try {
-              const metadata = await new Promise<any>((resolve, reject) => {
-                ffmpeg.ffprobe(localPath, (err, metadata) => {
-                  if (err) reject(err);
-                  else resolve(metadata);
+              // Usar a função de diagnóstico completo
+              const diagnosis = await validateAndDiagnoseVideo(localPath, [clip]);
+              
+              if (!diagnosis.isValid) {
+                console.log('🚨 PROBLEMAS DETECTADOS:');
+                diagnosis.issues.forEach((issue, index) => {
+                  console.log(`   ${index + 1}. ${issue}`);
                 });
-              });
-              
-              const duration = metadata.format.duration;
-              
-              console.log('📊 DURAÇÃO DO VÍDEO ORIGINAL:', {
-                localPath: localPath.split('/').pop(),
-                duration: `${duration}s`,
-                clipStart: clip.start,
-                clipLength: clip.length,
-                clipEnd: clip.start + clip.length,
-                optimized: clip._optimized || false
-              });
-              
-              if (duration < (clip.start + clip.length)) {
-                console.log('🚨 PROBLEMA DETECTADO: Vídeo original é menor que o clip solicitado!');
-                console.log(`   📹 Duração original: ${duration}s`);
-                console.log(`   ⏱️  Clip solicitado: ${clip.start}s - ${clip.start + clip.length}s`);
-                console.log(`   ❌ Faltam: ${(clip.start + clip.length) - duration}s`);
+                
+                console.log('💡 SUGESTÕES:');
+                diagnosis.suggestions.forEach((suggestion, index) => {
+                  console.log(`   ${index + 1}. ${suggestion}`);
+                });
+                
+                // 🔧 AUTO-AJUSTE INTELIGENTE
+                const availableDuration = Math.max(0, diagnosis.duration - clip.start);
+                
+                if (availableDuration > 0) {
+                  const originalLength = clip.length;
+                  clip.length = Math.min(clip.length, availableDuration);
+                  
+                  console.log('🔧 AUTO-AJUSTE APLICADO:');
+                  console.log(`   ✂️  Clip ajustado: ${clip.start}s - ${clip.start + clip.length}s`);
+                  console.log(`   📏 Duração ajustada: ${originalLength}s → ${clip.length}s`);
+                  console.log(`   ✅ Utilizando: ${((clip.length / originalLength) * 100).toFixed(1)}% do clip original`);
+                } else {
+                  console.log('❌ ERRO CRÍTICO: Start time maior que duração do vídeo!');
+                  
+                  // Ajustar para usar o máximo disponível
+                  clip.start = 0;
+                  clip.length = Math.min(clip.length, diagnosis.duration);
+                  console.log(`   🔧 Ajuste automático aplicado: start=0, length=${clip.length}s`);
+                }
+              } else {
+                console.log('✅ VÍDEO VÁLIDO: Todas as configurações estão corretas');
               }
             } catch (error) {
-              console.warn('⚠️  Não foi possível obter duração do vídeo:', error.message);
+              console.warn('⚠️  Não foi possível validar o vídeo:', error.message);
             }
           }
           
@@ -626,7 +820,9 @@ export const renderVideo = async (
           });
         
         // 2. Adicionar inputs de áudio
-        audioClips.forEach(({ path }, index) => {
+        audioClips.forEach((clipInfo, index) => {
+          clipInfo.clip._inputIndex = videoClips.length + index;
+          const path = clipInfo.path;
           console.log(`Adicionando input de áudio ${index}:`, path);
           command = command.addInput(path);
         });
@@ -686,6 +882,20 @@ export const renderVideo = async (
             command = command.complexFilter(mixFilter);
           }
         }
+
+        if (audioClips.length > 0) {
+          console.log('Processando áudios para corresponder à duração do vídeo...');
+          const audioFilter = processAudioClips(audioClips, timelineDuration);
+          
+          // Se já existe um filtro complexo para vídeo, combinar com o filtro de áudio
+          if (videoClips.length > 1) {
+            const videoFilter = createComplexFilterForMedia(videoClips, [], subtitleClips, output);
+            command = command.complexFilter(videoFilter + ';' + audioFilter);
+          } else {
+            // Se não há filtro complexo de vídeo, aplicar apenas o filtro de áudio
+            command = command.complexFilter(audioFilter);
+          }
+        }
         
         // Set output format specific options
         if (output.format === 'hls') {
@@ -701,6 +911,12 @@ export const renderVideo = async (
           .output(outputPath)
           .on('progress', (progress) => {
             const percent = Math.round((progress.percent || 0) * 100) / 100;
+            console.log(`📊 Progresso: ${percent}% completo`, {
+              frames: progress.frames,
+              fps: progress.currentFps,
+              kbps: progress.currentKbps,
+              time: progress.timemark
+            });
             progressCallback(percent);
           })
           .on('end', async () => {

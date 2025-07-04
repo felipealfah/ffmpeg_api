@@ -1,98 +1,84 @@
 // Media processing types
 export enum MediaType {
-  IMAGE = 'image',
   VIDEO = 'video',
   AUDIO = 'audio',
+  IMAGE = 'image',
   TEXT = 'text',
   SUBTITLE = 'subtitle'
 }
 
 export enum AssetSource {
   URL = 'url',
-  FILE = 'file',
-  HTML = 'html'
+  LOCAL = 'local'
 }
 
-export enum OutputFormat {
-  MP4 = 'mp4',
-  MOV = 'mov',
-  GIF = 'gif',
-  HLS = 'hls'
-}
-
-export enum JobStatus {
-  QUEUED = 'queued',
-  PROCESSING = 'processing',
-  COMPLETED = 'completed',
-  FAILED = 'failed'
-}
-
-export interface AssetConfig {
-  src: string;
+// Interface base para todos os assets
+interface BaseAsset {
   type: MediaType;
   source: AssetSource;
+  src: string;
 }
 
-export interface ImageAsset extends AssetConfig {
-  type: MediaType.IMAGE;
+// Asset específico para áudio com propriedades adicionais
+export interface AudioAsset extends BaseAsset {
+  type: MediaType.AUDIO;
+  isBackground?: boolean; // Indica se é um áudio de fundo
+  volume?: number; // Volume opcional (0.0 a 1.0)
 }
 
-export interface VideoAsset extends AssetConfig {
+// Asset específico para vídeo
+export interface VideoAsset extends BaseAsset {
   type: MediaType.VIDEO;
 }
 
-export interface AudioAsset extends AssetConfig {
-  type: MediaType.AUDIO;
+// Asset específico para imagem
+export interface ImageAsset extends BaseAsset {
+  type: MediaType.IMAGE;
 }
 
+// Asset para texto
 export interface TextAsset {
   type: MediaType.TEXT;
   text: string;
-  style?: {
-    fontFamily?: string;
-    fontSize?: number;
-    fontColor?: string;
-    backgroundColor?: string;
-    alignment?: 'left' | 'center' | 'right';
-  };
+  style?: TextStyle;
 }
 
-export interface SubtitleAsset extends AssetConfig {
+// Asset para legendas
+export interface SubtitleAsset extends BaseAsset {
   type: MediaType.SUBTITLE;
-  style?: {
-    fontFamily?: string;
-    fontSize?: number;
-    fontColor?: string;
-    outlineColor?: string;
-    backgroundColor?: string;
-    alignment?: 'left' | 'center' | 'right';
-    position?: 'top' | 'center' | 'bottom';
-    marginV?: number; // Vertical margin in pixels
-    outline?: number; // Outline thickness
-    shadow?: number; // Shadow offset
-    bold?: boolean;
-    italic?: boolean;
-  };
+  style?: SubtitleStyle;
+}
+
+// Tipo união para todos os tipos de assets
+export type Asset = VideoAsset | AudioAsset | ImageAsset | TextAsset | SubtitleAsset;
+
+// Interfaces auxiliares
+export interface TextStyle {
+  fontSize?: number;
+  fontColor?: string;
+  fontFamily?: string;
+  bold?: boolean;
+  italic?: boolean;
+  alignment?: 'left' | 'center' | 'right';
+}
+
+export interface SubtitleStyle {
+  fontSize?: number;
+  fontColor?: string;
+  outlineColor?: string;
+  bold?: boolean;
+  alignment?: 'left' | 'center' | 'right';
+  position?: 'top' | 'bottom';
+  marginV?: number;
+  outline?: number;
+  shadow?: number;
 }
 
 export interface Clip {
-  asset: ImageAsset | VideoAsset | AudioAsset | TextAsset | SubtitleAsset;
-  start: number; // Start time in seconds
-  length: number; // Duration in seconds
-  position?: {
-    x: number; // 0-100 percentage of screen width
-    y: number; // 0-100 percentage of screen height
-    width?: number; // 0-100 percentage of screen width
-    height?: number; // 0-100 percentage of screen height
-  };
-  transition?: {
-    in?: string; // Transition effect name
-    out?: string; // Transition effect name
-    inDuration?: number; // Duration in seconds
-    outDuration?: number; // Duration in seconds
-  };
-  filter?: string[]; // Array of FFmpeg filter strings
-  _optimized?: boolean; // Internal flag for optimized sequential clips
+  asset: Asset;
+  start: number;
+  length: number;
+  _optimized?: boolean;
 }
 
 export interface Track {
@@ -100,65 +86,30 @@ export interface Track {
 }
 
 export interface Timeline {
-  background?: string; // Color in hex format
   tracks: Track[];
-  duration?: number; // Total duration in seconds
 }
 
-export interface OutputOptions {
-  format: OutputFormat;
-  resolution: string; // e.g., "1280x720"
+export interface RenderOutput {
+  format: string;
+  resolution?: string;
   quality?: 'low' | 'medium' | 'high';
   fps?: number;
-  bitrate?: string; // e.g., "2000k"
+  bitrate?: string;
 }
 
 export interface RenderRequest {
   timeline: Timeline;
-  output: OutputOptions;
-  webhook?: string; // URL to call when processing is complete
+  output: RenderOutput;
+  webhook?: string;
 }
 
 export interface RenderJob {
   id: string;
-  status: JobStatus;
-  progress?: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
   request: RenderRequest;
-  output?: string;
-  storage?: {
-    type: 'local' | 'gcs';
-    url: string;
-    fileName?: string;
-    size?: number;
-    metadata?: {
-      [key: string]: string;
-    };
-  };
   error?: string;
+  progress?: number;
+  output?: string;
   createdAt: Date;
   updatedAt: Date;
-  completedAt?: Date;
-}
-
-export interface JobResponse {
-  data: {
-    jobId: string;
-    status: JobStatus;
-  };
-}
-
-export interface JobStatusResponse {
-  data: {
-    jobId: string;
-    status: JobStatus;
-    progress?: number;
-    output?: string;
-    storage?: {
-      type: 'local' | 'gcs';
-      url: string;
-      fileName?: string;
-      size?: number;
-    };
-    error?: string;
-  };
 } 

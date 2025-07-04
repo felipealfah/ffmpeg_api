@@ -25,4 +25,9 @@ router.get('/render/:jobId/file', asyncHandler(mediaController.getRenderJobFile)
  */
 router.post('/info', validate(mediaInfoRequestSchema), asyncHandler(mediaController.getMediaInfo));
 
+/**
+ * 🔍 Rota para validar vídeo com clips específicos
+ */
+router.post('/validate-video', asyncHandler(mediaController.validateVideoForClips));
+
 export default router; 
