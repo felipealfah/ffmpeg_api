@@ -290,8 +290,7 @@ export const addRenderJob = async (job: RenderJob) => {
 };
 
 // Create a new job
-export const createJob = async (request: RenderRequest): Promise<RenderJob> => {
-  const jobId = uuidv4();
+export const createJob = (jobId: string, request: RenderRequest): RenderJob => {
   const now = new Date();
   
   // Criar diretórios para o job
@@ -315,14 +314,11 @@ export const createJob = async (request: RenderRequest): Promise<RenderJob> => {
   // Store job in memory
   jobsMap.set(jobId, job);
   
-  // Add to queue
-  await renderQueue.add(job);
-  
   return job;
 };
 
 // Get a job by ID
-export const getJob = async (jobId: string): Promise<RenderJob | null> => {
+export const getJob = (jobId: string): RenderJob | null => {
   return jobsMap.get(jobId) || null;
 };
 

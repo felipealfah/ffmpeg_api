@@ -6,7 +6,7 @@ import { createWriteStream } from 'fs';
 import { Readable } from 'stream';
 import { finished } from 'stream/promises';
 import { v4 as uuidv4 } from 'uuid';
-import { RenderJob, Clip, Track, Timeline, MediaType, AssetSource } from '../types/media';
+import { RenderJob, RenderRequest, Clip, Track, Timeline, MediaType, AssetSource } from '../types/media';
 import axios from 'axios';
 import { downloadFile, ensureDirectory, cleanupDirectory } from '../utils/file';
 import { getStorageService } from './storageService';
@@ -1058,4 +1058,42 @@ export const generateThumbnail = async (
         reject(err);
       });
   });
+}; 
+
+// Download file function for Express response
+export const downloadFile = async (filePath: string, res: any): Promise<void> => {
+  try {
+    const fs = await import('fs');
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      throw new Error('File not found');
+    }
+    
+    // Get file extension and set content type
+    const ext = path.extname(filePath).toLowerCase();
+    let contentType = 'application/octet-stream';
+    
+    if (ext === '.mp4') {
+      contentType = 'video/mp4';
+    } else if (ext === '.mov') {
+      contentType = 'video/quicktime';
+    } else if (ext === '.gif') {
+      contentType = 'image/gif';
+    } else if (ext === '.m3u8') {
+      contentType = 'application/x-mpegURL';
+    }
+    
+    // Set headers
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${path.basename(filePath)}"`);
+    
+    // Stream the file
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+    
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    throw error;
+  }
 }; 
