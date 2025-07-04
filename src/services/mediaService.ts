@@ -893,7 +893,7 @@ export const renderVideo = async (
                   metadata: {
                     jobId: jobId,
                     format: output.format,
-                    resolution: output.resolution,
+                    resolution: output.resolution || '1280x720',
                     quality: output.quality || 'medium',
                     createdAt: new Date().toISOString()
                   }
@@ -943,7 +943,7 @@ export const renderVideo = async (
                   outputUrl: finalOutputUrl,
                   metadata: {
                     format: output.format,
-                    resolution: output.resolution,
+                    resolution: output.resolution || '1280x720',
                     quality: output.quality || 'medium',
                     fps: output.fps || 30,
                     storageType: config.googleCloud.enabled ? 'gcs' : 'local'
