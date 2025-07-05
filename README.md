@@ -1,604 +1,343 @@
 # FFmpeg API
 
-API para processamento de vídeo usando FFmpeg, com suporte a múltiplas trilhas, áudios, imagens e legendas.
+API moderna e escalável para processamento de vídeo usando FFmpeg, construída com Node.js e TypeScript.
 
-## 📚 Exemplos de Composições
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/felipefull/ffmpeg_api)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/felipefull/ffmpeg_api)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/felipefull/ffmpeg_api)
 
-Aqui você encontra exemplos práticos de diferentes tipos de vídeos que podem ser criados com a API.
+## 🚀 Stack Tecnológica
 
-### 1. Apresentação com Imagem Estática e Áudio
+- **Backend**: Node.js 18+ com TypeScript
+- **Processamento**: FFmpeg 6.1+ com hardware acceleration
+- **Fila**: Redis 7+ com Bull Queue
+- **Banco de Dados**: File-based storage + Google Cloud Storage
+- **Monitoramento**: Prometheus + Grafana
+- **Documentação**: Mintlify
+- **Deploy**: Docker + Docker Compose
 
-Ideal para criar vídeos de podcast, apresentações ou conteúdo educacional.
+## 📁 Estrutura do Projeto
 
-```json
-{
-  "timeline": {
-    "tracks": [
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "image",
-              "source": "url",
-              "src": "https://exemplo.com/background.jpg"
-            },
-            "start": 0,
-            "length": 300 // 5 minutos
-          }
-        ]
-      },
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "audio",
-              "source": "url",
-              "src": "https://exemplo.com/narracao.mp3"
-            },
-            "start": 0,
-            "length": 300
-          },
-          {
-            "asset": {
-              "type": "audio",
-              "source": "url",
-              "src": "https://exemplo.com/musica-fundo.mp3",
-              "isBackground": true,
-              "volume": 0.2
-            },
-            "start": 0,
-            "length": 300
-          }
-        ]
-      }
-    ]
-  },
-  "output": {
-    "format": "mp4",
-    "resolution": "1920x1080",
-    "quality": "high",
-    "fps": 30
-  }
-}
+```
+ffmpeg_api/
+├── src/                    # Código fonte da API
+│   ├── controllers/        # Controladores REST
+│   ├── services/          # Lógica de negócio
+│   ├── middleware/        # Middlewares (auth, validation, metrics)
+│   ├── routes/            # Definição de rotas
+│   ├── config/            # Configurações da aplicação
+│   └── types/             # Definições TypeScript
+├── docs-site/             # Documentação Mintlify
+│   ├── api-reference/     # Referência da API
+│   ├── concepts/          # Conceitos e guias
+│   └── examples/          # Exemplos de uso
+├── monitoring/            # Configurações de monitoramento
+│   ├── prometheus.yml     # Config do Prometheus
+│   └── grafana/           # Dashboards do Grafana
+├── storage/               # Armazenamento local
+│   ├── temp/              # Arquivos temporários
+│   └── output/            # Arquivos processados
+└── scripts/               # Scripts de automação
 ```
 
-### 2. Vídeo com Legendas e Música de Fundo
+## 🛠️ Configuração do Ambiente
 
-Perfeito para conteúdo internacional ou acessibilidade.
+### Pré-requisitos
 
-```json
-{
-  "timeline": {
-    "tracks": [
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "video",
-              "source": "url",
-              "src": "https://exemplo.com/video-principal.mp4"
-            },
-            "start": 0,
-            "length": 180 // 3 minutos
-          }
-        ]
-      },
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "audio",
-              "source": "url",
-              "src": "https://exemplo.com/ambient-music.mp3",
-              "isBackground": true,
-              "volume": 0.3
-            },
-            "start": 0,
-            "length": 180
-          }
-        ]
-      },
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "subtitle",
-              "source": "url",
-              "src": "https://exemplo.com/legendas.srt",
-              "style": {
-                "fontSize": 42,
-                "fontColor": "#FFFFFF",
-                "outlineColor": "#000000",
-                "bold": true,
-                "alignment": "center",
-                "position": "bottom",
-                "marginV": 50
-              }
-            },
-            "start": 0,
-            "length": 180
-          }
-        ]
-      }
-    ]
-  },
-  "output": {
-    "format": "mp4",
-    "resolution": "1280x720",
-    "quality": "high",
-    "fps": 30
-  }
-}
-```
+- **Docker**: 20.10+
+- **Docker Compose**: 2.0+
+- **Node.js**: 18+ (para desenvolvimento local)
+- **FFmpeg**: 6.1+ (incluído no Docker)
 
-### 3. Concatenação de Vídeos com Transição
+### Instalação Rápida
 
-Útil para criar compilações ou juntar múltiplos clipes.
-
-```json
-{
-  "timeline": {
-    "tracks": [
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "video",
-              "source": "url",
-              "src": "https://exemplo.com/parte1.mp4"
-            },
-            "start": 0,
-            "length": 60
-          },
-          {
-            "asset": {
-              "type": "video",
-              "source": "url",
-              "src": "https://exemplo.com/parte2.mp4"
-            },
-            "start": 60,
-            "length": 60
-          },
-          {
-            "asset": {
-              "type": "video",
-              "source": "url",
-              "src": "https://exemplo.com/parte3.mp4"
-            },
-            "start": 120,
-            "length": 60
-          }
-        ]
-      },
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "audio",
-              "source": "url",
-              "src": "https://exemplo.com/background-music.mp3",
-              "isBackground": true
-            },
-            "start": 0,
-            "length": 180
-          }
-        ]
-      }
-    ]
-  },
-  "output": {
-    "format": "mp4",
-    "resolution": "1920x1080",
-    "quality": "high",
-    "fps": 30
-  }
-}
-```
-
-### 4. Slideshow de Imagens com Narração
-
-Ideal para apresentações, documentários ou conteúdo educacional.
-
-```json
-{
-  "timeline": {
-    "tracks": [
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "image",
-              "source": "url",
-              "src": "https://exemplo.com/slide1.jpg"
-            },
-            "start": 0,
-            "length": 10
-          },
-          {
-            "asset": {
-              "type": "image",
-              "source": "url",
-              "src": "https://exemplo.com/slide2.jpg"
-            },
-            "start": 10,
-            "length": 10
-          },
-          {
-            "asset": {
-              "type": "image",
-              "source": "url",
-              "src": "https://exemplo.com/slide3.jpg"
-            },
-            "start": 20,
-            "length": 10
-          }
-        ]
-      },
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "audio",
-              "source": "url",
-              "src": "https://exemplo.com/narracao.mp3"
-            },
-            "start": 0,
-            "length": 30
-          },
-          {
-            "asset": {
-              "type": "audio",
-              "source": "url",
-              "src": "https://exemplo.com/musica-suave.mp3",
-              "isBackground": true,
-              "volume": 0.15
-            },
-            "start": 0,
-            "length": 30
-          }
-        ]
-      }
-    ]
-  },
-  "output": {
-    "format": "mp4",
-    "resolution": "1920x1080",
-    "quality": "high",
-    "fps": 30
-  }
-}
-```
-
-### 5. Vídeo com Texto Sobreposto
-
-Perfeito para tutoriais, legendas personalizadas ou títulos.
-
-```json
-{
-  "timeline": {
-    "tracks": [
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "video",
-              "source": "url",
-              "src": "https://exemplo.com/tutorial.mp4"
-            },
-            "start": 0,
-            "length": 120
-          }
-        ]
-      },
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "text",
-              "text": "Tutorial: Como Criar Vídeos Incríveis",
-              "style": {
-                "fontSize": 48,
-                "fontColor": "#FFFFFF",
-                "outlineColor": "#000000",
-                "bold": true,
-                "alignment": "center",
-                "position": "top",
-                "marginV": 30
-              }
-            },
-            "start": 0,
-            "length": 5
-          }
-        ]
-      },
-      {
-        "clips": [
-          {
-            "asset": {
-              "type": "audio",
-              "source": "url",
-              "src": "https://exemplo.com/tutorial-audio.mp3"
-            },
-            "start": 0,
-            "length": 120
-          }
-        ]
-      }
-    ]
-  },
-  "output": {
-    "format": "mp4",
-    "resolution": "1280x720",
-    "quality": "high",
-    "fps": 30
-  }
-}
-```
-
-## 💡 Dicas de Uso
-
-1. **Áudio de Fundo**
-   - Use `isBackground: true` para músicas de fundo
-   - Ajuste o volume entre 0.1 e 0.3 para não interferir com o áudio principal
-   - Para loops suaves, escolha músicas com início e fim que combinam bem
-
-2. **Imagens**
-   - Use imagens com resolução igual ou maior que o vídeo final
-   - Formatos recomendados: JPG para fotos, PNG para gráficos com transparência
-   - Para slideshows, mantenha as imagens na mesma proporção
-
-3. **Legendas**
-   - Use fonte tamanho 42 para vídeos 1080p
-   - Adicione outline (contorno) para melhor legibilidade
-   - Mantenha o texto centralizado para melhor experiência
-
-4. **Vídeos**
-   - Use a mesma resolução e FPS em todos os clipes para melhor qualidade
-   - Para transições suaves, considere um pequeno overlap entre clipes
-   - Verifique se todos os vídeos têm áudio antes de adicionar música de fundo
-
-## 🎵 Recursos de Áudio
-
-### Áudio de Fundo (Background Audio)
-
-A API oferece suporte especial para áudios de fundo, que são processados com volume reduzido e podem ser automaticamente repetidos para cobrir a duração total do vídeo.
-
-#### Como Definir um Áudio de Fundo
-
-Existem duas formas de indicar que um áudio é de fundo:
-
-1. **Explicitamente**: Usando a propriedade `isBackground` no asset de áudio
-```json
-{
-  "asset": {
-    "type": "audio",
-    "source": "url",
-    "src": "https://example.com/music.mp3",
-    "isBackground": true,
-    "volume": 0.3  // Opcional: ajuste fino do volume (0.0 a 1.0)
-  }
-}
-```
-
-2. **Implicitamente**: Incluindo palavras-chave no nome do arquivo
-   - Palavras-chave suportadas: 'background', 'bg', 'fundo', 'ambient'
-   - Exemplo: `music-background.mp3`, `ambient-sound.mp3`
-
-#### Características do Áudio de Fundo
-
-- Volume reduzido automaticamente (30% por padrão)
-- Loop automático se menor que a duração do vídeo
-- Transições suaves entre loops
-- Mixagem balanceada com áudios principais
-
-#### Volumes Padrão
-
-- Áudios principais: 80% (0.8)
-- Áudios de fundo: 30% (0.3)
-- Você pode ajustar estes valores usando a propriedade `volume`
-
-## Recursos
-
-- ✅ Renderização de vídeos com múltiplas trilhas
-- ✅ Suporte a imagens, vídeos, áudios e legendas
-- ✅ Mixagem automática de áudio
-- ✅ Cálculo automático de duração
-- ✅ Processamento assíncrono com filas
-- ✅ Suporte a legendas SRT com estilos customizáveis
-
-## Instalação
-
-1. Clone o repositório:
 ```bash
-git clone https://github.com/seu-usuario/ffmpeg-api.git
-cd ffmpeg-api
+# Clone o repositório
+git clone https://github.com/felipefull/ffmpeg_api.git
+cd ffmpeg_api
+
+# Configure as variáveis de ambiente
+cp env.example .env
+
+# Suba todos os serviços
+docker-compose up -d
+
+# Verifique se todos os serviços estão rodando
+docker-compose ps
 ```
 
-2. Instale as dependências:
+### Configuração de Variáveis de Ambiente
+
 ```bash
-npm install
-```
-
-3. Configure as variáveis de ambiente (crie um arquivo `.env`):
-```
+# Configurações básicas
+NODE_ENV=production
 PORT=3000
-FFMPEG_PATH=/usr/bin/ffmpeg
-FFPROBE_PATH=/usr/bin/ffprobe
-REDIS_URL=redis://localhost:6379
+
+# Redis (usado automaticamente pelo Docker Compose)
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=secure_redis_password_2025
+
+# Google Cloud Storage (opcional)
+GOOGLE_CLOUD_STORAGE_ENABLED=true
+GOOGLE_CLOUD_PROJECT_ID=seu-projeto-id
+GOOGLE_CLOUD_BUCKET_NAME=seu-bucket
+GOOGLE_CLOUD_KEY_FILE=src/config/gcp-service-account.json
+
+# Limites de performance
+MAX_CONCURRENT_JOBS=2
+NODE_OPTIONS=--max-old-space-size=2048
 ```
 
-4. Compile o TypeScript:
+## 🐳 Serviços Docker
+
+O sistema roda 5 serviços principais:
+
+| Serviço | Porta | Descrição | URL |
+|---------|-------|-----------|-----|
+| **API** | 3000 | API principal do FFmpeg | http://localhost:3000 |
+| **Docs** | 3002 | Documentação interativa | http://localhost:3002 |
+| **Grafana** | 3001 | Dashboard de monitoramento | http://localhost:3001 |
+| **Prometheus** | 9090 | Coleta de métricas | http://localhost:9090 |
+| **Redis** | - | Fila de processamento | (interno) |
+
+### Comandos Docker Compose
+
 ```bash
-npm run build
+# Subir todos os serviços
+docker-compose up -d
+
+# Ver logs de todos os serviços
+docker-compose logs -f
+
+# Ver logs de um serviço específico
+docker-compose logs -f ffmpeg-api
+
+# Parar todos os serviços
+docker-compose down
+
+# Rebuild e restart
+docker-compose up -d --build
+
+# Ver status dos serviços
+docker-compose ps
 ```
 
-## Uso
+## 📖 Documentação
 
-### Iniciar o servidor
+### Acesso à Documentação
+
+- **Documentação Completa**: http://localhost:3002
+- **API Reference**: http://localhost:3000/api-docs (Swagger)
+- **Monitoramento**: http://localhost:3001 (Grafana)
+
+### Endpoints Principais
 
 ```bash
-npm start
+# Renderizar vídeo
+POST /api/v1/media/render
+
+# Status do job
+GET /api/v1/media/status/:jobId
+
+# Download do resultado
+GET /api/v1/media/download/:jobId
+
+# Informações do arquivo
+GET /api/v1/media/info/:jobId
+
+# Health check
+GET /health
 ```
 
-Para desenvolvimento com reinicialização automática:
-```bash
-npm run dev
-```
+## 🎬 Exemplos de Uso
 
-Para iniciar apenas a documentação Swagger:
-```bash
-npm run docs
-```
-
-### Acessar a documentação
-
-Acesse a documentação Swagger em:
-```
-http://localhost:3000/api-docs
-```
-
-## Uso Básico
-
-### Renderização com Legendas
+### 1. Renderização Básica
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/media/render \
   -H "Content-Type: application/json" \
   -d '{
     "timeline": {
-      "tracks": [
+      "clips": [
         {
-          "clips": [{
-            "asset": {
-              "type": "image",
-              "source": "url",
-              "src": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1280&h=720&fit=crop"
-            },
-            "start": 0,
-            "length": 30
-          }]
-        },
-            {
-          "clips": [{
-              "asset": {
-              "type": "audio",
-                "source": "url",
-              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-              },
-              "start": 0,
-            "length": 30
-          }]
-        },
-        {
-          "clips": [{
-            "asset": {
-              "type": "subtitle",
-              "source": "url",
-              "src": "https://example.com/subtitles.srt",
-              "style": {
-                "fontSize": 36,
-                "fontColor": "#FFFFFF",
-                "outlineColor": "#000000",
-                "bold": true,
-                "alignment": "center",
-                "position": "bottom"
-              }
-            },
-            "start": 0,
-            "length": 30
-          }]
+          "type": "video",
+          "src": "https://example.com/video.mp4",
+          "start": 0,
+          "duration": 10
         }
       ]
     },
     "output": {
       "format": "mp4",
-      "resolution": "1280x720",
-      "quality": "medium",
-      "fps": 30
+      "resolution": "1920x1080"
     }
   }'
 ```
 
-### Tipos de Assets Suportados
+### 2. Verificar Status
 
-#### Legendas (SRT)
-```json
-{
-  "asset": {
-    "type": "subtitle",
-    "source": "url",
-    "src": "https://example.com/subtitles.srt",
-    "style": {
-      "fontFamily": "DejaVu Serif",
-      "fontSize": 42,
-      "fontColor": "#FFFFFF",
-      "outlineColor": "#404040",
-      "backgroundColor": "#000000",
-      "alignment": "center",
-      "position": "bottom",
-      "marginV": 100,
-      "outline": 3,
-      "shadow": 1,
-      "bold": true,
-      "italic": false
-    }
-  },
-  "start": 0,
-  "length": 30
-}
+```bash
+curl http://localhost:3000/api/v1/media/status/job-id-123
 ```
 
-#### Opções de Estilo para Legendas
+### 3. Download do Resultado
 
-- `fontFamily`: Família da fonte (padrão: "DejaVu Serif")
-- `fontSize`: Tamanho da fonte em pixels (padrão: 42)
-- `fontColor`: Cor da fonte em hex (padrão: "#FFFFFF")
-- `outlineColor`: Cor do contorno em hex (padrão: "#404040")
-- `backgroundColor`: Cor de fundo (opcional)
-- `alignment`: Alinhamento horizontal - "left", "center", "right" (padrão: "center")
-- `position`: Posição vertical - "top", "center", "bottom" (padrão: "bottom")
-- `marginV`: Margem vertical em pixels (padrão: 100)
-- `outline`: Espessura do contorno (padrão: 3)
-- `shadow`: Offset da sombra (padrão: 1)
-- `bold`: Texto em negrito (padrão: false)
-- `italic`: Texto em itálico (padrão: false)
-
-### Exemplo de Arquivo SRT
-
-```srt
-1
-00:00:00,000 --> 00:00:05,000
-Primeira legenda do vídeo
-
-2
-00:00:05,000 --> 00:00:10,000
-Segunda legenda com mais texto
-para demonstrar quebras de linha
-
-3
-00:00:10,000 --> 00:00:15,000
-Terceira e última legenda
+```bash
+curl -O http://localhost:3000/api/v1/media/download/job-id-123
 ```
 
-## Endpoints
+## 🔧 Desenvolvimento
 
-- `POST /api/v1/media/render` - Renderizar vídeo
-- `GET /api/v1/media/{jobId}/status` - Status do job
-- `GET /api/v1/media/{jobId}/result` - Download do vídeo
-- `GET /health` - Health check
+### Setup Local
 
-## Integração com n8n
+```bash
+# Instalar dependências
+npm install
 
-Para usar com n8n via Docker, use `host.docker.internal:3000` como URL da API.
+# Rodar em modo desenvolvimento
+npm run dev
 
-## Recursos Avançados
+# Executar testes
+npm test
 
-- Múltiplas imagens com transições automáticas
-- Mixagem automática de múltiplos áudios
-- Cálculo automático de duração baseado nos clips
-- Suporte a legendas SRT com estilos customizáveis
-- Processamento assíncrono com Bull Queue
+# Build para produção
+npm run build
+```
 
-## Licença
+### Scripts Disponíveis
 
-Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes. 
+```bash
+# Desenvolvimento
+npm run dev          # Servidor com hot-reload
+npm run build        # Build TypeScript
+npm run start        # Servidor produção
+
+# Testes
+npm test            # Executar todos os testes
+npm run test:watch  # Testes em modo watch
+
+# Linting
+npm run lint        # ESLint
+npm run lint:fix    # Corrigir problemas automaticamente
+
+# Documentação
+cd docs-site && npm run dev  # Servidor de documentação
+```
+
+## 📊 Monitoramento
+
+### Métricas Disponíveis
+
+- **Jobs**: Total, ativos, completados, falhas
+- **Performance**: Tempo de processamento, uso de CPU/memória
+- **FFmpeg**: Processos, SIGKILL, recursos
+- **Sistema**: Uptime, health checks
+
+### Dashboards Grafana
+
+1. **Overview**: Visão geral do sistema
+2. **Jobs**: Métricas de processamento
+3. **Performance**: CPU, memória, I/O
+4. **Errors**: Logs de erro e alertas
+
+### Acesso ao Grafana
+
+- **URL**: http://localhost:3001
+- **Usuário**: admin
+- **Senha**: admin123
+
+## 🚀 Deploy em Produção
+
+### Configurações de Produção
+
+```bash
+# Variáveis de ambiente obrigatórias
+NODE_ENV=production
+REDIS_PASSWORD=senha-segura-redis
+GOOGLE_CLOUD_PROJECT_ID=seu-projeto
+GOOGLE_CLOUD_BUCKET_NAME=seu-bucket
+
+# Limites de recursos
+MAX_CONCURRENT_JOBS=4
+NODE_OPTIONS=--max-old-space-size=4096
+```
+
+### Recursos Docker
+
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '4.0'
+      memory: 3G
+    reservations:
+      cpus: '2.0'
+      memory: 1G
+```
+
+## 🔒 Segurança
+
+- **Redis**: Protegido com senha, não exposto externamente
+- **CORS**: Configurado para domínios específicos
+- **Rate Limiting**: Implementado para todas as rotas
+- **Validation**: Validação rigorosa de inputs
+- **Logs**: Monitoramento de segurança ativo
+
+## 🐛 Troubleshooting
+
+### Problemas Comuns
+
+1. **SIGKILL no FFmpeg**: Verifique limites de memória
+2. **Jobs travados**: Reinicie o serviço Redis
+3. **Erro de upload**: Verifique configuração do Google Cloud
+4. **Performance lenta**: Ajuste MAX_CONCURRENT_JOBS
+
+### Logs Úteis
+
+```bash
+# Logs da API
+docker-compose logs -f ffmpeg-api
+
+# Logs do Redis
+docker-compose logs -f redis
+
+# Logs do sistema
+docker-compose logs -f
+```
+
+### Health Checks
+
+```bash
+# API
+curl http://localhost:3000/health
+
+# Prometheus
+curl http://localhost:9090/-/healthy
+
+# Grafana
+curl http://localhost:3001/api/health
+```
+
+## 🤝 Contribuição
+
+1. Fork o projeto
+2. Crie uma branch para sua feature
+3. Commit suas mudanças
+4. Push para a branch
+5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+## 🔗 Links Úteis
+
+- [Documentação Completa](http://localhost:3002)
+- [API Reference](http://localhost:3000/api-docs)
+- [Monitoramento](http://localhost:3001)
+- [GitHub](https://github.com/felipefull/ffmpeg_api)
+
+---
+
+**Desenvolvido com ❤️ por Felipe Full** 
