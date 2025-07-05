@@ -330,12 +330,13 @@ const processJob = async (job: Queue.Job<RenderJob>): Promise<void> => {
 };
 
 // Processar jobs da fila
-renderQueue.process(async (job) => {
+renderQueue.process('video-render', async (job) => {
   const renderJob = job.data as RenderJob;
   console.log(`🎬 Iniciando processamento do job ${renderJob.id}`);
 
   try {
     // Tentar adquirir slot para processamento
+    const concurrencyControl = getConcurrencyControl();
     const slotAcquired = await concurrencyControl.tryAcquireSlot(renderJob.id);
     if (!slotAcquired) {
       console.log(`⏳ Job ${renderJob.id} aguardando slot disponível...`);

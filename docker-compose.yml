@@ -69,10 +69,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '5.0'
+          cpus: '3.5'
           memory: 10G
         reservations:
-          cpus: '2.0'
+          cpus: '1.0'
           memory: 4G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]

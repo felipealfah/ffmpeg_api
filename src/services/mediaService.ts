@@ -824,6 +824,13 @@ export const renderVideo = async (
           reject(new Error('Output path is required'));
           return;
         }
+
+        // Adicionar input do vídeo
+        if (!renderRequest.input || !renderRequest.input.url) {
+          reject(new Error('Input video URL is required'));
+          return;
+        }
+        command = command.input(renderRequest.input.url);
         
         // Set output file and handlers
         command = command
