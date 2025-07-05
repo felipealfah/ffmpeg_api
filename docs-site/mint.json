@@ -1,0 +1,83 @@
+{
+  "name": "FFmpeg API",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "favicon": "/favicon.ico",
+  "colors": {
+    "primary": "#ff6b35",
+    "light": "#ff8c69",
+    "dark": "#e55a2b"
+  },
+  "topbarCtaButton": {
+    "name": "Testar API",
+    "url": "http://localhost:3000/api-docs"
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/felipefull/ffmpeg_api"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Começar",
+      "pages": [
+        "introduction",
+        "quickstart"
+      ]
+    },
+    {
+      "group": "Conceitos",
+      "pages": [
+        "concepts/timeline",
+        "concepts/assets",
+        "concepts/output-formats",
+        "concepts/async-processing"
+      ]
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/render-simple",
+        "api-reference/render-test",
+        "api-reference/job-status",
+        "api-reference/download",
+        "api-reference/validate",
+        "api-reference/media-info"
+      ]
+    },
+    {
+      "group": "Troubleshooting",
+      "pages": [
+        "troubleshooting/common-issues",
+        "troubleshooting/faq"
+      ]
+    },
+    {
+      "group": "Integração",
+      "pages": [
+        "integrations/webhooks"
+      ]
+    },
+    {
+      "group": "Exemplos",
+      "pages": [
+        "examples/lyric-video",
+        "examples/social-media"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/felipefull/ffmpeg_api",
+    "twitter": "https://twitter.com/felipefull"
+  },
+  "api": {
+    "baseUrl": "http://localhost:3000",
+    "auth": {
+      "method": "bearer"
+    }
+  },
+  "openapi": "../openapi.yaml"
+} 

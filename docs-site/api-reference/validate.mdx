@@ -1,0 +1,424 @@
+---
+title: "POST /api/media/validate"
+description: "Valida um request de renderização sem processar"
+---
+
+# POST /api/media/validate
+
+Valida se um request de renderização está correto sem processar o vídeo. Útil para validar dados antes de criar um job.
+
+## Endpoint
+
+```
+POST http://localhost:3000/api/media/validate
+```
+
+## Request Body
+
+Mesmo formato do endpoint `/api/render`:
+
+```json
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://exemplo.com/video.mp4"
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium"
+  }
+}
+```
+
+## Response
+
+### Sucesso (200)
+
+```json
+{
+  "valid": true,
+  "message": "Timeline válida",
+  "estimatedDuration": 23.5,
+  "estimatedProcessingTime": "~30 segundos",
+  "timeline": {
+    "totalTracks": 2,
+    "totalClips": 5,
+    "assetsToLoad": 3,
+    "optimizations": [
+      "Sequential clips detected and optimized"
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "estimatedSize": "~15MB",
+    "resolution": "1280x720"
+  }
+}
+```
+
+### Erro de Validação (400)
+
+```json
+{
+  "valid": false,
+  "message": "Timeline contém erros",
+  "errors": [
+    {
+      "field": "timeline.tracks[0].clips[1].asset.src",
+      "code": "INVALID_URL",
+      "message": "URL do asset é inválida",
+      "value": "invalid-url"
+    },
+    {
+      "field": "output.resolution",
+      "code": "INVALID_RESOLUTION",
+      "message": "Resolução não suportada",
+      "value": "9999x9999",
+      "allowedValues": ["1280x720", "1920x1080", "3840x2160"]
+    }
+  ],
+  "warnings": [
+    {
+      "field": "timeline.tracks[0].clips[0].length",
+      "message": "Duração muito longa pode causar timeout",
+      "value": 600
+    }
+  ]
+}
+```
+
+## Campos da Resposta
+
+### Sucesso
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `valid` | boolean | Se a timeline é válida |
+| `message` | string | Mensagem de confirmação |
+| `estimatedDuration` | number | Duração estimada do vídeo final (segundos) |
+| `estimatedProcessingTime` | string | Tempo estimado de processamento |
+| `timeline` | object | Análise da timeline |
+| `output` | object | Análise da configuração de saída |
+
+### Erro
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `valid` | boolean | Sempre `false` |
+| `message` | string | Mensagem de erro geral |
+| `errors` | array | Lista de erros encontrados |
+| `warnings` | array | Lista de avisos (não impedem processamento) |
+
+## Tipos de Validação
+
+### Assets
+
+<AccordionGroup>
+  <Accordion title="URL Validation" icon="link">
+    Verifica se URLs são válidas e acessíveis:
+    
+    ```json
+    {
+      "field": "timeline.tracks[0].clips[0].asset.src",
+      "code": "INVALID_URL",
+      "message": "URL do asset é inválida ou inacessível",
+      "details": "HTTP 404: Not Found"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Format Support" icon="file">
+    Verifica se o formato do arquivo é suportado:
+    
+    ```json
+    {
+      "field": "timeline.tracks[0].clips[0].asset",
+      "code": "UNSUPPORTED_FORMAT",
+      "message": "Formato de arquivo não suportado",
+      "value": "video/webm",
+      "supportedFormats": ["video/mp4", "video/mov", "image/jpeg"]
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="File Size" icon="weight">
+    Verifica se o tamanho do arquivo está dentro dos limites:
+    
+    ```json
+    {
+      "field": "timeline.tracks[0].clips[0].asset",
+      "code": "FILE_TOO_LARGE",
+      "message": "Arquivo excede tamanho máximo",
+      "value": "150MB",
+      "maxSize": "100MB"
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Timeline
+
+<AccordionGroup>
+  <Accordion title="Structure" icon="layers">
+    Valida a estrutura da timeline:
+    
+    ```json
+    {
+      "field": "timeline.tracks",
+      "code": "EMPTY_TRACKS",
+      "message": "Timeline deve ter pelo menos uma track"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Timing" icon="clock">
+    Verifica sobreposições e timing:
+    
+    ```json
+    {
+      "field": "timeline.tracks[0].clips[1]",
+      "code": "INVALID_TIMING",
+      "message": "Start time não pode ser maior que a duração do asset",
+      "start": 30,
+      "assetDuration": 20
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Duration" icon="ruler">
+    Verifica duração total:
+    
+    ```json
+    {
+      "field": "timeline",
+      "code": "DURATION_TOO_LONG",
+      "message": "Duração total excede limite máximo",
+      "duration": 720,
+      "maxDuration": 600
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Output
+
+<AccordionGroup>
+  <Accordion title="Format" icon="video">
+    Valida formato de saída:
+    
+    ```json
+    {
+      "field": "output.format",
+      "code": "UNSUPPORTED_OUTPUT_FORMAT",
+      "message": "Formato de saída não suportado",
+      "value": "avi",
+      "supportedFormats": ["mp4", "mov", "gif", "webm"]
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Resolution" icon="monitor">
+    Valida resolução:
+    
+    ```json
+    {
+      "field": "output.resolution",
+      "code": "INVALID_RESOLUTION",
+      "message": "Resolução inválida",
+      "value": "1920x1080x60",
+      "expectedFormat": "WIDTHxHEIGHT"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Quality" icon="settings">
+    Valida configurações de qualidade:
+    
+    ```json
+    {
+      "field": "output.bitrate",
+      "code": "INVALID_BITRATE",
+      "message": "Bitrate inválido para a resolução",
+      "value": "100000k",
+      "recommendedRange": "1000k - 10000k"
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Exemplos
+
+<CodeGroup>
+```bash cURL
+curl -X POST "http://localhost:3000/api/media/validate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "timeline": {
+      "tracks": [{
+        "clips": [{
+          "asset": {
+            "type": "video",
+            "source": "url",
+            "src": "https://exemplo.com/video.mp4"
+          },
+          "start": 0,
+          "length": "auto"
+        }]
+      }]
+    },
+    "output": {
+      "format": "mp4",
+      "resolution": "1280x720"
+    }
+  }'
+```
+
+```javascript JavaScript
+async function validarTimeline(timeline, output) {
+  try {
+    const response = await fetch('/api/media/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timeline, output })
+    });
+    
+    const result = await response.json();
+    
+    if (result.valid) {
+      console.log('✅ Timeline válida!');
+      console.log(`📊 Duração estimada: ${result.estimatedDuration}s`);
+      console.log(`⏱️ Tempo de processamento: ${result.estimatedProcessingTime}`);
+      return true;
+    } else {
+      console.error('❌ Timeline inválida:');
+      result.errors.forEach(error => {
+        console.error(`  - ${error.field}: ${error.message}`);
+      });
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Erro na validação:', error);
+    return false;
+  }
+}
+```
+
+```python Python
+import requests
+
+def validar_timeline(timeline, output):
+    """Valida uma timeline antes de processar"""
+    payload = {
+        "timeline": timeline,
+        "output": output
+    }
+    
+    response = requests.post("/api/media/validate", json=payload)
+    result = response.json()
+    
+    if result['valid']:
+        print("✅ Timeline válida!")
+        print(f"📊 Duração estimada: {result['estimatedDuration']}s")
+        print(f"⏱️ Tempo de processamento: {result['estimatedProcessingTime']}")
+        return True
+    else:
+        print("❌ Timeline inválida:")
+        for error in result['errors']:
+            print(f"  - {error['field']}: {error['message']}")
+        return False
+
+# Exemplo de uso
+timeline = {
+    "tracks": [{
+        "clips": [{
+            "asset": {
+                "type": "video",
+                "source": "url",
+                "src": "https://exemplo.com/video.mp4"
+            },
+            "start": 0,
+            "length": "auto"
+        }]
+    }]
+}
+
+output = {
+    "format": "mp4",
+    "resolution": "1280x720"
+}
+
+if validar_timeline(timeline, output):
+    print("Pode prosseguir com o processamento!")
+```
+</CodeGroup>
+
+## Uso Recomendado
+
+### Validação Pré-Processamento
+
+```javascript
+async function processarComValidacao(timeline, output) {
+  // 1. Validar primeiro
+  const valido = await validarTimeline(timeline, output);
+  
+  if (!valido) {
+    throw new Error('Timeline inválida');
+  }
+  
+  // 2. Processar se válido
+  const response = await fetch('/api/render', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ timeline, output })
+  });
+  
+  return await response.json();
+}
+```
+
+### Validação em Tempo Real
+
+```javascript
+// Validar enquanto usuário constrói timeline
+let timeoutId;
+
+function onTimelineChange(timeline) {
+  clearTimeout(timeoutId);
+  
+  timeoutId = setTimeout(async () => {
+    const result = await validarTimeline(timeline, output);
+    updateUI(result);
+  }, 500); // Debounce 500ms
+}
+```
+
+## Códigos de Erro Comuns
+
+| Código | Descrição |
+|--------|-----------|
+| `INVALID_URL` | URL do asset inválida ou inacessível |
+| `UNSUPPORTED_FORMAT` | Formato de arquivo não suportado |
+| `FILE_TOO_LARGE` | Arquivo excede tamanho máximo |
+| `EMPTY_TRACKS` | Timeline sem tracks |
+| `INVALID_TIMING` | Timing de clips inválido |
+| `DURATION_TOO_LONG` | Duração total muito longa |
+| `INVALID_RESOLUTION` | Resolução inválida |
+| `UNSUPPORTED_OUTPUT_FORMAT` | Formato de saída não suportado |
+
+<Tip>
+  **Dica**: Use este endpoint para validar timelines complexas antes de enviar para processamento, economizando tempo e recursos.
+</Tip> 

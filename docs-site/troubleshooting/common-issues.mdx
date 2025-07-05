@@ -1,0 +1,535 @@
+---
+title: "Problemas Comuns"
+description: "Soluções para os problemas mais frequentes da FFmpeg API"
+---
+
+# Problemas Comuns
+
+Esta seção cobre os problemas mais frequentes e suas soluções.
+
+## 🚨 Erros de Processamento
+
+### FFmpeg Error: Invalid codec parameters
+
+<AccordionGroup>
+  <Accordion title="❌ Problema" icon="exclamation-triangle">
+    ```json
+    {
+      "error": {
+        "code": "FFMPEG_ERROR",
+        "message": "FFmpeg processing failed",
+        "details": "Invalid codec parameters for h264",
+        "step": "Video encoding"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="✅ Solução" icon="check-circle">
+    **Causas mais comuns:**
+    1. **Resolução inválida**: Use resoluções pares (1280x720, 1920x1080)
+    2. **Bitrate muito alto**: Reduza o bitrate para a resolução
+    3. **FPS incompatível**: Use valores padrão (24, 25, 30, 60)
+    
+    **Exemplo de configuração correta:**
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": "1920x1080",
+        "quality": "medium",
+        "fps": 30,
+        "bitrate": "5000k"
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Asset Not Found
+
+<AccordionGroup>
+  <Accordion title="❌ Problema" icon="file-x">
+    ```json
+    {
+      "error": {
+        "code": "ASSET_NOT_FOUND",
+        "message": "Asset could not be loaded",
+        "details": "HTTP 404: File not found",
+        "asset": "https://exemplo.com/video.mp4"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="✅ Solução" icon="check-circle">
+    **Verificações:**
+    1. **URL acessível**: Teste a URL no navegador
+    2. **Permissões**: Arquivo deve ser público
+    3. **CORS**: Servidor deve permitir requisições
+    4. **Formato**: Verifique se o formato é suportado
+    
+    **Teste rápido:**
+    ```bash
+    curl -I "https://exemplo.com/video.mp4"
+    ```
+    
+    **Deve retornar:**
+    ```
+    HTTP/1.1 200 OK
+    Content-Type: video/mp4
+    Content-Length: 1234567
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Timeline Structure Invalid
+
+<AccordionGroup>
+  <Accordion title="❌ Problema" icon="layers">
+    ```json
+    {
+      "error": {
+        "code": "INVALID_TIMELINE",
+        "message": "Timeline structure is invalid",
+        "details": "Missing required field: tracks",
+        "field": "timeline.tracks"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="✅ Solução" icon="check-circle">
+    **Estrutura mínima obrigatória:**
+    ```json
+    {
+      "timeline": {
+        "tracks": [
+          {
+            "clips": [
+              {
+                "asset": {
+                  "type": "video",
+                  "source": "url",
+                  "src": "https://exemplo.com/video.mp4"
+                },
+                "start": 0,
+                "length": "auto"
+              }
+            ]
+          }
+        ]
+      }
+    }
+    ```
+    
+    **Campos obrigatórios:**
+    - `timeline.tracks` (array, mínimo 1)
+    - `tracks[].clips` (array, mínimo 1)
+    - `clips[].asset` (object)
+    - `clips[].start` (number)
+    - `clips[].length` (number ou "auto")
+  </Accordion>
+</AccordionGroup>
+
+## ⏱️ Problemas de Performance
+
+### Job Timeout
+
+<AccordionGroup>
+  <Accordion title="❌ Problema" icon="clock">
+    ```json
+    {
+      "error": {
+        "code": "TIMEOUT",
+        "message": "Job exceeded maximum processing time",
+        "details": "Processing took longer than 300 seconds",
+        "timeout": 300
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="✅ Solução" icon="check-circle">
+    **Estratégias de otimização:**
+    
+    1. **Reduza a complexidade:**
+    ```json
+    {
+      "output": {
+        "quality": "medium",  // em vez de "high"
+        "resolution": "1280x720",  // em vez de "4K"
+        "fps": 30  // em vez de 60
+      }
+    }
+    ```
+    
+    2. **Divida em partes menores:**
+    ```json
+    {
+      "timeline": {
+        "tracks": [{
+          "clips": [
+            { "start": 0, "length": 60 },  // 1 minuto por job
+            // Em vez de um clip de 10 minutos
+          ]
+        }]
+      }
+    }
+    ```
+    
+    3. **Use timeout personalizado:**
+    ```json
+    {
+      "timeline": { ... },
+      "timeout": 600  // 10 minutos
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Queue Full
+
+<AccordionGroup>
+  <Accordion title="❌ Problema" icon="users">
+    ```json
+    {
+      "error": {
+        "code": "QUEUE_FULL",
+        "message": "Processing queue is full",
+        "details": "Try again in a few minutes",
+        "queueSize": 100
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="✅ Solução" icon="check-circle">
+    **Estratégias:**
+    
+    1. **Retry com backoff:**
+    ```javascript
+    async function criarJobComRetry(timeline, maxRetries = 3) {
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          return await criarJob(timeline);
+        } catch (error) {
+          if (error.code === 'QUEUE_FULL' && i < maxRetries - 1) {
+            const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          throw error;
+        }
+      }
+    }
+    ```
+    
+    2. **Use prioridade baixa:**
+    ```json
+    {
+      "timeline": { ... },
+      "priority": "low"
+    }
+    ```
+    
+    3. **Monitore a fila:**
+    ```bash
+    curl -X GET "http://localhost:3000/api/admin/queue/status"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 📁 Problemas de Assets
+
+### Formato Não Suportado
+
+<AccordionGroup>
+  <Accordion title="❌ Problema" icon="file">
+    ```json
+    {
+      "error": {
+        "code": "UNSUPPORTED_FORMAT",
+        "message": "Asset format not supported",
+        "details": "Format 'avi' is not supported",
+        "supportedFormats": ["mp4", "mov", "webm"]
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="✅ Solução" icon="check-circle">
+    **Formatos suportados:**
+    
+    **Vídeo:**
+    - ✅ MP4 (H.264, H.265)
+    - ✅ MOV (QuickTime)
+    - ✅ WebM (VP8, VP9)
+    - ❌ AVI (limitado)
+    - ❌ MKV (não suportado)
+    
+    **Áudio:**
+    - ✅ MP3
+    - ✅ WAV
+    - ✅ AAC
+    - ✅ OGG
+    
+    **Imagem:**
+    - ✅ JPEG
+    - ✅ PNG
+    - ✅ GIF
+    - ✅ WebP
+    
+    **Conversão necessária:**
+    ```bash
+    # Converter AVI para MP4
+    ffmpeg -i input.avi -c:v libx264 -c:a aac output.mp4
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Arquivo Muito Grande
+
+<AccordionGroup>
+  <Accordion title="❌ Problema" icon="weight">
+    ```json
+    {
+      "error": {
+        "code": "FILE_TOO_LARGE",
+        "message": "Asset file is too large",
+        "details": "File size: 150MB, Maximum: 100MB",
+        "fileSize": 157286400,
+        "maxSize": 104857600
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="✅ Solução" icon="check-circle">
+    **Estratégias de redução:**
+    
+    1. **Compressão de vídeo:**
+    ```bash
+    # Reduzir qualidade
+    ffmpeg -i input.mp4 -crf 28 -c:v libx264 output.mp4
+    
+    # Reduzir resolução
+    ffmpeg -i input.mp4 -vf scale=1280:720 output.mp4
+    
+    # Reduzir bitrate
+    ffmpeg -i input.mp4 -b:v 2000k output.mp4
+    ```
+    
+    2. **Compressão de áudio:**
+    ```bash
+    # Reduzir qualidade de áudio
+    ffmpeg -i input.mp3 -b:a 128k output.mp3
+    ```
+    
+    3. **Compressão de imagem:**
+    ```bash
+    # JPEG com qualidade reduzida
+    ffmpeg -i input.png -q:v 5 output.jpg
+    ```
+    
+    **Limites atuais:**
+    - **Arquivo único**: 100MB
+    - **Payload total**: 10MB
+    - **Duração máxima**: 10 minutos
+  </Accordion>
+</AccordionGroup>
+
+## 🔗 Problemas de Conectividade
+
+### CORS Error
+
+<AccordionGroup>
+  <Accordion title="❌ Problema" icon="globe">
+    ```
+    Access to fetch at 'http://localhost:3000/api/render' from origin 'http://localhost:3001' 
+    has been blocked by CORS policy
+    ```
+  </Accordion>
+  
+  <Accordion title="✅ Solução" icon="check-circle">
+    **Para desenvolvimento local:**
+    
+    1. **Proxy no package.json:**
+    ```json
+    {
+      "name": "meu-app",
+      "proxy": "http://localhost:3000"
+    }
+    ```
+    
+    2. **Configuração do servidor:**
+    ```javascript
+    // No servidor da API
+    app.use(cors({
+      origin: ['http://localhost:3001', 'https://meusite.com'],
+      credentials: true
+    }));
+    ```
+    
+    3. **Headers corretos:**
+    ```javascript
+    fetch('/api/render', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Network Timeout
+
+<AccordionGroup>
+  <Accordion title="❌ Problema" icon="wifi">
+    ```
+    TypeError: Failed to fetch
+    NetworkError: Network request failed
+    ```
+  </Accordion>
+  
+  <Accordion title="✅ Solução" icon="check-circle">
+    **Implementar retry com timeout:**
+    
+    ```javascript
+    async function fetchComRetry(url, options, maxRetries = 3) {
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
+          
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          return response;
+          
+        } catch (error) {
+          if (i === maxRetries - 1) throw error;
+          
+          const delay = Math.pow(2, i) * 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    ```
+    
+    **Verificar conectividade:**
+    ```javascript
+    // Teste de conectividade
+    async function testarConectividade() {
+      try {
+        const response = await fetch('/api/health');
+        return response.ok;
+      } catch (error) {
+        return false;
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 🔧 Ferramentas de Debug
+
+### Logs Detalhados
+
+Para debugar problemas, use o endpoint de logs:
+
+```bash
+# Logs do job específico
+curl -X GET "http://localhost:3000/api/admin/jobs/123e4567-e89b-12d3-a456-426614174000/logs"
+
+# Logs gerais da API
+curl -X GET "http://localhost:3000/api/admin/logs?service=api&level=error"
+```
+
+### Validação Prévia
+
+Sempre valide antes de processar:
+
+```javascript
+async function processarComValidacao(timeline) {
+  // 1. Validar estrutura
+  const validacao = await fetch('/api/media/validate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ timeline, output: { format: 'mp4' } })
+  });
+  
+  const resultado = await validacao.json();
+  
+  if (!resultado.valid) {
+    console.error('❌ Erros de validação:', resultado.errors);
+    return;
+  }
+  
+  // 2. Verificar assets
+  for (const track of timeline.tracks) {
+    for (const clip of track.clips) {
+      try {
+        await fetch(`/api/media/info?url=${encodeURIComponent(clip.asset.src)}`);
+      } catch (error) {
+        console.error(`❌ Asset inacessível: ${clip.asset.src}`);
+        return;
+      }
+    }
+  }
+  
+  // 3. Processar se tudo OK
+  return await criarJob(timeline);
+}
+```
+
+### Monitoramento de Performance
+
+```javascript
+// Monitorar métricas da API
+async function monitorarPerformance() {
+  const response = await fetch('/api/admin/metrics');
+  const metrics = await response.json();
+  
+  console.log('📊 Métricas:');
+  console.log(`  Taxa de sucesso: ${metrics.jobs.successRate}%`);
+  console.log(`  Tempo médio: ${metrics.performance.averageProcessingTime}s`);
+  console.log(`  Fila atual: ${metrics.queue.waiting} jobs`);
+  
+  // Alertas
+  if (metrics.jobs.successRate < 90) {
+    console.warn('⚠️ Taxa de sucesso baixa!');
+  }
+  
+  if (metrics.queue.waiting > 50) {
+    console.warn('⚠️ Fila muito cheia!');
+  }
+}
+```
+
+## 📞 Suporte
+
+Se o problema persistir:
+
+1. **Verifique os logs** do job específico
+2. **Teste com dados simples** (1 clip, resolução baixa)
+3. **Documente o erro** com payload e response
+4. **Abra uma issue** no GitHub com:
+   - Payload usado
+   - Erro retornado
+   - Logs relevantes
+   - Tentativas de solução
+
+<Warning>
+  **Importante**: Nunca inclua URLs privadas ou dados sensíveis nos logs de debug.
+</Warning>
+
+<Tip>
+  **Dica**: Use o endpoint `/api/media/validate` para detectar problemas antes de processar.
+</Tip> 

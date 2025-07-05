@@ -1,0 +1,150 @@
+---
+title: "POST /api/render"
+description: "Cria um job de renderização de vídeo"
+---
+
+# POST /api/render
+
+Cria um job de renderização de vídeo com base na timeline fornecida.
+
+## Endpoint
+
+```
+POST http://localhost:3000/api/render
+```
+
+## Exemplo Rápido
+
+Quer testar rapidamente? Copie e cole este comando no terminal:
+
+```bash
+curl -X POST "http://localhost:3000/api/render" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "timeline": {
+      "tracks": [{
+        "clips": [{
+          "asset": {
+            "type": "video",
+            "source": "url",
+            "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+          },
+          "start": 0,
+          "length": 5
+        }]
+      }]
+    },
+    "output": {
+      "format": "mp4",
+      "resolution": "1280x720",
+      "quality": "medium"
+    }
+  }'
+```
+
+**O que este exemplo faz:**
+- 📥 Baixa um vídeo de exemplo da internet
+- ✂️ Corta os primeiros 5 segundos
+- 🎬 Converte para MP4 720p qualidade média
+- 🚀 Retorna um jobId para acompanhar o progresso
+
+**Resposta esperada:**
+```json
+{
+  "jobId": "123e4567-e89b-12d3-a456-426614174000",
+  "status": "queued",
+  "message": "Job criado com sucesso"
+}
+```
+
+👉 **Próximo passo:** [Verificar status do job](/api-reference/job-status)
+
+## Headers
+
+| Header | Valor | Obrigatório |
+|--------|-------|-------------|
+| `Content-Type` | `application/json` | ✅ |
+| `Authorization` | `Bearer {token}` | ❌ |
+
+## Request Body
+
+<CodeGroup>
+```json Exemplo 1: Cortar Vídeo
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+            },
+            "start": 0,
+            "length": 5
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium"
+  }
+}
+```
+
+```json Exemplo 2: Imagem para Vídeo
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1280/720"
+            },
+            "start": 0,
+            "length": 3
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium"
+  }
+}
+```
+</CodeGroup>
+
+## Response
+
+### Sucesso (200)
+
+```json
+{
+  "jobId": "123e4567-e89b-12d3-a456-426614174000",
+  "status": "queued",
+  "message": "Job criado com sucesso",
+  "estimatedTime": "~30 segundos",
+  "queuePosition": 2
+}
+```
+
+### Erro (400)
+
+```json
+{
+  "error": {
+    "code": "INVALID_TIMELINE",
+    "message": "Timeline structure is invalid"
+  }
+}
+``` 

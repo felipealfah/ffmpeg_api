@@ -1,0 +1,210 @@
+---
+title: "GET /api/media/job/{jobId}/download"
+description: "Faz download do vídeo renderizado"
+---
+
+# GET /api/media/job/{jobId}/download
+
+Faz download do arquivo de vídeo renderizado. Só funciona para jobs com status 'completed'.
+
+## Endpoint
+
+```
+GET http://localhost:3000/api/media/job/{jobId}/download
+```
+
+## Parâmetros
+
+### Path Parameters
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `jobId` | string (UUID) | ID único do job de renderização |
+
+### Query Parameters (Opcionais)
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `format` | string | Formato de download: "stream" ou "redirect" |
+| `filename` | string | Nome personalizado para o arquivo |
+
+## Response
+
+### Sucesso (200)
+
+**Headers:**
+```
+Content-Type: video/mp4
+Content-Length: 2048576
+Content-Disposition: attachment; filename="video.mp4"
+```
+
+**Body:** Stream binário do arquivo de vídeo
+
+### Redirect (302)
+
+Quando `format=redirect`, retorna um redirect para a URL do arquivo:
+
+```
+Location: https://storage.googleapis.com/.../video.mp4
+```
+
+### Erro (400)
+
+```json
+{
+  "error": {
+    "code": "JOB_NOT_COMPLETED",
+    "message": "Job is not completed yet",
+    "details": "Current status: processing (65%)",
+    "status": "processing",
+    "progress": 65
+  }
+}
+```
+
+### Erro (404)
+
+```json
+{
+  "error": {
+    "code": "FILE_NOT_FOUND",
+    "message": "Video file not found",
+    "details": "The rendered video file is no longer available"
+  }
+}
+```
+
+## Exemplos
+
+<CodeGroup>
+```bash cURL
+# Download direto
+curl -X GET "http://localhost:3000/api/media/job/123e4567-e89b-12d3-a456-426614174000/download" \
+  -o "meu_video.mp4"
+
+# Com nome personalizado
+curl -X GET "http://localhost:3000/api/media/job/123e4567-e89b-12d3-a456-426614174000/download?filename=resultado.mp4" \
+  -o "resultado.mp4"
+
+# Obter URL de redirect
+curl -X GET "http://localhost:3000/api/media/job/123e4567-e89b-12d3-a456-426614174000/download?format=redirect" \
+  -I
+```
+
+```javascript JavaScript
+async function baixarVideo(jobId, filename = 'video.mp4') {
+  try {
+    const response = await fetch(`/api/media/job/${jobId}/download`);
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error.message);
+    }
+    
+    // Criar blob e download
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    
+    // Cleanup
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    console.log('✅ Download concluído!');
+  } catch (error) {
+    console.error('❌ Erro no download:', error.message);
+  }
+}
+
+// Obter URL direta
+async function obterUrlVideo(jobId) {
+  const response = await fetch(`/api/media/job/${jobId}/download?format=redirect`, {
+    redirect: 'manual'
+  });
+  
+  if (response.status === 302) {
+    return response.headers.get('Location');
+  }
+  
+  throw new Error('Não foi possível obter URL do vídeo');
+}
+```
+
+```python Python
+import requests
+from urllib.parse import urlparse
+
+def baixar_video(job_id, filename='video.mp4'):
+    """Baixa o vídeo renderizado"""
+    url = f"/api/media/job/{job_id}/download"
+    
+    response = requests.get(url, stream=True)
+    
+    if response.status_code != 200:
+        error = response.json()
+        raise Exception(error['error']['message'])
+    
+    # Salvar arquivo
+    with open(filename, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
+    
+    print(f"✅ Download salvo como: {filename}")
+    return filename
+
+def obter_url_video(job_id):
+    """Obtém URL direta do vídeo"""
+    url = f"/api/media/job/{job_id}/download?format=redirect"
+    
+    response = requests.get(url, allow_redirects=False)
+    
+    if response.status_code == 302:
+        return response.headers['Location']
+    
+    raise Exception("Não foi possível obter URL do vídeo")
+```
+
+```php PHP
+<?php
+function baixarVideo($jobId, $filename = 'video.mp4') {
+    $url = "/api/media/job/{$jobId}/download";
+    
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'header' => 'Content-Type: application/json'
+        ]
+    ]);
+    
+    $content = file_get_contents($url, false, $context);
+    
+    if ($content === false) {
+        throw new Exception("Erro ao baixar vídeo");
+    }
+    
+    file_put_contents($filename, $content);
+    echo "✅ Download salvo como: {$filename}\n";
+    
+    return $filename;
+}
+
+function obterUrlVideo($jobId) {
+    $url = "/api/media/job/{$jobId}/download?format=redirect";
+    
+    $headers = get_headers($url, 1);
+    
+    if (isset($headers['Location'])) {
+        return $headers['Location'];
+    }
+    
+    throw new Exception("Não foi possível obter URL do vídeo");
+}
+?>
+```
+</CodeGroup>

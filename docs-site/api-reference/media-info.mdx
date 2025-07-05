@@ -1,0 +1,461 @@
+---
+title: "GET /api/media/info"
+description: "Obtém informações de um arquivo de mídia"
+---
+
+# GET /api/media/info
+
+Retorna informações detalhadas sobre um arquivo de mídia, incluindo duração, resolução, fps e formato. Útil para saber a duração antes de criar clips.
+
+## Endpoint
+
+```
+GET http://localhost:3000/api/media/info
+```
+
+## Parâmetros
+
+### Query Parameters
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `url` | string (URL) | URL do arquivo de mídia |
+
+## Response
+
+### Sucesso (200)
+
+<Tabs>
+  <Tab title="🎬 Vídeo">
+    ```json
+    {
+      "type": "video",
+      "duration": 23.967,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "format": "mp4",
+      "bitrate": 5000000,
+      "size": 15728640,
+      "hasAudio": true,
+      "hasVideo": true,
+      "metadata": {
+        "title": "Sample Video",
+        "creation_time": "2024-01-15T10:30:00.000Z",
+        "encoder": "H.264"
+      },
+      "streams": [
+        {
+          "type": "video",
+          "codec": "h264",
+          "bitrate": 4500000,
+          "width": 1920,
+          "height": 1080,
+          "fps": 30
+        },
+        {
+          "type": "audio",
+          "codec": "aac",
+          "bitrate": 128000,
+          "sampleRate": 44100,
+          "channels": 2
+        }
+      ]
+    }
+    ```
+  </Tab>
+  
+  <Tab title="🎵 Áudio">
+    ```json
+    {
+      "type": "audio",
+      "duration": 180.5,
+      "format": "mp3",
+      "bitrate": 320000,
+      "size": 7340032,
+      "hasAudio": true,
+      "hasVideo": false,
+      "metadata": {
+        "title": "Background Music",
+        "artist": "Artist Name",
+        "album": "Album Name",
+        "genre": "Electronic"
+      },
+      "streams": [
+        {
+          "type": "audio",
+          "codec": "mp3",
+          "bitrate": 320000,
+          "sampleRate": 44100,
+          "channels": 2
+        }
+      ]
+    }
+    ```
+  </Tab>
+  
+  <Tab title="🖼️ Imagem">
+    ```json
+    {
+      "type": "image",
+      "width": 1920,
+      "height": 1080,
+      "format": "jpeg",
+      "size": 1048576,
+      "hasAudio": false,
+      "hasVideo": false,
+      "metadata": {
+        "creation_time": "2024-01-15T10:30:00.000Z",
+        "camera": "Canon EOS R5"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Erro (400)
+
+```json
+{
+  "error": {
+    "code": "INVALID_URL",
+    "message": "URL is required",
+    "details": "Please provide a valid URL parameter"
+  }
+}
+```
+
+### Erro (404)
+
+```json
+{
+  "error": {
+    "code": "MEDIA_NOT_FOUND",
+    "message": "Media file not found",
+    "details": "HTTP 404: The requested file could not be found",
+    "url": "https://exemplo.com/video.mp4"
+  }
+}
+```
+
+### Erro (415)
+
+```json
+{
+  "error": {
+    "code": "UNSUPPORTED_MEDIA_TYPE",
+    "message": "Media type not supported",
+    "details": "File type 'application/pdf' is not supported",
+    "supportedTypes": ["video/mp4", "audio/mp3", "image/jpeg"]
+  }
+}
+```
+
+## Campos da Resposta
+
+### Campos Comuns
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `type` | string | Tipo de mídia: "video", "audio", "image" |
+| `format` | string | Formato do arquivo (mp4, mp3, jpeg, etc.) |
+| `size` | number | Tamanho do arquivo em bytes |
+| `hasAudio` | boolean | Se o arquivo contém áudio |
+| `hasVideo` | boolean | Se o arquivo contém vídeo |
+| `metadata` | object | Metadados do arquivo |
+| `streams` | array | Informações dos streams |
+
+### Campos de Vídeo
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `duration` | number | Duração em segundos |
+| `width` | number | Largura em pixels |
+| `height` | number | Altura em pixels |
+| `fps` | number | Frames por segundo |
+| `bitrate` | number | Taxa de bits total |
+
+### Campos de Áudio
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `duration` | number | Duração em segundos |
+| `bitrate` | number | Taxa de bits do áudio |
+| `sampleRate` | number | Taxa de amostragem |
+| `channels` | number | Número de canais |
+
+### Campos de Imagem
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `width` | number | Largura em pixels |
+| `height` | number | Altura em pixels |
+
+## Exemplos
+
+<CodeGroup>
+```bash cURL
+# Informações de vídeo
+curl -X GET "http://localhost:3000/api/media/info?url=https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+
+# Informações de áudio
+curl -X GET "http://localhost:3000/api/media/info?url=https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3"
+
+# Informações de imagem
+curl -X GET "http://localhost:3000/api/media/info?url=https://picsum.photos/1920/1080"
+```
+
+```javascript JavaScript
+async function obterInfoMidia(url) {
+  try {
+    const response = await fetch(`/api/media/info?url=${encodeURIComponent(url)}`);
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error.message);
+    }
+    
+    const info = await response.json();
+    
+    console.log(`📁 Tipo: ${info.type}`);
+    console.log(`📏 Formato: ${info.format}`);
+    console.log(`💾 Tamanho: ${(info.size / 1024 / 1024).toFixed(2)}MB`);
+    
+    if (info.duration) {
+      console.log(`⏱️ Duração: ${info.duration}s`);
+    }
+    
+    if (info.width && info.height) {
+      console.log(`📐 Resolução: ${info.width}x${info.height}`);
+    }
+    
+    return info;
+  } catch (error) {
+    console.error('❌ Erro ao obter informações:', error.message);
+    throw error;
+  }
+}
+
+// Exemplo de uso
+obterInfoMidia('https://exemplo.com/video.mp4')
+  .then(info => {
+    console.log('Informações obtidas:', info);
+  })
+  .catch(error => {
+    console.error('Erro:', error);
+  });
+```
+
+```python Python
+import requests
+from urllib.parse import urlencode
+
+def obter_info_midia(url):
+    """Obtém informações de um arquivo de mídia"""
+    params = {'url': url}
+    response = requests.get(f"/api/media/info?{urlencode(params)}")
+    
+    if response.status_code != 200:
+        error = response.json()
+        raise Exception(error['error']['message'])
+    
+    info = response.json()
+    
+    print(f"📁 Tipo: {info['type']}")
+    print(f"📏 Formato: {info['format']}")
+    print(f"💾 Tamanho: {info['size'] / 1024 / 1024:.2f}MB")
+    
+    if 'duration' in info:
+        print(f"⏱️ Duração: {info['duration']}s")
+    
+    if 'width' in info and 'height' in info:
+        print(f"📐 Resolução: {info['width']}x{info['height']}")
+    
+    return info
+
+# Exemplo de uso
+try:
+    info = obter_info_midia('https://exemplo.com/video.mp4')
+    print("Informações obtidas:", info)
+except Exception as error:
+    print("Erro:", error)
+```
+
+```php PHP
+<?php
+function obterInfoMidia($url) {
+    $params = http_build_query(['url' => $url]);
+    $response = file_get_contents("/api/media/info?{$params}");
+    
+    if ($response === false) {
+        throw new Exception("Erro ao obter informações da mídia");
+    }
+    
+    $info = json_decode($response, true);
+    
+    echo "📁 Tipo: {$info['type']}\n";
+    echo "📏 Formato: {$info['format']}\n";
+    echo "💾 Tamanho: " . round($info['size'] / 1024 / 1024, 2) . "MB\n";
+    
+    if (isset($info['duration'])) {
+        echo "⏱️ Duração: {$info['duration']}s\n";
+    }
+    
+    if (isset($info['width']) && isset($info['height'])) {
+        echo "📐 Resolução: {$info['width']}x{$info['height']}\n";
+    }
+    
+    return $info;
+}
+
+// Exemplo de uso
+try {
+    $info = obterInfoMidia('https://exemplo.com/video.mp4');
+    print_r($info);
+} catch (Exception $e) {
+    echo "Erro: " . $e->getMessage() . "\n";
+}
+?>
+```
+</CodeGroup>
+
+## Casos de Uso
+
+### 1. Validar Assets Antes de Usar
+
+```javascript
+async function validarAssets(assets) {
+  const validados = [];
+  
+  for (const asset of assets) {
+    try {
+      const info = await obterInfoMidia(asset.src);
+      
+      validados.push({
+        ...asset,
+        duration: info.duration,
+        width: info.width,
+        height: info.height,
+        valid: true
+      });
+    } catch (error) {
+      validados.push({
+        ...asset,
+        valid: false,
+        error: error.message
+      });
+    }
+  }
+  
+  return validados;
+}
+```
+
+### 2. Calcular Duração Total da Timeline
+
+```javascript
+async function calcularDuracaoTimeline(timeline) {
+  let duracaoTotal = 0;
+  
+  for (const track of timeline.tracks) {
+    for (const clip of track.clips) {
+      if (clip.length === 'auto') {
+        // Obter duração real do asset
+        const info = await obterInfoMidia(clip.asset.src);
+        const duracaoDisponivel = info.duration - clip.start;
+        duracaoTotal = Math.max(duracaoTotal, clip.start + duracaoDisponivel);
+      } else {
+        duracaoTotal = Math.max(duracaoTotal, clip.start + clip.length);
+      }
+    }
+  }
+  
+  return duracaoTotal;
+}
+```
+
+### 3. Otimizar Qualidade Baseada no Asset
+
+```javascript
+async function otimizarQualidade(assetUrl) {
+  const info = await obterInfoMidia(assetUrl);
+  
+  // Determinar qualidade baseada na resolução original
+  if (info.width >= 3840) {
+    return { quality: 'high', resolution: '3840x2160' };
+  } else if (info.width >= 1920) {
+    return { quality: 'high', resolution: '1920x1080' };
+  } else {
+    return { quality: 'medium', resolution: '1280x720' };
+  }
+}
+```
+
+### 4. Verificar Compatibilidade
+
+```javascript
+async function verificarCompatibilidade(assetUrl) {
+  const info = await obterInfoMidia(assetUrl);
+  
+  const formatosSuportados = ['mp4', 'mov', 'webm', 'mp3', 'wav', 'jpeg', 'png'];
+  
+  if (!formatosSuportados.includes(info.format)) {
+    throw new Error(`Formato ${info.format} não suportado`);
+  }
+  
+  if (info.size > 100 * 1024 * 1024) { // 100MB
+    throw new Error('Arquivo muito grande (máximo 100MB)');
+  }
+  
+  return true;
+}
+```
+
+## Formatos Suportados
+
+### Vídeo
+- **MP4** (H.264, H.265)
+- **MOV** (QuickTime)
+- **WebM** (VP8, VP9)
+- **AVI** (limitado)
+
+### Áudio
+- **MP3**
+- **WAV**
+- **AAC**
+- **OGG**
+
+### Imagem
+- **JPEG**
+- **PNG**
+- **GIF**
+- **WebP**
+
+## Limitações
+
+<CardGroup cols={2}>
+  <Card title="📏 Tamanho" icon="ruler">
+    - **Arquivo máximo**: 100MB
+    - **Timeout**: 30 segundos
+  </Card>
+  <Card title="🌐 Rede" icon="globe">
+    - **URLs públicas** apenas
+    - **HTTPS recomendado**
+  </Card>
+  <Card title="⏱️ Performance" icon="clock">
+    - **Cache**: 1 hora
+    - **Rate limit**: 100 req/min
+  </Card>
+  <Card title="🔒 Segurança" icon="shield">
+    - **Sem autenticação** requerida
+    - **Validação de URL**
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Importante**: Este endpoint faz download do arquivo para análise. Arquivos grandes podem demorar para processar.
+</Warning>
+
+<Tip>
+  **Dica**: Use este endpoint para descobrir a duração exata dos seus assets antes de criar clips com `length: "auto"`.
+</Tip> 

@@ -33,6 +33,15 @@ if (config?.ffmpegPath) {
   console.warn('FFmpeg path não encontrado no config, usando padrão do sistema');
 }
 
+// Configurações globais do FFmpeg para otimização de memória
+ffmpeg.setFfmpegOptions({
+  priority: 5, // Prioridade média-baixa
+  niceness: 5, // Prioridade média-baixa no sistema
+  timeout: 0, // Sem timeout
+  preset: 'faster', // Preset mais rápido que medium, mas com qualidade razoável
+  threads: 5 // Usar 5 threads (deixando 1 vCPU livre para o sistema)
+});
+
 if (config?.ffprobePath) {
   ffmpeg.setFfprobePath(config.ffprobePath);
   console.log('FFprobe path configurado:', config.ffprobePath);
@@ -88,6 +97,9 @@ const cleanupOrphanedProcesses = async (): Promise<void> => {
 const monitorResourceUsage = (command: any, jobId: string): void => {
   const startTime = Date.now();
   let lastMemoryCheck = Date.now();
+  let warningCount = 0;
+  const maxWarnings = 3;
+  const memoryLimit = parseInt(process.env.FFMPEG_MEMORY_LIMIT || '4096', 10);
   
   const memoryCheckInterval = setInterval(() => {
     const memUsage = process.memoryUsage();
@@ -99,17 +111,27 @@ const monitorResourceUsage = (command: any, jobId: string): void => {
     console.log(`📊 Job ${jobId} - Uso de memória: ${memUsageMB}MB`);
     
     // Se uso de memória estiver muito alto, alertar
-    if (memUsageMB > 1500) { // > 1.5GB
+    if (memUsageMB > (memoryLimit * 0.8)) { // 80% do limite
       console.warn(`⚠️  Job ${jobId} - Alto uso de memória detectado: ${memUsageMB}MB`);
+      warningCount++;
       
       // Forçar garbage collection
       if (global.gc) {
         global.gc();
+        console.log(`🧹 Job ${jobId} - Garbage collection forçada`);
+      }
+
+      // Se ultrapassar o limite de warnings, terminar o processo
+      if (warningCount >= maxWarnings && memUsageMB > memoryLimit) {
+        console.error(`❌ Job ${jobId} - Limite de memória excedido (${memUsageMB}MB > ${memoryLimit}MB)`);
+        command.kill('SIGTERM');
+        clearInterval(memoryCheckInterval);
+        return;
       }
     }
     
     lastMemoryCheck = Date.now();
-  }, 10000); // Verificar a cada 10 segundos
+  }, 5000); // Verificar a cada 5 segundos
   
   // Limpar interval quando o comando terminar
   command.on('end', () => {
@@ -665,24 +687,32 @@ const buildOutputOptions = (
   // Codec settings
   outputOptions.push(
     `-c:v ${output.format === 'gif' ? 'gif' : 'libx264'}`,
-    `-preset ${output.quality === 'low' ? 'ultrafast' : output.quality === 'high' ? 'medium' : 'fast'}`,  // Usar preset mais rápido
-    `-threads 4`,  // Limitar threads totais
-    `-b:v ${output.bitrate || '2000k'}`,  // Reduzir bitrate padrão
-    '-movflags +faststart',  // Otimizar para streaming
-    '-max_muxing_queue_size 1024',  // Reduzir fila de muxing
-    '-pix_fmt yuv420p',  // Garantir compatibilidade
-    '-avoid_negative_ts make_zero',  // Evitar timestamps negativos
-    '-fflags +genpts'  // Gerar timestamps se necessário
+    `-preset ${output.quality === 'low' ? 'veryfast' : output.quality === 'high' ? 'medium' : 'faster'}`,
+    `-threads 5`,
+    `-b:v ${output.bitrate || '3000k'}`, // Bitrate moderado
+    '-movflags +faststart',
+    '-max_muxing_queue_size 1024',
+    '-pix_fmt yuv420p',
+    '-avoid_negative_ts make_zero',
+    '-fflags +genpts',
+    // Otimizações balanceadas para os recursos disponíveis
+    '-tile-columns 4',
+    '-frame-parallel 1',
+    '-cpu-used 3', // Valor médio entre desempenho e qualidade
+    '-row-mt 1',
+    '-bufsize 4000k',
+    '-maxrate 4000k'
   );
 
   // Configurações de áudio
   if (audioClips.length > 0 || videoClips.some(({clip}) => clip.asset.type === 'video')) {
     outputOptions.push(
       '-c:a aac',
-      '-b:a 128k',  // Reduzir qualidade do áudio
-      '-ar 44100',  // Reduzir sample rate
-      '-ac 2',  // Forçar stereo
-      '-shortest'  // Parar quando o stream mais curto terminar
+      '-b:a 128k',  // Qualidade de áudio moderada
+      '-ar 44100',  // Sample rate padrão
+      '-ac 2',
+      '-shortest',
+      '-async 1'
     );
   }
   

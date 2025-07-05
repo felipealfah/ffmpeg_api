@@ -1,0 +1,625 @@
+---
+title: "POST /api/render"
+description: "Cria um job de renderização de vídeo"
+---
+
+# POST /api/render
+
+Cria um job de renderização de vídeo assíncrono baseado na timeline fornecida.
+
+## Endpoint
+
+```
+POST http://localhost:3000/api/render
+```
+
+## Exemplo Rápido
+
+Quer testar rapidamente? Copie e cole este comando no terminal:
+
+```bash
+curl -X POST "http://localhost:3000/api/render" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "timeline": {
+      "tracks": [{
+        "clips": [{
+          "asset": {
+            "type": "video",
+            "source": "url",
+            "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+          },
+          "start": 0,
+          "length": 5
+        }]
+      }]
+    },
+    "output": {
+      "format": "mp4",
+      "resolution": "1280x720",
+      "quality": "medium"
+    }
+  }'
+```
+
+**O que este exemplo faz:**
+- 📥 Baixa um vídeo de exemplo da internet
+- ✂️ Corta os primeiros 5 segundos
+- 🎬 Renderiza um novo vídeo MP4 em 720p
+- ⚡ Retorna um `jobId` para acompanhar o progresso
+
+**Resposta esperada:**
+```json
+{
+  "jobId": "123e4567-e89b-12d3-a456-426614174000",
+  "status": "queued",
+  "message": "Job criado com sucesso"
+}
+```
+
+Use o `jobId` para verificar o status: `GET /api/media/job/{jobId}/status`
+
+---
+
+## Headers
+
+| Header | Valor | Obrigatório |
+|--------|-------|-------------|
+| `Content-Type` | `application/json` | ✅ |
+| `Authorization` | `Bearer {token}` | ❌ |
+
+## Request Body
+
+<CodeGroup>
+```json Exemplo 1: Cortar Vídeo
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+            },
+            "start": 0,
+            "length": 5
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium"
+  }
+}
+```
+
+```json Exemplo 2: Imagem para Vídeo
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1280/720"
+            },
+            "start": 0,
+            "length": 3
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium"
+  }
+}
+```
+
+```json Estrutura Básica
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://exemplo.com/video.mp4"
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "medium",
+    "fps": 30
+  }
+}
+```
+
+```json Exemplo Completo
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://exemplo.com/video.mp4"
+            },
+            "start": 0,
+            "length": 10
+          },
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://exemplo.com/musica.mp3",
+              "isBackground": true,
+              "volume": 0.3
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1920x1080",
+    "quality": "high",
+    "fps": 30,
+    "bitrate": "5000k"
+  },
+  "webhook": "https://meusite.com/webhook/ffmpeg",
+  "priority": "normal",
+  "metadata": {
+    "userId": "user123",
+    "projectName": "Meu Projeto"
+  }
+}
+```
+</CodeGroup>
+
+<Card title="💡 Sobre os Exemplos" icon="lightbulb">
+  **Exemplo 1**: Baixa um vídeo da internet e corta apenas os primeiros 5 segundos
+  
+  **Exemplo 2**: Pega uma imagem aleatória e transforma em um vídeo de 3 segundos
+  
+  **Estrutura Básica**: Template genérico para suas próprias URLs
+  
+  **Exemplo Completo**: Versão avançada com múltiplos assets e configurações
+</Card>
+
+## Parâmetros
+
+### timeline (obrigatório)
+
+Estrutura que define a composição do vídeo.
+
+<AccordionGroup>
+  <Accordion title="tracks" icon="layers">
+    Array de tracks (trilhas) que compõem o vídeo.
+    
+    ```json
+    {
+      "tracks": [
+        {
+          "clips": [/* array de clips */]
+        }
+      ]
+    }
+    ```
+    
+    - **Tipo**: `Array<Track>`
+    - **Obrigatório**: ✅
+    - **Mínimo**: 1 track
+  </Accordion>
+  
+  <Accordion title="clips" icon="scissors">
+    Array de clips dentro de cada track.
+    
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {/* definição do asset */},
+          "start": 0,
+          "length": 10
+        }
+      ]
+    }
+    ```
+    
+    - **Tipo**: `Array<Clip>`
+    - **Obrigatório**: ✅
+    - **Mínimo**: 1 clip por track
+  </Accordion>
+  
+  <Accordion title="asset" icon="file">
+    Definição do recurso (vídeo, áudio, imagem, texto).
+    
+    ```json
+    {
+      "asset": {
+        "type": "video",
+        "source": "url",
+        "src": "https://exemplo.com/video.mp4",
+        "volume": 0.8,
+        "isBackground": false
+      }
+    }
+    ```
+    
+    **Propriedades:**
+    - `type`: "video", "audio", "image", "text"
+    - `source`: "url", "local", "upload"
+    - `src`: URL ou caminho do arquivo
+    - `volume`: 0.0 a 1.0 (apenas áudio)
+    - `isBackground`: boolean (apenas áudio)
+  </Accordion>
+</AccordionGroup>
+
+### output (obrigatório)
+
+Configurações de saída do vídeo.
+
+<Tabs>
+  <Tab title="Básico">
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": "1280x720",
+        "quality": "medium"
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Avançado">
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": {
+          "width": 1920,
+          "height": 1080
+        },
+        "quality": "high",
+        "fps": 30,
+        "bitrate": "5000k",
+        "codec": {
+          "video": "h264",
+          "audio": "aac"
+        },
+        "preset": "medium"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+**Propriedades:**
+- `format`: "mp4", "mov", "gif", "webm"
+- `resolution`: String ("1280x720") ou Object ({width, height})
+- `quality`: "low", "medium", "high"
+- `fps`: Frames por segundo (15, 24, 25, 30, 60)
+- `bitrate`: Taxa de bits ("1000k", "5000k")
+
+### Parâmetros Opcionais
+
+<CardGroup cols={2}>
+  <Card title="webhook" icon="link">
+    ```json
+    {
+      "webhook": "https://meusite.com/webhook"
+    }
+    ```
+    URL para notificação quando o job for concluído
+  </Card>
+  
+  <Card title="priority" icon="flag">
+    ```json
+    {
+      "priority": "high"
+    }
+    ```
+    Prioridade: "low", "normal", "high", "urgent"
+  </Card>
+  
+  <Card title="timeout" icon="clock">
+    ```json
+    {
+      "timeout": 300
+    }
+    ```
+    Timeout em segundos (máximo: 600)
+  </Card>
+  
+  <Card title="metadata" icon="tag">
+    ```json
+    {
+      "metadata": {
+        "userId": "user123",
+        "projectName": "Projeto X"
+      }
+    }
+    ```
+    Metadados personalizados
+  </Card>
+</CardGroup>
+
+## Response
+
+### Sucesso (200)
+
+```json
+{
+  "jobId": "123e4567-e89b-12d3-a456-426614174000",
+  "status": "queued",
+  "message": "Job criado com sucesso",
+  "estimatedTime": "~30 segundos",
+  "queuePosition": 2,
+  "timeline": {
+    "totalDuration": 23.5,
+    "tracksCount": 2,
+    "clipsCount": 5
+  }
+}
+```
+
+**Campos:**
+- `jobId`: ID único do job (UUID)
+- `status`: Status inicial ("queued")
+- `message`: Mensagem de confirmação
+- `estimatedTime`: Tempo estimado para conclusão
+- `queuePosition`: Posição na fila de processamento
+- `timeline`: Informações sobre a timeline processada
+
+### Erro (400)
+
+```json
+{
+  "error": {
+    "code": "INVALID_TIMELINE",
+    "message": "Timeline structure is invalid",
+    "details": [
+      {
+        "field": "timeline.tracks",
+        "message": "At least one track is required"
+      }
+    ]
+  }
+}
+```
+
+### Erro (413)
+
+```json
+{
+  "error": {
+    "code": "PAYLOAD_TOO_LARGE",
+    "message": "Request payload exceeds maximum size",
+    "details": "Maximum size: 10MB"
+  }
+}
+```
+
+## Exemplos Práticos
+
+<AccordionGroup>
+  <Accordion title="🎬 Vídeo Simples" icon="video">
+    ```bash
+    curl -X POST "http://localhost:3000/api/render" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "timeline": {
+          "tracks": [
+            {
+              "clips": [
+                {
+                  "asset": {
+                    "type": "video",
+                    "source": "url",
+                    "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+                  },
+                  "start": 0,
+                  "length": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "output": {
+          "format": "mp4",
+          "resolution": "1280x720",
+          "quality": "medium"
+        }
+      }'
+    ```
+  </Accordion>
+  
+  <Accordion title="🔄 Repetir Vídeo" icon="repeat">
+    ```javascript
+    const response = await fetch('http://localhost:3000/api/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        timeline: {
+          tracks: [{
+            clips: [
+              {
+                asset: {
+                  type: 'video',
+                  source: 'url',
+                  src: 'https://exemplo.com/video.mp4'
+                },
+                start: 0,
+                length: 'auto'
+              },
+              {
+                asset: {
+                  type: 'video',
+                  source: 'url', 
+                  src: 'https://exemplo.com/video.mp4'
+                },
+                start: 0,
+                length: 'auto'
+              }
+            ]
+          }]
+        },
+        output: {
+          format: 'mp4',
+          resolution: '1280x720',
+          quality: 'medium'
+        }
+      })
+    });
+    
+    const job = await response.json();
+    console.log('Job ID:', job.jobId);
+    ```
+  </Accordion>
+  
+  <Accordion title="🎵 Com Áudio de Fundo" icon="music">
+    ```python
+    import requests
+    
+    payload = {
+        "timeline": {
+            "tracks": [{
+                "clips": [
+                    {
+                        "asset": {
+                            "type": "video",
+                            "source": "url",
+                            "src": "https://exemplo.com/video.mp4"
+                        },
+                        "start": 0,
+                        "length": "auto"
+                    },
+                    {
+                        "asset": {
+                            "type": "audio",
+                            "source": "url",
+                            "src": "https://exemplo.com/musica.mp3",
+                            "isBackground": True,
+                            "volume": 0.3
+                        },
+                        "start": 0,
+                        "length": "auto"
+                    }
+                ]
+            }]
+        },
+        "output": {
+            "format": "mp4",
+            "resolution": "1920x1080",
+            "quality": "high"
+        }
+    }
+    
+    response = requests.post("http://localhost:3000/api/render", json=payload)
+    job = response.json()
+    print(f"Job ID: {job['jobId']}")
+    ```
+  </Accordion>
+  
+  <Accordion title="📱 Para Redes Sociais" icon="mobile">
+    ```json
+    {
+      "timeline": {
+        "tracks": [
+          {
+            "clips": [
+              {
+                "asset": {
+                  "type": "image",
+                  "source": "url",
+                  "src": "https://exemplo.com/background.jpg"
+                },
+                "start": 0,
+                "length": 15
+              },
+              {
+                "asset": {
+                  "type": "text",
+                  "text": "Título do Post",
+                  "style": {
+                    "fontSize": 64,
+                    "fontColor": "white",
+                    "bold": true,
+                    "alignment": "center"
+                  }
+                },
+                "start": 1,
+                "length": 5
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "format": "mp4",
+        "resolution": "1080x1920",
+        "quality": "high",
+        "fps": 30
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Códigos de Erro
+
+| Código | Descrição | Solução |
+|--------|-----------|---------|
+| `INVALID_TIMELINE` | Estrutura da timeline inválida | Verificar estrutura JSON |
+| `ASSET_NOT_FOUND` | Asset não pode ser carregado | Verificar URL e permissões |
+| `INVALID_OUTPUT` | Configuração de saída inválida | Verificar formato e resolução |
+| `QUEUE_FULL` | Fila de processamento cheia | Tentar novamente mais tarde |
+| `RATE_LIMIT` | Limite de requisições excedido | Aguardar antes de nova tentativa |
+
+## Limites
+
+<CardGroup cols={2}>
+  <Card title="📏 Tamanho" icon="ruler">
+    - **Payload**: 10MB máximo
+    - **Assets**: 100MB por arquivo
+    - **Duração**: 10 minutos máximo
+  </Card>
+  <Card title="⏱️ Performance" icon="clock">
+    - **Timeout**: 600s máximo
+    - **Jobs simultâneos**: 3 por usuário
+    - **Jobs por hora**: 50 por usuário
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Importante**: Assets devem estar publicamente acessíveis. URLs privadas ou que requerem autenticação não são suportadas.
+</Warning>
+
+<Tip>
+  **Dica**: Use o endpoint `/api/media/info` para descobrir a duração dos seus assets antes de criar a timeline.
+</Tip> 

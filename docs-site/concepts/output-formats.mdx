@@ -1,0 +1,540 @@
+---
+title: "Formatos e Resoluções"
+description: "Guia completo sobre formatos de saída e configurações de qualidade"
+---
+
+# Formatos e Resoluções
+
+A FFmpeg API suporta múltiplos formatos de saída e resoluções, cada um otimizado para diferentes casos de uso.
+
+## Formatos Suportados
+
+<CardGroup cols={2}>
+  <Card title="🎬 MP4" icon="video">
+    **Melhor para**: Uso geral, redes sociais, streaming
+    - Compressão eficiente
+    - Compatibilidade universal
+    - Suporte a hardware acceleration
+  </Card>
+  <Card title="🌐 WebM" icon="globe">
+    **Melhor para**: Web, navegadores modernos
+    - Otimizado para streaming
+    - Código aberto
+    - Boa compressão
+  </Card>
+  <Card title="🎞️ MOV" icon="film">
+    **Melhor para**: Edição profissional, macOS
+    - Alta qualidade
+    - Metadados avançados
+    - Compatível com QuickTime
+  </Card>
+  <Card title="🎪 GIF" icon="image">
+    **Melhor para**: Animações curtas, previews
+    - Suporte universal
+    - Sem áudio
+    - Tamanho limitado
+  </Card>
+</CardGroup>
+
+## Configuração de Saída
+
+### Estrutura Básica
+
+```json
+{
+  "output": {
+    "format": "mp4",
+    "resolution": {
+      "width": 1920,
+      "height": 1080
+    },
+    "quality": "high",
+    "fps": 30,
+    "bitrate": "5000k"
+  }
+}
+```
+
+### Formatos Detalhados
+
+<Tabs>
+  <Tab title="🎬 MP4">
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": "1920x1080",
+        "quality": "high",
+        "fps": 30,
+        "bitrate": "5000k",
+        "codec": {
+          "video": "h264",
+          "audio": "aac"
+        },
+        "preset": "medium"
+      }
+    }
+    ```
+    
+    **Configurações:**
+    - `codec.video`: "h264", "h265", "vp9"
+    - `codec.audio`: "aac", "mp3", "opus"
+    - `preset`: "ultrafast", "fast", "medium", "slow", "veryslow"
+    - `crf`: 18-28 (qualidade constante)
+  </Tab>
+  
+  <Tab title="🌐 WebM">
+    ```json
+    {
+      "output": {
+        "format": "webm",
+        "resolution": "1280x720",
+        "quality": "medium",
+        "fps": 25,
+        "codec": {
+          "video": "vp9",
+          "audio": "opus"
+        },
+        "bitrate": "2000k"
+      }
+    }
+    ```
+    
+    **Configurações:**
+    - `codec.video`: "vp8", "vp9", "av1"
+    - `codec.audio`: "opus", "vorbis"
+    - Otimizado para streaming web
+  </Tab>
+  
+  <Tab title="🎞️ MOV">
+    ```json
+    {
+      "output": {
+        "format": "mov",
+        "resolution": "1920x1080",
+        "quality": "high",
+        "fps": 30,
+        "codec": {
+          "video": "prores",
+          "audio": "pcm"
+        },
+        "profile": "422"
+      }
+    }
+    ```
+    
+    **Configurações:**
+    - `codec.video`: "prores", "h264", "h265"
+    - `profile`: "proxy", "lt", "422", "422hq", "4444"
+    - Ideal para pós-produção
+  </Tab>
+  
+  <Tab title="🎪 GIF">
+    ```json
+    {
+      "output": {
+        "format": "gif",
+        "resolution": "480x270",
+        "fps": 15,
+        "loop": true,
+        "optimize": true,
+        "dither": "bayer",
+        "colors": 256
+      }
+    }
+    ```
+    
+    **Configurações:**
+    - `loop`: true/false
+    - `optimize`: Reduz tamanho do arquivo
+    - `dither`: "none", "bayer", "floyd_steinberg"
+    - `colors`: 2-256 cores
+  </Tab>
+</Tabs>
+
+## Resoluções Padrão
+
+### Formatos Populares
+
+<AccordionGroup>
+  <Accordion title="📱 Mobile/Vertical" icon="mobile">
+    **9:16 (Stories, TikTok, Reels)**
+    ```json
+    {
+      "resolution": {
+        "width": 1080,
+        "height": 1920
+      }
+    }
+    
+    // Ou usar string
+    { "resolution": "1080x1920" }
+    ```
+    
+    **Variações:**
+    - `720x1280` - HD vertical
+    - `1080x1920` - Full HD vertical
+    - `1440x2560` - 2K vertical
+  </Accordion>
+  
+  <Accordion title="🖥️ Desktop/Horizontal" icon="desktop">
+    **16:9 (YouTube, TV, Desktop)**
+    ```json
+    {
+      "resolution": {
+        "width": 1920,
+        "height": 1080
+      }
+    }
+    ```
+    
+    **Variações:**
+    - `1280x720` - HD (720p)
+    - `1920x1080` - Full HD (1080p)
+    - `2560x1440` - 2K (1440p)
+    - `3840x2160` - 4K (2160p)
+  </Accordion>
+  
+  <Accordion title="⬜ Quadrado" icon="square">
+    **1:1 (Instagram Posts, Facebook)**
+    ```json
+    {
+      "resolution": {
+        "width": 1080,
+        "height": 1080
+      }
+    }
+    ```
+    
+    **Variações:**
+    - `720x720` - HD quadrado
+    - `1080x1080` - Full HD quadrado
+    - `1440x1440` - 2K quadrado
+  </Accordion>
+  
+  <Accordion title="🎬 Cinema" icon="film">
+    **21:9 (Ultra-wide, Cinema)**
+    ```json
+    {
+      "resolution": {
+        "width": 2560,
+        "height": 1080
+      }
+    }
+    ```
+    
+    **Variações:**
+    - `2560x1080` - Ultra-wide Full HD
+    - `3440x1440` - Ultra-wide 2K
+    - `5120x2160` - Ultra-wide 4K
+  </Accordion>
+</AccordionGroup>
+
+### Resoluções Responsivas
+
+```json
+{
+  "output": {
+    "format": "mp4",
+    "resolution": "auto",  // Mantém proporção original
+    "maxWidth": 1920,
+    "maxHeight": 1080,
+    "scaleMode": "fit"     // "fit", "fill", "crop"
+  }
+}
+```
+
+## Qualidade e Performance
+
+### Níveis de Qualidade
+
+<Tabs>
+  <Tab title="🚀 Rápido">
+    ```json
+    {
+      "quality": "fast",
+      "preset": "ultrafast",
+      "crf": 28,
+      "bitrate": "1000k"
+    }
+    ```
+    - ✅ Processamento rápido
+    - ✅ Menor uso de CPU
+    - ❌ Qualidade reduzida
+    - ❌ Arquivo maior
+  </Tab>
+  
+  <Tab title="⚖️ Balanceado">
+    ```json
+    {
+      "quality": "medium", 
+      "preset": "medium",
+      "crf": 23,
+      "bitrate": "3000k"
+    }
+    ```
+    - ✅ Boa qualidade
+    - ✅ Tempo razoável
+    - ✅ Tamanho equilibrado
+    - ✅ **Recomendado**
+  </Tab>
+  
+  <Tab title="💎 Alta Qualidade">
+    ```json
+    {
+      "quality": "high",
+      "preset": "slow", 
+      "crf": 18,
+      "bitrate": "8000k"
+    }
+    ```
+    - ✅ Máxima qualidade
+    - ✅ Arquivo menor
+    - ❌ Processamento lento
+    - ❌ Maior uso de CPU
+  </Tab>
+</Tabs>
+
+### Bitrate por Resolução
+
+| Resolução | Bitrate Baixo | Bitrate Médio | Bitrate Alto |
+|-----------|---------------|---------------|--------------|
+| 720p      | 1000k         | 2500k         | 5000k        |
+| 1080p     | 2000k         | 5000k         | 10000k       |
+| 1440p     | 4000k         | 10000k        | 20000k       |
+| 4K        | 8000k         | 20000k        | 40000k       |
+
+## Casos de Uso Específicos
+
+<AccordionGroup>
+  <Accordion title="📱 Redes Sociais" icon="share">
+    **Instagram Stories/Reels:**
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": "1080x1920",
+        "fps": 30,
+        "quality": "high",
+        "duration": 60,
+        "codec": {
+          "video": "h264",
+          "audio": "aac"
+        }
+      }
+    }
+    ```
+    
+    **TikTok:**
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": "1080x1920", 
+        "fps": 30,
+        "bitrate": "5000k",
+        "maxDuration": 180
+      }
+    }
+    ```
+    
+    **YouTube:**
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": "1920x1080",
+        "fps": 30,
+        "quality": "high",
+        "codec": {
+          "video": "h264",
+          "audio": "aac"
+        }
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="🌐 Web/Streaming" icon="globe">
+    **Preview/Thumbnail:**
+    ```json
+    {
+      "output": {
+        "format": "gif",
+        "resolution": "320x180",
+        "fps": 10,
+        "duration": 3,
+        "optimize": true
+      }
+    }
+    ```
+    
+    **Streaming Adaptivo:**
+    ```json
+    {
+      "output": [
+        {
+          "format": "mp4",
+          "resolution": "720x480",
+          "bitrate": "1000k",
+          "label": "480p"
+        },
+        {
+          "format": "mp4", 
+          "resolution": "1280x720",
+          "bitrate": "2500k",
+          "label": "720p"
+        },
+        {
+          "format": "mp4",
+          "resolution": "1920x1080", 
+          "bitrate": "5000k",
+          "label": "1080p"
+        }
+      ]
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="🎓 Educacional" icon="graduation-cap">
+    **Apresentação/Slides:**
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": "1920x1080",
+        "fps": 15,
+        "quality": "medium",
+        "preset": "fast",
+        "optimize": "text"
+      }
+    }
+    ```
+    
+    **Screen Recording:**
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": "1920x1080",
+        "fps": 30,
+        "codec": {
+          "video": "h264",
+          "profile": "high"
+        },
+        "crf": 20
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="🏢 Corporativo" icon="building">
+    **Apresentação Executiva:**
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": "1920x1080",
+        "quality": "high",
+        "fps": 30,
+        "watermark": {
+          "text": "Confidencial",
+          "position": "bottom-right"
+        }
+      }
+    }
+    ```
+    
+    **Relatório Visual:**
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": "1280x720",
+        "fps": 25,
+        "quality": "medium",
+        "chapters": true,
+        "metadata": {
+          "title": "Relatório Q4 2024",
+          "author": "Empresa XYZ"
+        }
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Configurações Avançadas
+
+### Hardware Acceleration
+
+```json
+{
+  "output": {
+    "format": "mp4",
+    "hwaccel": "auto",
+    "codec": {
+      "video": "h264_nvenc",  // NVIDIA
+      "audio": "aac"
+    },
+    "gpu": {
+      "enabled": true,
+      "device": 0
+    }
+  }
+}
+```
+
+### Filtros de Saída
+
+```json
+{
+  "output": {
+    "format": "mp4",
+    "filters": [
+      "denoise",
+      "sharpen", 
+      "colorCorrection",
+      "stabilization"
+    ],
+    "postProcessing": {
+      "normalize": true,
+      "optimize": true
+    }
+  }
+}
+```
+
+## Melhores Práticas
+
+<CardGroup cols={2}>
+  <Card title="🎯 Escolha do Formato" icon="target">
+    - MP4 para uso geral
+    - WebM para web
+    - MOV para edição
+    - GIF para previews
+  </Card>
+  <Card title="📐 Resolução" icon="ruler">
+    - Mantenha proporções padrão
+    - Considere o dispositivo final
+    - Use múltiplas resoluções se necessário
+  </Card>
+  <Card title="⚡ Performance" icon="bolt">
+    - Preset "medium" é equilibrado
+    - Use hardware acceleration
+    - Teste com arquivos pequenos
+  </Card>
+  <Card title="📊 Qualidade" icon="chart-bar">
+    - CRF 18-23 para alta qualidade
+    - Bitrate adequado à resolução
+    - Considere o tamanho final
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Atenção**: Resoluções muito altas (4K+) podem causar timeout em processamentos longos. Use com moderação.
+</Warning>
+
+<Tip>
+  **Dica**: Para redes sociais, sempre teste o vídeo na plataforma de destino antes da produção em massa.
+</Tip> 

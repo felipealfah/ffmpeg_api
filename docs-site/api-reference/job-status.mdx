@@ -1,0 +1,182 @@
+---
+title: "GET /api/media/job/{jobId}/status"
+description: "Verifica o status de um job de renderização"
+---
+
+# GET /api/media/job/{jobId}/status
+
+Retorna o status atual de um job de renderização, incluindo progresso, resultado e possíveis erros.
+
+## Endpoint
+
+```
+GET http://localhost:3000/api/media/job/{jobId}/status
+```
+
+## Parâmetros
+
+### Path Parameters
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `jobId` | string (UUID) | ID único do job de renderização |
+
+## Response
+
+### Sucesso (200)
+
+<Tabs>
+  <Tab title="⏳ Queued">
+    ```json
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "status": "queued",
+      "progress": 0,
+      "queuePosition": 3,
+      "estimatedTime": "~45 segundos",
+      "createdAt": "2024-01-15T10:30:00.000Z"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="⚙️ Processing">
+    ```json
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "status": "processing",
+      "progress": 65,
+      "currentStep": "Aplicando filtros de vídeo",
+      "startedAt": "2024-01-15T10:30:15.000Z",
+      "estimatedCompletion": "2024-01-15T10:31:00.000Z"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="✅ Completed">
+    ```json
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "status": "completed",
+      "progress": 100,
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "startedAt": "2024-01-15T10:30:15.000Z",
+      "completedAt": "2024-01-15T10:30:45.000Z",
+      "output": {
+        "url": "https://storage.googleapis.com/.../video.mp4",
+        "duration": 23.901,
+        "size": 2048576,
+        "format": "mp4",
+        "resolution": "1920x1080"
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="❌ Failed">
+    ```json
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "status": "failed",
+      "progress": 30,
+      "error": {
+        "code": "FFMPEG_ERROR",
+        "message": "Erro ao processar vídeo",
+        "details": "Invalid codec parameters",
+        "step": "Video encoding"
+      },
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "failedAt": "2024-01-15T10:30:25.000Z"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Erro (404)
+
+```json
+{
+  "error": {
+    "code": "JOB_NOT_FOUND",
+    "message": "Job not found",
+    "details": "No job found with ID: 123e4567-e89b-12d3-a456-426614174000"
+  }
+}
+```
+
+## Estados do Job
+
+| Status | Descrição | Campos Adicionais |
+|--------|-----------|-------------------|
+| `queued` | Na fila aguardando processamento | `queuePosition`, `estimatedTime` |
+| `processing` | Sendo processado | `currentStep`, `estimatedCompletion` |
+| `completed` | Concluído com sucesso | `output` |
+| `failed` | Falhou durante processamento | `error` |
+
+## Exemplos
+
+<CodeGroup>
+```bash cURL
+curl -X GET "http://localhost:3000/api/media/job/123e4567-e89b-12d3-a456-426614174000/status"
+```
+
+```javascript JavaScript
+async function verificarStatus(jobId) {
+  const response = await fetch(`/api/media/job/${jobId}/status`);
+  const status = await response.json();
+  
+  console.log(`Status: ${status.status} (${status.progress}%)`);
+  
+  if (status.status === 'completed') {
+    console.log('✅ Vídeo pronto!', status.output.url);
+  } else if (status.status === 'failed') {
+    console.error('❌ Erro:', status.error.message);
+  }
+  
+  return status;
+}
+```
+
+```python Python
+import requests
+
+def verificar_status(job_id):
+    response = requests.get(f"/api/media/job/{job_id}/status")
+    status = response.json()
+    
+    print(f"Status: {status['status']} ({status['progress']}%)")
+    
+    if status['status'] == 'completed':
+        print("✅ Vídeo pronto!", status['output']['url'])
+    elif status['status'] == 'failed':
+        print("❌ Erro:", status['error']['message'])
+    
+    return status
+```
+</CodeGroup>
+
+## Polling Inteligente
+
+Para monitorar jobs de forma eficiente, use intervalos progressivos:
+
+```javascript
+async function monitorarJob(jobId) {
+  let intervalo = 1000; // Inicia com 1 segundo
+  const maxIntervalo = 10000; // Máximo 10 segundos
+  
+  while (true) {
+    const status = await verificarStatus(jobId);
+    
+    if (['completed', 'failed'].includes(status.status)) {
+      return status;
+    }
+    
+    // Aumenta o intervalo gradualmente
+    await new Promise(resolve => setTimeout(resolve, intervalo));
+    intervalo = Math.min(intervalo * 1.2, maxIntervalo);
+  }
+}
+```
+
+<Tip>
+  **Dica**: Use webhooks em vez de polling para notificações em tempo real e economizar recursos.
+</Tip> 

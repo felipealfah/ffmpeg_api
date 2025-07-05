@@ -1,0 +1,172 @@
+---
+title: "Quickstart"
+description: "Crie seu primeiro vídeo em 5 minutos usando a API"
+---
+
+# Quickstart
+
+Aprenda a usar a FFmpeg API em 5 minutos criando seu primeiro vídeo.
+
+## 1. Primeiro Vídeo
+
+<Steps>
+  <Step title="Obter Informações de Mídia">
+    Antes de criar um vídeo, você pode obter informações sobre a mídia:
+    
+    ```bash
+    curl -X GET "https://api.ffmpeg.exemplo.com/api/media/info?url=https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+    ```
+    
+    Resposta:
+    ```json
+    {
+      "duration": 7.967,
+      "width": 1280,
+      "height": 720,
+      "fps": 25,
+      "format": "mp4"
+    }
+    ```
+  </Step>
+  
+  <Step title="Criar Seu Primeiro Vídeo">
+    Vamos criar um vídeo simples repetindo o mesmo clip 3 vezes:
+    
+    ```bash
+    curl -X POST "https://api.ffmpeg.exemplo.com/api/media/render" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "timeline": {
+          "tracks": [
+            {
+              "clips": [
+                {
+                  "asset": {
+                    "type": "video",
+                    "source": "url",
+                    "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+                  },
+                  "start": 0,
+                  "length": "auto"
+                },
+                {
+                  "asset": {
+                    "type": "video",
+                    "source": "url", 
+                    "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+                  },
+                  "start": 0,
+                  "length": "auto"
+                },
+                {
+                  "asset": {
+                    "type": "video",
+                    "source": "url",
+                    "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+                  },
+                  "start": 0,
+                  "length": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "output": {
+          "format": "mp4",
+          "resolution": {
+            "width": 1280,
+            "height": 720
+          }
+        }
+      }'
+    ```
+    
+    Resposta:
+    ```json
+    {
+      "jobId": "123e4567-e89b-12d3-a456-426614174000",
+      "status": "queued",
+      "message": "Job criado com sucesso",
+      "estimatedTime": "~30 segundos"
+    }
+    ```
+  </Step>
+  
+  <Step title="Verificar Status do Job">
+    ```bash
+    curl -X GET "https://api.ffmpeg.exemplo.com/api/media/job/123e4567-e89b-12d3-a456-426614174000/status"
+    ```
+    
+    Resposta:
+    ```json
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "status": "completed",
+      "progress": 100,
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "completedAt": "2024-01-15T10:30:45.000Z",
+      "output": {
+        "url": "https://storage.googleapis.com/ffmpeg-api/output/123e4567-e89b-12d3-a456-426614174000.mp4",
+        "duration": 23.901,
+        "size": 2048576
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Baixar o Vídeo">
+    ```bash
+    curl -X GET "https://api.ffmpeg.exemplo.com/api/media/job/123e4567-e89b-12d3-a456-426614174000/download" \
+      -o "meu-video.mp4"
+    ```
+    
+    Ou acesse diretamente a URL retornada no status.
+  </Step>
+</Steps>
+
+## 2. Próximos Passos
+
+<CardGroup cols={2}>
+  <Card
+    title="🎬 Exemplos Práticos"
+    icon="video"
+    href="/examples/lyric-video"
+  >
+    Veja exemplos reais como lyric videos e compilações
+  </Card>
+  <Card
+    title="📚 Guias Detalhados"
+    icon="book"
+    href="/guides/creating-videos"
+  >
+    Aprenda técnicas avançadas de edição
+  </Card>
+  <Card
+    title="🔧 API Reference"
+    icon="code"
+    href="/api-reference/render"
+  >
+    Documentação completa de todos os endpoints
+  </Card>
+  <Card
+    title="💡 Conceitos"
+    icon="lightbulb"
+    href="/concepts/timeline"
+  >
+    Entenda como funciona a timeline e assets
+  </Card>
+</CardGroup>
+
+## 3. Dicas Importantes
+
+<Tip>
+  **Duração Automática**: Use `"length": "auto"` para usar toda a duração disponível do vídeo
+</Tip>
+
+<Warning>
+  **Limites de Tamanho**: Arquivos de vídeo devem ter no máximo 100MB
+</Warning>
+
+<Info>
+  **Formatos Suportados**: MP4, MOV, AVI, WebM para vídeo | MP3, WAV, AAC para áudio | PNG, JPG, GIF para imagens
+</Info> 

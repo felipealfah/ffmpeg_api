@@ -1,0 +1,662 @@
+---
+title: "FAQ"
+description: "Perguntas frequentes sobre a FFmpeg API"
+---
+
+# Perguntas Frequentes (FAQ)
+
+Respostas para as perguntas mais comuns sobre a FFmpeg API.
+
+## 🎬 Processamento de Vídeo
+
+<AccordionGroup>
+  <Accordion title="Qual é a duração máxima de vídeo suportada?" icon="clock">
+    **Resposta:** A duração máxima é de **10 minutos** por job. Para vídeos mais longos, divida em múltiplos jobs ou entre em contato para limites personalizados.
+    
+    **Exemplo de divisão:**
+    ```javascript
+    // Em vez de um vídeo de 30 minutos
+    const jobs = [
+      { start: 0, length: 600 },    // 0-10 min
+      { start: 600, length: 600 },  // 10-20 min
+      { start: 1200, length: 600 }  // 20-30 min
+    ];
+    ```
+  </Accordion>
+  
+  <Accordion title="Posso processar múltiplos vídeos ao mesmo tempo?" icon="layers">
+    **Resposta:** Sim! Você pode ter até **3 jobs simultâneos** por usuário. Jobs adicionais ficam em fila.
+    
+    **Monitorar jobs ativos:**
+    ```javascript
+    const jobs = await Promise.all([
+      criarJob(timeline1),
+      criarJob(timeline2),
+      criarJob(timeline3)
+    ]);
+    
+    // Monitorar todos simultaneamente
+    const resultados = await Promise.all(
+      jobs.map(job => monitorarJob(job.jobId))
+    );
+    ```
+  </Accordion>
+  
+  <Accordion title="Como otimizar o tempo de processamento?" icon="rocket">
+    **Dicas para acelerar:**
+    
+    1. **Use resoluções menores:**
+    ```json
+    { "resolution": "1280x720" }  // em vez de "1920x1080"
+    ```
+    
+    2. **Qualidade média:**
+    ```json
+    { "quality": "medium" }  // em vez de "high"
+    ```
+    
+    3. **FPS menor:**
+    ```json
+    { "fps": 30 }  // em vez de 60
+    ```
+    
+    4. **Clips otimizados:**
+    ```json
+    // Use clips sequenciais para otimização automática
+    [
+      { "start": 0, "length": 10 },
+      { "start": 10, "length": 10 },
+      { "start": 20, "length": 10 }
+    ]
+    ```
+  </Accordion>
+  
+  <Accordion title="Qual a diferença entre 'length: 10' e 'length: auto'?" icon="scissors">
+    **`length: 10`** - Usa exatamente 10 segundos do asset
+    **`length: "auto"`** - Usa toda a duração disponível do asset
+    
+    **Exemplo:**
+    ```json
+    // Vídeo tem 30 segundos de duração
+    {
+      "start": 5,
+      "length": 10     // Usa segundos 5-15
+    }
+    
+    {
+      "start": 5,
+      "length": "auto" // Usa segundos 5-30 (25 segundos)
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 🎵 Áudio e Música
+
+<AccordionGroup>
+  <Accordion title="Como adicionar música de fundo?" icon="music">
+    **Resposta:** Use a propriedade `isBackground: true` ou inclua palavras-chave no nome do arquivo.
+    
+    **Método explícito:**
+    ```json
+    {
+      "asset": {
+        "type": "audio",
+        "source": "url",
+        "src": "https://exemplo.com/musica.mp3",
+        "isBackground": true,
+        "volume": 0.3
+      }
+    }
+    ```
+    
+    **Método implícito:**
+    ```json
+    {
+      "asset": {
+        "type": "audio",
+        "source": "url",
+        "src": "https://exemplo.com/background-music.mp3"
+        // Detectado automaticamente como background
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Como controlar o volume dos áudios?" icon="volume">
+    **Volumes padrão:**
+    - **Áudio principal:** 0.8 (80%)
+    - **Áudio de fundo:** 0.3 (30%)
+    
+    **Personalizar volume:**
+    ```json
+    {
+      "asset": {
+        "type": "audio",
+        "volume": 0.5  // 50% do volume
+      }
+    }
+    ```
+    
+    **Múltiplos áudios:**
+    ```json
+    {
+      "clips": [
+        {
+          "asset": { "type": "audio", "volume": 0.8 },  // Voz principal
+          "start": 0, "length": 30
+        },
+        {
+          "asset": { "type": "audio", "volume": 0.2 },  // Música baixa
+          "start": 0, "length": 30
+        }
+      ]
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="O áudio de fundo faz loop automaticamente?" icon="repeat">
+    **Resposta:** Sim! Se o áudio de fundo for menor que a duração total do vídeo, ele será repetido automaticamente com transições suaves.
+    
+    **Exemplo:**
+    - Vídeo: 60 segundos
+    - Música: 20 segundos
+    - Resultado: Música toca 3x (20s + 20s + 20s)
+    
+    **Para desabilitar o loop:**
+    ```json
+    {
+      "asset": {
+        "type": "audio",
+        "isBackground": true,
+        "loop": false  // Não repetir
+      },
+      "length": "auto"  // Para toda duração disponível
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 📝 Texto e Legendas
+
+<AccordionGroup>
+  <Accordion title="Como adicionar texto sobre o vídeo?" icon="text">
+    **Resposta:** Use assets do tipo `text` com estilos personalizados.
+    
+    **Exemplo básico:**
+    ```json
+    {
+      "asset": {
+        "type": "text",
+        "text": "Meu Título",
+        "style": {
+          "fontSize": 48,
+          "fontColor": "white",
+          "bold": true,
+          "alignment": "center",
+          "position": "top"
+        }
+      },
+      "start": 0,
+      "length": 5
+    }
+    ```
+    
+    **Estilos disponíveis:**
+    - `fontSize`: Tamanho da fonte
+    - `fontColor`: Cor do texto
+    - `outlineColor`: Cor da borda
+    - `bold`: Texto em negrito
+    - `alignment`: "left", "center", "right"
+    - `position`: "top", "bottom"
+    - `marginV`: Margem vertical
+  </Accordion>
+  
+  <Accordion title="Posso usar legendas de arquivo .srt?" icon="subtitles">
+    **Resposta:** Atualmente suportamos apenas texto manual. Suporte para arquivos .srt está em desenvolvimento.
+    
+    **Alternativa atual:**
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "text",
+            "text": "Primeira linha da legenda"
+          },
+          "start": 0, "length": 3
+        },
+        {
+          "asset": {
+            "type": "text", 
+            "text": "Segunda linha da legenda"
+          },
+          "start": 3, "length": 3
+        }
+      ]
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Como fazer texto animado?" icon="magic">
+    **Resposta:** Atualmente não suportamos animações de texto. O texto aparece e desaparece conforme o timing definido.
+    
+    **Efeito de fade simulado:**
+    ```json
+    // Múltiplos clips com opacidades diferentes
+    [
+      { "text": "Texto", "start": 0, "length": 0.5, "opacity": 0.3 },
+      { "text": "Texto", "start": 0.5, "length": 0.5, "opacity": 0.7 },
+      { "text": "Texto", "start": 1, "length": 3, "opacity": 1.0 }
+    ]
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 🖼️ Imagens e Backgrounds
+
+<AccordionGroup>
+  <Accordion title="Como usar uma imagem como background?" icon="image">
+    **Resposta:** Adicione a imagem como primeiro clip com a duração desejada.
+    
+    **Exemplo:**
+    ```json
+    {
+      "timeline": {
+        "tracks": [{
+          "clips": [
+            {
+              "asset": {
+                "type": "image",
+                "source": "url",
+                "src": "https://exemplo.com/background.jpg"
+              },
+              "start": 0,
+              "length": 30  // Background por 30 segundos
+            },
+            {
+              "asset": {
+                "type": "video",
+                "source": "url",
+                "src": "https://exemplo.com/video.mp4"
+              },
+              "start": 5,   // Vídeo começa aos 5s
+              "length": 20
+            }
+          ]
+        }]
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="A imagem é redimensionada automaticamente?" icon="expand">
+    **Resposta:** Sim, a imagem é automaticamente redimensionada para a resolução de saída, mantendo proporção.
+    
+    **Comportamento:**
+    - **Menor que saída:** Esticada para preencher
+    - **Maior que saída:** Reduzida mantendo proporção
+    - **Proporção diferente:** Preenchida com barras pretas
+    
+    **Para controlar o redimensionamento:**
+    ```json
+    {
+      "output": {
+        "resolution": "1920x1080",  // Força resolução específica
+        "scaleMode": "fill"         // "fit", "fill", "stretch"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Posso usar GIFs animados?" icon="gif">
+    **Resposta:** Sim! GIFs são suportados e mantêm a animação.
+    
+    **Exemplo:**
+    ```json
+    {
+      "asset": {
+        "type": "image",  // Mesmo para GIFs
+        "source": "url",
+        "src": "https://exemplo.com/animacao.gif"
+      },
+      "start": 0,
+      "length": 10  // GIF anima por 10 segundos
+    }
+    ```
+    
+    **Nota:** GIFs grandes podem aumentar o tempo de processamento.
+  </Accordion>
+</AccordionGroup>
+
+## 📤 Formatos e Qualidade
+
+<AccordionGroup>
+  <Accordion title="Quais formatos de saída são suportados?" icon="video">
+    **Formatos disponíveis:**
+    - **MP4** (recomendado) - Compatibilidade universal
+    - **MOV** - Qualidade alta, ideal para edição
+    - **WebM** - Otimizado para web
+    - **GIF** - Para animações curtas
+    
+    **Exemplo:**
+    ```json
+    {
+      "output": {
+        "format": "mp4",        // Formato
+        "resolution": "1920x1080",
+        "quality": "high",
+        "fps": 30
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Qual a diferença entre as qualidades?" icon="settings">
+    **Qualidades disponíveis:**
+    
+    | Qualidade | Bitrate | Uso Recomendado |
+    |-----------|---------|-----------------|
+    | `low` | 1000k | Testes, rascunhos |
+    | `medium` | 3000k | Uso geral, redes sociais |
+    | `high` | 8000k | Apresentações, qualidade máxima |
+    
+    **Personalizar bitrate:**
+    ```json
+    {
+      "output": {
+        "quality": "custom",
+        "bitrate": "5000k"  // Bitrate específico
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Como escolher a resolução ideal?" icon="monitor">
+    **Resoluções comuns:**
+    
+    | Resolução | Uso | Exemplo |
+    |-----------|-----|---------|
+    | 1280x720 | HD, YouTube | `"1280x720"` |
+    | 1920x1080 | Full HD | `"1920x1080"` |
+    | 1080x1920 | Stories, TikTok | `"1080x1920"` |
+    | 1080x1080 | Posts quadrados | `"1080x1080"` |
+    | 3840x2160 | 4K (premium) | `"3840x2160"` |
+    
+    **Resolução automática:**
+    ```json
+    {
+      "output": {
+        "resolution": "auto"  // Baseada no asset principal
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 🔄 Jobs e Processamento
+
+<AccordionGroup>
+  <Accordion title="Quanto tempo demora para processar um vídeo?" icon="clock">
+    **Tempo estimado baseado na duração:**
+    - **0-30s:** 15-30 segundos
+    - **30s-2min:** 1-3 minutos  
+    - **2-5min:** 3-8 minutos
+    - **5-10min:** 8-15 minutos
+    
+    **Fatores que afetam:**
+    - Resolução de saída
+    - Qualidade escolhida
+    - Número de tracks/clips
+    - Complexidade dos efeitos
+    - Fila de processamento
+  </Accordion>
+  
+  <Accordion title="O que acontece se meu job falhar?" icon="exclamation-triangle">
+    **Resposta:** Jobs com falha retornam erro detalhado e não consomem sua cota.
+    
+    **Verificar erro:**
+    ```javascript
+    const status = await fetch(`/api/media/job/${jobId}/status`);
+    const result = await status.json();
+    
+    if (result.status === 'failed') {
+      console.log('Erro:', result.error.message);
+      console.log('Detalhes:', result.error.details);
+      console.log('Etapa:', result.error.step);
+    }
+    ```
+    
+    **Ações recomendadas:**
+    1. Verificar logs do erro
+    2. Validar timeline com `/api/media/validate`
+    3. Testar com configuração mais simples
+    4. Entrar em contato se persistir
+  </Accordion>
+  
+  <Accordion title="Posso cancelar um job em processamento?" icon="stop">
+    **Resposta:** Atualmente não é possível cancelar jobs em andamento. Jobs em fila podem ser removidos.
+    
+    **Verificar se está em fila:**
+    ```javascript
+    const status = await fetch(`/api/media/job/${jobId}/status`);
+    const result = await status.json();
+    
+    if (result.status === 'queued') {
+      console.log('Job ainda em fila, posição:', result.queuePosition);
+      // Cancelamento seria possível aqui
+    }
+    ```
+    
+    **Funcionalidade de cancelamento está em desenvolvimento.**
+  </Accordion>
+</AccordionGroup>
+
+## 💰 Limites e Quotas
+
+<AccordionGroup>
+  <Accordion title="Quais são os limites por usuário?" icon="user">
+    **Limites atuais:**
+    - **Jobs simultâneos:** 3
+    - **Jobs por hora:** 50
+    - **Jobs por dia:** 500
+    - **Tamanho de arquivo:** 100MB
+    - **Duração máxima:** 10 minutos
+    - **Armazenamento:** 1GB (7 dias)
+    
+    **Verificar uso atual:**
+    ```bash
+    curl -X GET "http://localhost:3000/api/user/quota"
+    ```
+  </Accordion>
+  
+  <Accordion title="Como aumentar meus limites?" icon="arrow-up">
+    **Opções disponíveis:**
+    1. **Plano Premium** - Limites aumentados
+    2. **Conta Enterprise** - Limites personalizados
+    3. **Contato direto** - Necessidades específicas
+    
+    **Benefícios Premium:**
+    - Jobs simultâneos: 10
+    - Jobs por hora: 200
+    - Arquivo máximo: 500MB
+    - Duração máxima: 30 minutos
+    - Armazenamento: 10GB (30 dias)
+    - Suporte prioritário
+  </Accordion>
+  
+  <Accordion title="Por quanto tempo os vídeos ficam disponíveis?" icon="calendar">
+    **Retenção de arquivos:**
+    - **Plano gratuito:** 7 dias
+    - **Plano premium:** 30 dias
+    - **Enterprise:** Configurável
+    
+    **Após expiração:**
+    - Arquivos são removidos automaticamente
+    - Metadados do job permanecem por 90 dias
+    - Re-processamento é necessário
+    
+    **Backup recomendado:**
+    ```javascript
+    // Baixar imediatamente após conclusão
+    if (status.status === 'completed') {
+      await baixarVideo(jobId, 'backup.mp4');
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 🔧 Integração e Desenvolvimento
+
+<AccordionGroup>
+  <Accordion title="Preciso de autenticação para usar a API?" icon="key">
+    **Resposta:** Atualmente a API é aberta para desenvolvimento. Autenticação será implementada em breve.
+    
+    **Preparação para autenticação:**
+    ```javascript
+    // Headers que serão necessários
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer YOUR_API_KEY'  // Em breve
+    };
+    ```
+    
+    **Rate limiting atual:**
+    - Baseado em IP
+    - 100 requisições por minuto
+    - 1000 requisições por hora
+  </Accordion>
+  
+  <Accordion title="Como implementar webhooks?" icon="webhook">
+    **Resposta:** Configure a URL de webhook no payload do job.
+    
+    **Configuração:**
+    ```json
+    {
+      "timeline": { ... },
+      "webhook": {
+        "url": "https://meusite.com/webhook/ffmpeg",
+        "events": ["completed", "failed"],
+        "secret": "meu-secret-key",
+        "retries": 3
+      }
+    }
+    ```
+    
+    **Implementação do endpoint:**
+    ```javascript
+    app.post('/webhook/ffmpeg', (req, res) => {
+      const { event, job } = req.body;
+      
+      if (event === 'job.completed') {
+        console.log('Vídeo pronto:', job.output.url);
+        // Processar resultado
+      }
+      
+      res.status(200).send('OK');
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Existe SDK para outras linguagens?" icon="code">
+    **SDKs disponíveis:**
+    - ✅ **JavaScript/Node.js** - Oficial
+    - 🚧 **Python** - Em desenvolvimento
+    - 🚧 **PHP** - Planejado
+    - 🚧 **Go** - Planejado
+    
+    **JavaScript SDK:**
+    ```bash
+    npm install ffmpeg-api-sdk
+    ```
+    
+    ```javascript
+    import FFmpegAPI from 'ffmpeg-api-sdk';
+    
+    const api = new FFmpegAPI('http://localhost:3000');
+    const job = await api.render(timeline);
+    ```
+    
+    **Para outras linguagens, use a API REST diretamente.**
+  </Accordion>
+</AccordionGroup>
+
+## 🆘 Suporte
+
+<AccordionGroup>
+  <Accordion title="Onde posso obter ajuda?" icon="help">
+    **Canais de suporte:**
+    
+    1. **Documentação** - Consulte esta documentação primeiro
+    2. **GitHub Issues** - Para bugs e solicitações de recursos
+    3. **Email** - contato@ffmpegapi.com
+    4. **Discord** - Comunidade de desenvolvedores
+    
+    **Ao reportar problemas, inclua:**
+    - Payload usado
+    - Erro retornado
+    - Job ID (se disponível)
+    - Logs relevantes
+  </Accordion>
+  
+  <Accordion title="Como reportar um bug?" icon="bug">
+    **Template para bug report:**
+    
+    ```
+    **Descrição:**
+    Breve descrição do problema
+    
+    **Payload usado:**
+    ```json
+    { timeline: ... }
+    ```
+    
+    **Erro retornado:**
+    ```json
+    { error: ... }
+    ```
+    
+    **Steps to reproduce:**
+    1. Primeiro passo
+    2. Segundo passo
+    3. Erro ocorre
+    
+    **Comportamento esperado:**
+    O que deveria acontecer
+    
+    **Ambiente:**
+    - Browser/Node.js version
+    - Sistema operacional
+    ```
+  </Accordion>
+  
+  <Accordion title="Como sugerir uma nova funcionalidade?" icon="lightbulb">
+    **Processo de sugestão:**
+    
+    1. **Verifique** se já existe issue similar
+    2. **Abra issue** no GitHub com label "enhancement"
+    3. **Descreva** o caso de uso
+    4. **Proponha** a implementação (opcional)
+    
+    **Template:**
+    ```
+    **Funcionalidade desejada:**
+    Descrição clara da funcionalidade
+    
+    **Caso de uso:**
+    Por que esta funcionalidade seria útil
+    
+    **Implementação sugerida:**
+    Como poderia funcionar
+    
+    **Alternativas consideradas:**
+    Outras formas de resolver o problema
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<Tip>
+  **Não encontrou sua pergunta?** Abra uma issue no GitHub ou entre em contato conosco!
+</Tip> 

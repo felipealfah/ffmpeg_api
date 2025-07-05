@@ -1,0 +1,385 @@
+---
+title: "Lyric Video"
+description: "Crie vídeos com letras de música automaticamente"
+---
+
+# Lyric Video
+
+Aprenda a criar vídeos com letras de música combinando áudio, texto e imagens de fundo.
+
+## Resultado Final
+
+Este exemplo criará um vídeo com:
+- ✅ Música de fundo
+- ✅ Texto animado com as letras
+- ✅ Imagem de fundo estática
+- ✅ Duração automática baseada no áudio
+
+## Código Completo
+
+<CodeGroup>
+```json Requisição
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1280&h=720&fit=crop"
+            },
+            "start": 0,
+            "length": 30
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "🎵 Primeira linha da música\nSegunda linha da música\nTerceira linha da música 🎵",
+              "style": {
+                "fontSize": 48,
+                "fontColor": "white",
+                "fontFamily": "Arial",
+                "bold": true,
+                "alignment": "center"
+              }
+            },
+            "start": 0,
+            "length": 30
+          },
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+              "isBackground": true,
+              "volume": 0.8
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1280x720",
+    "quality": "high",
+    "fps": 30,
+    "bitrate": "4000k"
+  }
+}
+```
+
+```javascript JavaScript
+async function criarLyricVideo() {
+  const response = await fetch('http://localhost:3000/api/media/render', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      timeline: {
+        tracks: [{
+          clips: [
+            // Imagem de fundo
+            {
+              asset: {
+                type: 'image',
+                source: 'url',
+                src: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1280&h=720&fit=crop'
+              },
+              start: 0,
+              length: 30
+            },
+            // Texto com letras
+            {
+              asset: {
+                type: 'text',
+                text: '🎵 Primeira linha da música\nSegunda linha da música\nTerceira linha da música 🎵',
+                style: {
+                  fontSize: 48,
+                  fontColor: 'white',
+                  fontFamily: 'Arial',
+                  bold: true,
+                  alignment: 'center'
+                }
+              },
+              start: 0,
+              length: 30
+            },
+            // Música de fundo
+            {
+              asset: {
+                type: 'audio',
+                source: 'url',
+                src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+                isBackground: true,
+                volume: 0.8
+              },
+              start: 0,
+              length: 'auto'
+            }
+          ]
+        }]
+      },
+      output: {
+        format: 'mp4',
+        resolution: '1280x720',
+        quality: 'high',
+        fps: 30,
+        bitrate: '4000k'
+      }
+    })
+  });
+
+  const job = await response.json();
+  console.log('Lyric video job criado:', job.jobId);
+  return job.jobId;
+}
+```
+
+```python Python
+import requests
+
+def criar_lyric_video():
+    payload = {
+        "timeline": {
+            "tracks": [{
+                "clips": [
+                    # Imagem de fundo
+                    {
+                        "asset": {
+                            "type": "image",
+                            "source": "url",
+                            "src": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1280&h=720&fit=crop"
+                        },
+                        "start": 0,
+                        "length": 30
+                    },
+                    # Texto com letras
+                    {
+                        "asset": {
+                            "type": "text",
+                            "text": "🎵 Primeira linha da música\nSegunda linha da música\nTerceira linha da música 🎵",
+                            "style": {
+                                "fontSize": 48,
+                                "fontColor": "white",
+                                "fontFamily": "Arial",
+                                "bold": True,
+                                "alignment": "center"
+                            }
+                        },
+                        "start": 0,
+                        "length": 30
+                    },
+                    # Música de fundo
+                    {
+                        "asset": {
+                            "type": "audio",
+                            "source": "url",
+                            "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                            "isBackground": True,
+                            "volume": 0.8
+                        },
+                        "start": 0,
+                        "length": "auto"
+                    }
+                ]
+            }]
+        },
+        "output": {
+            "format": "mp4",
+            "resolution": "1280x720",
+            "quality": "high",
+            "fps": 30,
+            "bitrate": "4000k"
+        }
+    }
+    
+    response = requests.post("http://localhost:3000/api/media/render", json=payload)
+    job = response.json()
+    print(f"Lyric video job criado: {job['jobId']}")
+    return job['jobId']
+```
+</CodeGroup>
+
+## Personalizações Avançadas
+
+### 1. Múltiplas Linhas de Texto
+
+Para criar diferentes textos em momentos específicos:
+
+```json
+{
+  "clips": [
+    {
+      "asset": {
+        "type": "text",
+        "text": "🎵 Primeira estrofe 🎵",
+        "style": {
+          "fontSize": 52,
+          "fontColor": "#FFD700",
+          "bold": true,
+          "alignment": "center"
+        }
+      },
+      "start": 0,
+      "length": 10
+    },
+    {
+      "asset": {
+        "type": "text",
+        "text": "🎶 Segunda estrofe 🎶",
+        "style": {
+          "fontSize": 52,
+          "fontColor": "#FF6B35",
+          "bold": true,
+          "alignment": "center"
+        }
+      },
+      "start": 10,
+      "length": 10
+    }
+  ]
+}
+```
+
+### 2. Imagens Dinâmicas
+
+Use diferentes imagens para cada parte da música:
+
+```json
+{
+  "clips": [
+    {
+      "asset": {
+        "type": "image",
+        "source": "url",
+        "src": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1280&h=720&fit=crop"
+      },
+      "start": 0,
+      "length": 15
+    },
+    {
+      "asset": {
+        "type": "image",
+        "source": "url",
+        "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1280&h=720&fit=crop"
+      },
+      "start": 15,
+      "length": 15
+    }
+  ]
+}
+```
+
+### 3. Estilos de Texto Avançados
+
+<Tabs>
+  <Tab title="Estilo Neon">
+    ```json
+    {
+      "style": {
+        "fontSize": 64,
+        "fontColor": "#00FFFF",
+        "fontFamily": "Arial",
+        "bold": true,
+        "alignment": "center"
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Estilo Clássico">
+    ```json
+    {
+      "style": {
+        "fontSize": 48,
+        "fontColor": "#FFFFFF",
+        "fontFamily": "Times New Roman",
+        "bold": false,
+        "alignment": "center"
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Estilo Moderno">
+    ```json
+    {
+      "style": {
+        "fontSize": 56,
+        "fontColor": "#FF6B35",
+        "fontFamily": "Helvetica",
+        "bold": true,
+        "alignment": "center"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Dicas Importantes
+
+<Tip>
+  **Duração Automática**: Use `length: "auto"` no áudio para que o vídeo tenha exatamente a duração da música.
+</Tip>
+
+<Warning>
+  **Sincronização**: Certifique-se de que o texto apareça nos momentos corretos ajustando os valores de `start` e `length`.
+</Warning>
+
+<Note>
+  **Qualidade**: Para lyric videos, recomendamos usar `quality: "high"` e `bitrate: "4000k"` para melhor qualidade de texto.
+</Note>
+
+## Casos de Uso
+
+### 🎤 **Artistas Independentes**
+- Lançamento de singles
+- Divulgação em redes sociais
+- Conteúdo para YouTube
+
+### 🎧 **Podcasts e Audiobooks**
+- Visualização de episódios
+- Citações destacadas
+- Teasers para redes sociais
+
+### 🎓 **Conteúdo Educacional**
+- Poemas e literatura
+- Aulas de idiomas
+- Conteúdo motivacional
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card
+    title="🎬 Slideshow"
+    icon="images"
+    href="/examples/slideshow"
+  >
+    Crie apresentações automáticas
+  </Card>
+  <Card
+    title="📱 Redes Sociais"
+    icon="share"
+    href="/examples/social-media"
+  >
+    Conteúdo otimizado para Instagram/TikTok
+  </Card>
+  <Card
+    title="🎵 Mixagem de Áudio"
+    icon="music"
+    href="/guides/audio-mixing"
+  >
+    Aprenda técnicas avançadas de áudio
+  </Card>
+  <Card
+    title="📝 Texto Avançado"
+    icon="text"
+    href="/guides/text-overlays"
+  >
+    Personalize textos e fontes
+  </Card>
+</CardGroup> 

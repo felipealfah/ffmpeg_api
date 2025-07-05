@@ -1,0 +1,776 @@
+---
+title: "Vídeo para Redes Sociais"
+description: "Crie vídeos otimizados para Instagram, TikTok e outras plataformas"
+---
+
+# Vídeo para Redes Sociais
+
+Aprenda a criar vídeos otimizados para diferentes plataformas de redes sociais com a FFmpeg API.
+
+## Instagram Stories (9:16)
+
+### Configuração
+
+```json
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1080/1920"
+            },
+            "start": 0,
+            "length": 15
+          },
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+            },
+            "start": 2,
+            "length": 10
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "Novidades chegando! 🚀",
+              "style": {
+                "fontSize": 48,
+                "fontColor": "white",
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "outlineColor": "black",
+                "marginV": 100
+              }
+            },
+            "start": 0,
+            "length": 3
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "Swipe up para saber mais",
+              "style": {
+                "fontSize": 32,
+                "fontColor": "white",
+                "alignment": "center",
+                "position": "bottom",
+                "outlineColor": "black",
+                "marginV": 150
+              }
+            },
+            "start": 12,
+            "length": 3
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3",
+              "isBackground": true,
+              "volume": 0.2
+            },
+            "start": 0,
+            "length": 15
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1080x1920",
+    "quality": "high",
+    "fps": 30
+  }
+}
+```
+
+### Resultado
+
+- **Duração**: 15 segundos (ideal para Stories)
+- **Resolução**: 1080x1920 (9:16 - formato vertical)
+- **Elementos**: Background, vídeo principal, textos animados, música
+- **Otimizado para**: Instagram Stories, TikTok, Reels
+
+## TikTok/Reels (9:16)
+
+### Configuração
+
+```json
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+            },
+            "start": 0,
+            "length": 30
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "TUTORIAL RÁPIDO",
+              "style": {
+                "fontSize": 54,
+                "fontColor": "yellow",
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "outlineColor": "black",
+                "marginV": 80
+              }
+            },
+            "start": 0,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "Passo 1: Configure o projeto",
+              "style": {
+                "fontSize": 36,
+                "fontColor": "white",
+                "alignment": "left",
+                "position": "bottom",
+                "outlineColor": "black",
+                "marginV": 200
+              }
+            },
+            "start": 5,
+            "length": 8
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "Passo 2: Adicione os assets",
+              "style": {
+                "fontSize": 36,
+                "fontColor": "white",
+                "alignment": "left",
+                "position": "bottom",
+                "outlineColor": "black",
+                "marginV": 200
+              }
+            },
+            "start": 13,
+            "length": 8
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "Passo 3: Renderize! ✨",
+              "style": {
+                "fontSize": 36,
+                "fontColor": "white",
+                "alignment": "left",
+                "position": "bottom",
+                "outlineColor": "black",
+                "marginV": 200
+              }
+            },
+            "start": 21,
+            "length": 9
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundjay.com/misc/sounds/upbeat-music.mp3",
+              "isBackground": true,
+              "volume": 0.3
+            },
+            "start": 0,
+            "length": 30
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1080x1920",
+    "quality": "high",
+    "fps": 30
+  }
+}
+```
+
+## YouTube Shorts (9:16)
+
+### Configuração
+
+```json
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1080/1920?random=1"
+            },
+            "start": 0,
+            "length": 60
+          },
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+            },
+            "start": 5,
+            "length": 45
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "5 DICAS INCRÍVEIS",
+              "style": {
+                "fontSize": 48,
+                "fontColor": "red",
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "outlineColor": "white",
+                "marginV": 100
+              }
+            },
+            "start": 0,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "👆 INSCREVA-SE",
+              "style": {
+                "fontSize": 32,
+                "fontColor": "white",
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "outlineColor": "black",
+                "marginV": 50
+              }
+            },
+            "start": 55,
+            "length": 5
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1080x1920",
+    "quality": "high",
+    "fps": 30
+  }
+}
+```
+
+## Post Quadrado (1:1)
+
+### Configuração
+
+```json
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://picsum.photos/1080/1080"
+            },
+            "start": 0,
+            "length": 10
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "Produto em Destaque",
+              "style": {
+                "fontSize": 48,
+                "fontColor": "white",
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "outlineColor": "black",
+                "marginV": 100
+              }
+            },
+            "start": 0,
+            "length": 10
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "50% OFF",
+              "style": {
+                "fontSize": 72,
+                "fontColor": "red",
+                "bold": true,
+                "alignment": "center",
+                "position": "center"
+              }
+            },
+            "start": 3,
+            "length": 4
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "Aproveite a oferta!",
+              "style": {
+                "fontSize": 36,
+                "fontColor": "white",
+                "alignment": "center",
+                "position": "bottom",
+                "outlineColor": "black",
+                "marginV": 100
+              }
+            },
+            "start": 7,
+            "length": 3
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1080x1080",
+    "quality": "high",
+    "fps": 30
+  }
+}
+```
+
+## Implementação Completa
+
+### JavaScript SDK
+
+```javascript
+class SocialMediaVideoCreator {
+  constructor(apiUrl = 'http://localhost:3000') {
+    this.apiUrl = apiUrl;
+  }
+  
+  async createInstagramStory(config) {
+    const timeline = {
+      tracks: [
+        {
+          clips: [
+            // Background
+            {
+              asset: {
+                type: "image",
+                source: "url",
+                src: config.backgroundImage
+              },
+              start: 0,
+              length: config.duration || 15
+            },
+            // Main content
+            {
+              asset: {
+                type: "video",
+                source: "url",
+                src: config.mainVideo
+              },
+              start: 2,
+              length: (config.duration || 15) - 4
+            },
+            // Title
+            {
+              asset: {
+                type: "text",
+                text: config.title,
+                style: {
+                  fontSize: 48,
+                  fontColor: "white",
+                  bold: true,
+                  alignment: "center",
+                  position: "top",
+                  outlineColor: "black",
+                  marginV: 100
+                }
+              },
+              start: 0,
+              length: 3
+            },
+            // CTA
+            {
+              asset: {
+                type: "text",
+                text: config.cta || "Swipe up para saber mais",
+                style: {
+                  fontSize: 32,
+                  fontColor: "white",
+                  alignment: "center",
+                  position: "bottom",
+                  outlineColor: "black",
+                  marginV: 150
+                }
+              },
+              start: (config.duration || 15) - 3,
+              length: 3
+            }
+          ]
+        }
+      ]
+    };
+    
+    if (config.backgroundMusic) {
+      timeline.tracks.push({
+        clips: [{
+          asset: {
+            type: "audio",
+            source: "url",
+            src: config.backgroundMusic,
+            isBackground: true,
+            volume: 0.2
+          },
+          start: 0,
+          length: config.duration || 15
+        }]
+      });
+    }
+    
+    return await this.render(timeline, {
+      format: "mp4",
+      resolution: "1080x1920",
+      quality: "high",
+      fps: 30
+    });
+  }
+  
+  async createTikTokVideo(config) {
+    const timeline = {
+      tracks: [{
+        clips: [
+          // Main video
+          {
+            asset: {
+              type: "video",
+              source: "url",
+              src: config.mainVideo
+            },
+            start: 0,
+            length: config.duration || 30
+          },
+          // Title
+          {
+            asset: {
+              type: "text",
+              text: config.title,
+              style: {
+                fontSize: 54,
+                fontColor: "yellow",
+                bold: true,
+                alignment: "center",
+                position: "top",
+                outlineColor: "black",
+                marginV: 80
+              }
+            },
+            start: 0,
+            length: 5
+          }
+        ]
+      }]
+    };
+    
+    // Add step-by-step texts
+    if (config.steps) {
+      config.steps.forEach((step, index) => {
+        const stepDuration = (config.duration || 30) / config.steps.length;
+        timeline.tracks[0].clips.push({
+          asset: {
+            type: "text",
+            text: step,
+            style: {
+              fontSize: 36,
+              fontColor: "white",
+              alignment: "left",
+              position: "bottom",
+              outlineColor: "black",
+              marginV: 200
+            }
+          },
+          start: 5 + (index * stepDuration),
+          length: stepDuration
+        });
+      });
+    }
+    
+    return await this.render(timeline, {
+      format: "mp4",
+      resolution: "1080x1920",
+      quality: "high",
+      fps: 30
+    });
+  }
+  
+  async createSquarePost(config) {
+    const timeline = {
+      tracks: [{
+        clips: [
+          // Background
+          {
+            asset: {
+              type: "image",
+              source: "url",
+              src: config.backgroundImage
+            },
+            start: 0,
+            length: config.duration || 10
+          },
+          // Title
+          {
+            asset: {
+              type: "text",
+              text: config.title,
+              style: {
+                fontSize: 48,
+                fontColor: "white",
+                bold: true,
+                alignment: "center",
+                position: "top",
+                outlineColor: "black",
+                marginV: 100
+              }
+            },
+            start: 0,
+            length: config.duration || 10
+          }
+        ]
+      }]
+    };
+    
+    // Add offer text if provided
+    if (config.offer) {
+      timeline.tracks[0].clips.push({
+        asset: {
+          type: "text",
+          text: config.offer,
+          style: {
+            fontSize: 72,
+            fontColor: "red",
+            bold: true,
+            alignment: "center",
+            position: "center"
+          }
+        },
+        start: 3,
+        length: 4
+      });
+    }
+    
+    return await this.render(timeline, {
+      format: "mp4",
+      resolution: "1080x1080",
+      quality: "high",
+      fps: 30
+    });
+  }
+  
+  async render(timeline, output) {
+    const response = await fetch(`${this.apiUrl}/api/render`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        timeline,
+        output
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error?.message || 'Erro ao renderizar vídeo');
+    }
+    
+    return result;
+  }
+  
+  async waitForCompletion(jobId) {
+    while (true) {
+      const response = await fetch(`${this.apiUrl}/api/media/job/${jobId}/status`);
+      const status = await response.json();
+      
+      if (status.status === 'completed') {
+        return status;
+      } else if (status.status === 'failed') {
+        throw new Error(status.error?.message || 'Job failed');
+      }
+      
+      // Wait 2 seconds before checking again
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
+}
+```
+
+### Exemplo de Uso
+
+```javascript
+const creator = new SocialMediaVideoCreator();
+
+// Instagram Story
+const storyConfig = {
+  backgroundImage: 'https://picsum.photos/1080/1920',
+  mainVideo: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4',
+  title: 'Novidades chegando! 🚀',
+  cta: 'Swipe up para saber mais',
+  backgroundMusic: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3',
+  duration: 15
+};
+
+try {
+  const job = await creator.createInstagramStory(storyConfig);
+  console.log('Job criado:', job.jobId);
+  
+  const result = await creator.waitForCompletion(job.jobId);
+  console.log('Vídeo pronto:', result.output.downloadUrl);
+  
+} catch (error) {
+  console.error('Erro:', error.message);
+}
+
+// TikTok Video
+const tiktokConfig = {
+  mainVideo: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4',
+  title: 'TUTORIAL RÁPIDO',
+  steps: [
+    'Passo 1: Configure o projeto',
+    'Passo 2: Adicione os assets',
+    'Passo 3: Renderize! ✨'
+  ],
+  duration: 30
+};
+
+const tiktokJob = await creator.createTikTokVideo(tiktokConfig);
+
+// Square Post
+const squareConfig = {
+  backgroundImage: 'https://picsum.photos/1080/1080',
+  title: 'Produto em Destaque',
+  offer: '50% OFF',
+  duration: 10
+};
+
+const squareJob = await creator.createSquarePost(squareConfig);
+```
+
+## Especificações por Plataforma
+
+### Instagram
+
+| Formato | Resolução | Duração | Aspect Ratio |
+|---------|-----------|---------|--------------|
+| Stories | 1080x1920 | 15s | 9:16 |
+| Feed | 1080x1080 | 60s | 1:1 |
+| Reels | 1080x1920 | 90s | 9:16 |
+| IGTV | 1080x1920 | 15min | 9:16 |
+
+### TikTok
+
+| Formato | Resolução | Duração | Aspect Ratio |
+|---------|-----------|---------|--------------|
+| Padrão | 1080x1920 | 3min | 9:16 |
+| Landscape | 1920x1080 | 3min | 16:9 |
+
+### YouTube
+
+| Formato | Resolução | Duração | Aspect Ratio |
+|---------|-----------|---------|--------------|
+| Shorts | 1080x1920 | 60s | 9:16 |
+| Padrão | 1920x1080 | Ilimitado | 16:9 |
+
+### Twitter
+
+| Formato | Resolução | Duração | Aspect Ratio |
+|---------|-----------|---------|--------------|
+| Padrão | 1280x720 | 2min20s | 16:9 |
+| Quadrado | 720x720 | 2min20s | 1:1 |
+
+## Dicas de Otimização
+
+### Performance
+
+1. **Use resoluções otimizadas** para cada plataforma
+2. **Mantenha durações apropriadas** para engagement
+3. **Comprima áudios** para reduzir tamanho final
+4. **Use qualidade 'medium'** para redes sociais (suficiente)
+
+### Engagement
+
+1. **Textos grandes e legíveis** em dispositivos móveis
+2. **Cores contrastantes** para destacar elementos
+3. **Call-to-actions claros** e posicionados estrategicamente
+4. **Música de fundo** adequada ao conteúdo
+
+### Automação
+
+```javascript
+// Batch processing para múltiplas plataformas
+async function createMultiPlatformContent(baseConfig) {
+  const platforms = [
+    { name: 'instagram-story', resolution: '1080x1920', duration: 15 },
+    { name: 'tiktok', resolution: '1080x1920', duration: 30 },
+    { name: 'youtube-shorts', resolution: '1080x1920', duration: 60 },
+    { name: 'instagram-feed', resolution: '1080x1080', duration: 30 }
+  ];
+  
+  const jobs = await Promise.all(
+    platforms.map(platform => 
+      creator.render(
+        adaptTimelineForPlatform(baseConfig.timeline, platform),
+        {
+          format: 'mp4',
+          resolution: platform.resolution,
+          quality: 'high',
+          fps: 30
+        }
+      )
+    )
+  );
+  
+  return jobs;
+}
+```
+
+<Tip>
+  **Dica**: Use diferentes durações e textos para cada plataforma para maximizar o engagement específico de cada audiência.
+</Tip>
+
+<Warning>
+  **Atenção**: Respeite os direitos autorais de músicas e imagens. Use apenas conteúdo licenciado ou próprio.
+</Warning> 

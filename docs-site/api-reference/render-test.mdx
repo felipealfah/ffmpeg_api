@@ -1,0 +1,29 @@
+---
+title: "POST /api/render - TESTE"
+description: "Teste simples para verificar renderização"
+---
+
+# POST /api/render - TESTE
+
+Este é um teste simples.
+
+## Exemplo Rápido
+
+Teste básico:
+
+```bash
+curl -X POST "http://localhost:3000/api/render" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "timeline": {
+      "tracks": [{"clips": []}]
+    },
+    "output": {
+      "format": "mp4"
+    }
+  }'
+```
+
+## Teste
+
+Conteúdo de teste funcionando. 
