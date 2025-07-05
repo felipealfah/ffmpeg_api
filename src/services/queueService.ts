@@ -14,15 +14,14 @@ import {
   recordJobComplete, 
   recordJobFail,
   recordCleanup,
-  queueSize,
-  updateCostMetrics,
-  updateHourlyCost,
-  determineComplexity,
-  calculateVideoCost,
   ffmpegJobsActive,
   ffmpegSigkillJobs,
   ffmpegMemoryUsage,
-  ffmpegConcurrencyLimit
+  ffmpegConcurrencyLimit,
+  updateCostMetrics,
+  updateHourlyCost,
+  determineComplexity,
+  calculateVideoCost
 } from '../middleware/metrics';
 
 // In-memory storage for jobs (in production, use a database)
@@ -242,52 +241,26 @@ const startPeriodicCleanup = (): void => {
   console.log('✅ Limpeza periódica configurada (a cada 1 hora)');
 };
 
-// Process jobs
-renderQueue.process(MAX_CONCURRENT_JOBS, async (job) => {
-  const renderJob = job.data as RenderJob;
+// Controle de concorrência
+const concurrencyControl = getConcurrencyControl();
+
+/**
+ * Processa um job de renderização
+ */
+const processRenderJob = async (renderJob: RenderJob): Promise<string> => {
   const startTime = Date.now();
-  const concurrencyControl = getConcurrencyControl();
   
   try {
-    // 🔒 CONTROLE DE CONCORRÊNCIA - Tentar adquirir slot
-    const slotAcquired = await concurrencyControl.tryAcquireSlot(renderJob.id);
-    
-    if (!slotAcquired) {
-      // Se não conseguiu slot, rejeitar o job temporariamente
-      throw new Error(`Job ${renderJob.id} rejeitado - limite de concorrência atingido (${await concurrencyControl.getStatus().then(s => s.maxConcurrentJobs)} jobs máx)`);
-    }
-    
-    // Incrementar contador de jobs ativos
-    activeJobsCount++;
-    updateActiveJobsMetrics();
-    
-    console.info(`🎬 Processando job ${renderJob.id} (${activeJobsCount}/${MAX_CONCURRENT_JOBS} ativos)`, { jobId: renderJob.id });
-    
-    // Verificar recursos do sistema antes de processar
-    await checkSystemResources();
-    
-    // Análise de custo do job
-    await analyzeJobCost(renderJob);
-    
-    // Registrar início do job
-    recordJobStart(renderJob.id);
-    
-    // Update job status
-    updateJob(renderJob.id, { 
-      status: JobStatus.PROCESSING,
-      updatedAt: new Date()
-    });
-    
     // Usar caminhos absolutos
     const tempDir = path.join(process.cwd(), 'storage/temp', renderJob.id);
     const outputDir = path.join(process.cwd(), 'storage/output', renderJob.id);
     
     console.debug('Diretórios para processamento:', { tempDir, outputDir });
     
-    // Process the job
+    // Processar o vídeo
     const mediaService = await import('./mediaService.js');
     const outputPath = await mediaService.renderVideo(renderJob.request, (progress: number) => {
-      // Update job progress
+      // Atualizar progresso do job
       updateJob(renderJob.id, { 
         progress,
         updatedAt: new Date()
@@ -297,7 +270,7 @@ renderQueue.process(MAX_CONCURRENT_JOBS, async (job) => {
     // Determinar tipo de storage baseado na configuração
     const storageType = config.googleCloud?.enabled ? 'gcs' : 'local';
     
-    // Update job with result
+    // Atualizar job com resultado
     updateJob(renderJob.id, {
       status: JobStatus.COMPLETED,
       output: outputPath,
@@ -313,43 +286,114 @@ renderQueue.process(MAX_CONCURRENT_JOBS, async (job) => {
       }
     });
     
-    // Registrar conclusão do job
-    recordJobComplete(renderJob.id, Date.now() - startTime);
+    console.info(`✅ Job ${renderJob.id} concluído com sucesso em ${Date.now() - startTime}ms`);
     
-    // 🔓 CONTROLE DE CONCORRÊNCIA - Liberar slot
-    await concurrencyControl.releaseSlot(renderJob.id);
+    return outputPath;
+  } catch (error) {
+    console.error(`❌ Erro ao processar job ${renderJob.id}:`, error);
+    throw error;
+  }
+};
+
+// Função para processar um job
+const processJob = async (job: Queue.Job<RenderJob>): Promise<void> => {
+  const jobData = job.data;
+  const jobId = jobData.id;
+  const complexity = determineComplexity(jobData.request);
+  const startTime = Date.now();
+  
+  try {
+    // Registrar início do job
+    recordJobStart(jobId);
     
-    console.info(`✅ Job ${renderJob.id} completed successfully`);
+    // Processar o job
+    const outputPath = await processRenderJob(jobData);
+    
+    // Calcular duração
+    const durationMs = Date.now() - startTime;
+    
+    // Registrar sucesso
+    recordJobComplete(jobId, durationMs);
+    
+    // Atualizar métricas de custo
+    const duration = calculateTimelineDuration(jobData.request.timeline);
+    updateCostMetrics(duration, complexity, 'completed');
     
   } catch (error) {
-    // Verificar se foi SIGKILL
-    if (error instanceof Error && error.message.includes('SIGKILL')) {
-      ffmpegSigkillJobs.inc({ reason: 'memory_limit' });
-      console.error(`💀 Job ${renderJob.id} foi terminado com SIGKILL - possível falta de memória`);
-    }
+    // Calcular duração
+    const durationMs = Date.now() - startTime;
     
-    // Decrementar contador de jobs ativos em caso de erro
-    activeJobsCount = Math.max(0, activeJobsCount - 1);
+    // Registrar falha
+    recordJobFail(jobId, durationMs);
+    throw error;
+  }
+};
+
+// Processar jobs da fila
+renderQueue.process(async (job) => {
+  const renderJob = job.data as RenderJob;
+  console.log(`🎬 Iniciando processamento do job ${renderJob.id}`);
+
+  try {
+    // Tentar adquirir slot para processamento
+    const slotAcquired = await concurrencyControl.tryAcquireSlot(renderJob.id);
+    if (!slotAcquired) {
+      console.log(`⏳ Job ${renderJob.id} aguardando slot disponível...`);
+      throw new Error('Nenhum slot disponível para processamento');
+    }
+
+    console.log(`✅ Job ${renderJob.id} adquiriu slot para processamento`);
+    
+    // Incrementar contador de jobs ativos
+    activeJobsCount++;
     updateActiveJobsMetrics();
     
-    // 🔓 CONTROLE DE CONCORRÊNCIA - Liberar slot mesmo em caso de erro
-    await concurrencyControl.releaseSlot(renderJob.id);
+    // Verificar recursos do sistema
+    await checkSystemResources();
     
-    console.error(`❌ Job ${renderJob.id} falhou:`, error);
-      
-    // Update job with error
+    // Atualizar status do job
     updateJob(renderJob.id, {
-      status: JobStatus.FAILED,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      status: JobStatus.PROCESSING,
       updatedAt: new Date()
     });
     
-    // Registrar falha do job
-    recordJobFail(renderJob.id, Date.now() - startTime);
+    // Registrar início do job nas métricas
+    recordJobStart(renderJob.id);
+    
+    // Analisar custo estimado do job
+    await analyzeJobCost(renderJob);
+    
+    // Processar o job
+    const result = await processRenderJob(renderJob);
+    
+    // Registrar conclusão nas métricas
+    recordJobComplete(renderJob.id, Date.now() - renderJob.createdAt.getTime());
+    
+    return result;
+  } catch (error) {
+    console.error(`❌ Erro no processamento do job ${renderJob.id}:`, error);
+    
+    // Atualizar status do job
+    updateJob(renderJob.id, {
+      status: JobStatus.FAILED,
+      error: (error as Error).message,
+      updatedAt: new Date()
+    });
+    
+    // Registrar falha nas métricas
+    recordJobFail(renderJob.id, Date.now() - renderJob.createdAt.getTime());
+    
+    // Se foi SIGKILL, incrementar métrica específica
+    if ((error as Error).message.includes('SIGKILL')) {
+      ffmpegSigkillJobs.inc();
+    }
     
     throw error;
   } finally {
-    // Sempre decrementar o contador, mesmo em caso de sucesso
+    // Liberar slot de processamento
+    await concurrencyControl.releaseSlot(renderJob.id);
+    
+    // Decrementar contador de jobs ativos
     activeJobsCount = Math.max(0, activeJobsCount - 1);
     updateActiveJobsMetrics();
     
@@ -585,4 +629,9 @@ export const analyzeJobCost = async (renderJob: RenderJob): Promise<void> => {
   } catch (error) {
     console.error('Erro na análise de custo:', error);
   }
+};
+
+// Exportar instância da fila
+export const getQueueService = (): Queue.Queue => {
+  return renderQueue;
 };

@@ -41,9 +41,9 @@ const config = {
   ffmpegPath: process.env.FFMPEG_PATH || '/usr/bin/ffmpeg',
   ffprobePath: process.env.FFPROBE_PATH || '/usr/bin/ffprobe',
   redis: {
-    host: process.env.REDIS_HOST || 'localhost',
+    host: process.env.REDIS_HOST || 'redis',
     port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 6379,
-    password: process.env.REDIS_PASSWORD,
+    password: process.env.REDIS_PASSWORD || '',
     db: 0
   },
   storagePath: STORAGE_PATH,

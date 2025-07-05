@@ -695,23 +695,23 @@
       "id": 10,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "single"
+          "mode": "multi"
         }
       },
       "targets": [
         {
-          "expr": "ffmpeg_cost_per_video_dollars",
+          "expr": "process_memory_usage_bytes",
           "interval": "",
-          "legendFormat": "{{complexity}} {{duration_category}}",
+          "legendFormat": "{{type}}",
           "refId": "A"
         }
       ],
-      "title": "💳 Cost per Video",
+      "title": "Uso de Memória do Processo Node.js",
       "type": "timeseries"
     },
     {
@@ -746,7 +746,7 @@
               "mode": "none"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "line"
             }
           },
           "mappings": [],
@@ -758,41 +758,45 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 6442450944
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 7516192768
               }
             ]
           },
-          "unit": "currencyUSD"
+          "unit": "bytes"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 30
+        "x": 12,
+        "y": 16
       },
       "id": 11,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "single"
+          "mode": "multi"
         }
       },
       "targets": [
         {
-          "expr": "increase(ffmpeg_video_processing_cost_total_dollars[1h])",
+          "expr": "ffmpeg_process_memory_bytes",
           "interval": "",
-          "legendFormat": "{{complexity}} cost/hour",
+          "legendFormat": "{{job_id}} - {{type}}",
           "refId": "A"
         }
       ],
-      "title": "💰 Accumulated Cost (Hourly)",
+      "title": "Uso de Memória dos Processos FFmpeg",
       "type": "timeseries"
     },
     {
@@ -802,60 +806,69 @@
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "OK"
+                },
+                "1": {
+                  "text": "ALERTA"
+                }
+              },
+              "type": "value"
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "green",
                 "value": null
               },
               {
                 "color": "yellow",
-                "value": 50
+                "value": 0.5
               },
               {
-                "color": "green",
-                "value": 100
+                "color": "red",
+                "value": 1
               }
             ]
-          },
-          "unit": "short"
+          }
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 30
+        "w": 24,
+        "x": 0,
+        "y": 24
       },
       "id": 12,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
+        "colorMode": "background",
+        "graphMode": "none",
         "justifyMode": "auto",
-        "orientation": "auto",
+        "orientation": "horizontal",
         "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
         },
         "text": {},
-        "textMode": "auto"
+        "textMode": "value_and_name"
       },
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "ffmpeg_cost_efficiency_ratio",
+          "expr": "memory_alerts",
           "interval": "",
-          "legendFormat": "Videos per Dollar",
+          "legendFormat": "{{severity}} - {{type}}",
           "refId": "A"
         }
       ],
-      "title": "⚡ Cost Efficiency",
+      "title": "Alertas de Memória",
       "type": "stat"
     },
     {
@@ -922,13 +935,10 @@
       "type": "stat"
     }
   ],
-  "schemaVersion": 27,
+  "refresh": "5s",
+  "schemaVersion": 30,
   "style": "dark",
-  "tags": [
-    "ffmpeg",
-    "api",
-    "cost-analysis"
-  ],
+  "tags": [],
   "templating": {
     "list": []
   },
@@ -938,7 +948,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "FFmpeg API - Cost Analysis Dashboard",
-  "uid": "ffmpeg-cost-dashboard",
+  "title": "FFmpeg API Dashboard",
+  "uid": "ffmpeg-api",
   "version": 1
 } 

@@ -23,9 +23,22 @@ services:
       # Ambiente e Credenciais
       - NODE_ENV=${NODE_ENV:-production}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - REDIS_HOST=redis
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - FFMPEG_PATH=${FFMPEG_PATH:-/usr/bin/ffmpeg}
       - FFPROBE_PATH=${FFPROBE_PATH:-/usr/bin/ffprobe}
+      # Configurações de FFmpeg e Recursos
+      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-1}
+      - FFMPEG_THREADS=${FFMPEG_THREADS:-4}
+      - FFMPEG_PRESET=${FFMPEG_PRESET:-faster}
+      - FFMPEG_MAX_MEMORY=${FFMPEG_MAX_MEMORY:-8G}
+      - FFMPEG_PRIORITY=${FFMPEG_PRIORITY:-5}
+      - FFMPEG_BITRATE=${FFMPEG_BITRATE:-3000k}
+      - FFMPEG_AUDIO_BITRATE=${FFMPEG_AUDIO_BITRATE:-128k}
+      - FFMPEG_BUFFER_SIZE=${FFMPEG_BUFFER_SIZE:-4000k}
+      - FFMPEG_MAX_RATE=${FFMPEG_MAX_RATE:-4000k}
+      - FFMPEG_MUXING_QUEUE_SIZE=${FFMPEG_MUXING_QUEUE_SIZE:-1024}
+      - FFMPEG_CPU_USED=${FFMPEG_CPU_USED:-3}
       # Integrações externas
       - GOOGLE_CLOUD_STORAGE_ENABLED=${GOOGLE_CLOUD_STORAGE_ENABLED:-true}
       - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
@@ -40,18 +53,7 @@ services:
       - COMPLEXITY_FACTOR_MEDIUM=${COMPLEXITY_FACTOR_MEDIUM}
       - COMPLEXITY_FACTOR_HIGH=${COMPLEXITY_FACTOR_HIGH}
       - ADDITIONAL_COST_FACTOR=${ADDITIONAL_COST_FACTOR}
-      # Configurações de infraestrutura do container (direto no compose)
-      - MAX_CONCURRENT_JOBS=1
-      - FFMPEG_THREADS=5
-      - FFMPEG_PRESET=faster
-      - FFMPEG_MAX_MEMORY=8G
-      - FFMPEG_PRIORITY=5
-      - FFMPEG_BITRATE=3000k
-      - FFMPEG_AUDIO_BITRATE=128k
-      - FFMPEG_BUFFER_SIZE=4000k
-      - FFMPEG_MAX_RATE=4000k
-      - FFMPEG_MUXING_QUEUE_SIZE=1024
-      - FFMPEG_CPU_USED=3
+      # Diretórios
       - TEMP_DIR=./storage/temp
       - OUTPUT_DIR=./storage/output
       - CLEANUP_INTERVAL_HOURS=1
@@ -67,7 +69,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '5.5'
+          cpus: '5.0'
           memory: 10G
         reservations:
           cpus: '2.0'

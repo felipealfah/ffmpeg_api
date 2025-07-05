@@ -1,7 +1,7 @@
 import Redis from 'ioredis';
 import config from '../config';
 import { logger } from '../utils/logger';
-import { updateSemaphoreMetrics } from '../middleware/metrics';
+import { updateSemaphoreMetrics, ffmpegJobsActive } from '../middleware/metrics';
 
 /**
  * Serviço de controle de concorrência que funciona como uma camada de proteção

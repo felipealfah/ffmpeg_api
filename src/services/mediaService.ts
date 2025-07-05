@@ -16,8 +16,12 @@ import {
   ffmpegMemoryUsage,
   ffmpegSigkillJobs,
   ffmpegOrphanedProcesses,
-  activeRenderJobs
+  activeRenderJobs,
+  processMemoryUsage,
+  ffmpegProcessMemory,
+  memoryAlerts
 } from '../middleware/metrics';
+
 // Função para calcular duração da timeline
 export const calculateTimelineDuration = (timeline: Timeline): number => {
   if (!timeline || !timeline.tracks) return 0;
@@ -56,13 +60,20 @@ if (config?.ffmpegPath) {
 }
 
 // Configurações globais do FFmpeg para otimização de memória
-ffmpeg.setFfmpegOptions({
+const ffmpegOptions = {
   priority: 5, // Prioridade média-baixa
   niceness: 5, // Prioridade média-baixa no sistema
   timeout: 0, // Sem timeout
   preset: 'faster', // Preset mais rápido que medium, mas com qualidade razoável
   threads: 5 // Usar 5 threads (deixando 1 vCPU livre para o sistema)
-});
+};
+
+// Aplicar configurações em cada comando FFmpeg
+const applyFfmpegOptions = (command: ffmpeg.FfmpegCommand): void => {
+  Object.entries(ffmpegOptions).forEach(([key, value]) => {
+    command.addOption(`-${key}`, value.toString());
+  });
+};
 
 if (config?.ffprobePath) {
   ffmpeg.setFfprobePath(config.ffprobePath);
@@ -79,39 +90,38 @@ const MAX_CONCURRENT_RENDERS = parseInt(process.env.MAX_CONCURRENT_JOBS || '2', 
 const acquireRenderSemaphore = async (jobId: string): Promise<boolean> => {
   const redis = await getQueueService();
   
-  // Usar Redis MULTI para operação atômica
-  const result = await redis
-    .multi()
-    .scard(RENDER_SEMAPHORE_KEY)
-    .sismember(RENDER_SEMAPHORE_KEY, jobId)
-    .exec();
-  
-  const [activeCount, isAlreadyActive] = result!.map(r => r[1]) as [number, number];
+  // Verificar se já está ativo
+  const activeJobs = await redis.getActive();
+  const isAlreadyActive = activeJobs.some(job => job.id === jobId);
   
   // Se já está ativo ou há espaço disponível
-  if (isAlreadyActive || activeCount < MAX_CONCURRENT_RENDERS) {
-    await redis.sadd(RENDER_SEMAPHORE_KEY, jobId);
+  if (isAlreadyActive || activeJobs.length < MAX_CONCURRENT_RENDERS) {
+    await redis.add(jobId, { id: jobId });
     
     // Atualizar métrica do Prometheus
-    activeRenderJobs.set(activeCount + 1);
+    activeRenderJobs.set(activeJobs.length + 1);
     
-    console.log(`🔒 Job ${jobId} adquiriu semáforo (${activeCount + 1}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
+    console.log(`🔒 Job ${jobId} adquiriu semáforo (${activeJobs.length + 1}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
     return true;
   }
   
-  console.log(`⏳ Job ${jobId} aguardando slot de renderização (${activeCount}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
+  console.log(`⏳ Job ${jobId} aguardando slot de renderização (${activeJobs.length}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
   return false;
 };
 
 // Função para liberar o semáforo de renderização
 const releaseRenderSemaphore = async (jobId: string): Promise<void> => {
   const redis = await getQueueService();
-  await redis.srem(RENDER_SEMAPHORE_KEY, jobId);
+  const job = await redis.getJob(jobId);
   
-  const activeCount = await redis.scard(RENDER_SEMAPHORE_KEY);
-  activeRenderJobs.set(activeCount);
+  if (job) {
+    await job.remove();
+  }
   
-  console.log(`🔓 Job ${jobId} liberou semáforo (${activeCount}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
+  const activeCount = await redis.getJobCounts();
+  activeRenderJobs.set(activeCount.active);
+  
+  console.log(`🔓 Job ${jobId} liberou semáforo (${activeCount.active}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
 };
 
 // Função para aguardar slot de renderização disponível
@@ -176,56 +186,57 @@ const cleanupOrphanedProcesses = async (): Promise<void> => {
 };
 
 // Função para monitorar uso de recursos durante renderização
-const monitorResourceUsage = (command: any, jobId: string): void => {
+const monitorResourceUsage = (command: any, jobId: string): NodeJS.Timeout => {
   const startTime = Date.now();
   let lastMemoryCheck = Date.now();
   let warningCount = 0;
   const maxWarnings = 3;
-  const memoryLimit = parseInt(process.env.FFMPEG_MEMORY_LIMIT || '4096', 10);
+  const memoryLimit = parseInt(process.env.FFMPEG_MEMORY_LIMIT || '8192', 10); // 8GB default
   
   const memoryCheckInterval = setInterval(() => {
-    const memUsage = process.memoryUsage();
-    const memUsageMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    // Atualizar métricas do processo Node.js
+    const memoryUsage = process.memoryUsage();
+    processMemoryUsage.set({ type: 'heap_used' }, memoryUsage.heapUsed);
+    processMemoryUsage.set({ type: 'heap_total' }, memoryUsage.heapTotal);
+    processMemoryUsage.set({ type: 'rss' }, memoryUsage.rss);
+    processMemoryUsage.set({ type: 'external' }, memoryUsage.external);
     
-    // Atualizar métrica do Prometheus
-    ffmpegMemoryUsage.set({ job_id: jobId }, memUsage.heapUsed);
-    
-    console.log(`📊 Job ${jobId} - Uso de memória: ${memUsageMB}MB`);
-    
-    // Se uso de memória estiver muito alto, alertar
-    if (memUsageMB > (memoryLimit * 0.8)) { // 80% do limite
-      console.warn(`⚠️  Job ${jobId} - Alto uso de memória detectado: ${memUsageMB}MB`);
-      warningCount++;
-      
-      // Forçar garbage collection
-      if (global.gc) {
-        global.gc();
-        console.log(`🧹 Job ${jobId} - Garbage collection forçada`);
-      }
-
-      // Se ultrapassar o limite de warnings, terminar o processo
-      if (warningCount >= maxWarnings && memUsageMB > memoryLimit) {
-        console.error(`❌ Job ${jobId} - Limite de memória excedido (${memUsageMB}MB > ${memoryLimit}MB)`);
-        command.kill('SIGTERM');
-        clearInterval(memoryCheckInterval);
-        return;
-      }
+    // Monitorar processo FFmpeg se disponível
+    if (command && command._pid) {
+      // Atualizar métricas do FFmpeg
+      ffmpegProcessMemory.set({ job_id: jobId, type: 'rss' }, command._pid);
+      ffmpegProcessMemory.set({ job_id: jobId, type: 'vsz' }, command._pid);
     }
     
-    lastMemoryCheck = Date.now();
-  }, 5000); // Verificar a cada 5 segundos
+    // Verificar tempo desde o início
+    const elapsedMinutes = (Date.now() - startTime) / 1000 / 60;
+    
+    // Log a cada 5 minutos
+    if (elapsedMinutes >= 5 && elapsedMinutes % 5 === 0) {
+      logger.info(`🎥 Job ${jobId} rodando há ${Math.floor(elapsedMinutes)} minutos`);
+    }
+    
+    // Verificar uso de memória
+    const currentMemoryUsage = memoryUsage.heapUsed + memoryUsage.external;
+    const memoryUsageGB = currentMemoryUsage / 1024 / 1024 / 1024;
+    
+    // Alertas de memória
+    if (memoryUsageGB >= memoryLimit * 0.75) { // 75% do limite
+      memoryAlerts.set({ severity: 'warning', type: 'process' }, 1);
+      warningCount++;
+      
+      if (warningCount >= maxWarnings) {
+        logger.error(`⚠️ Job ${jobId} usando muita memória: ${memoryUsageGB.toFixed(2)}GB`);
+        memoryAlerts.set({ severity: 'critical', type: 'process' }, 1);
+      }
+    } else {
+      memoryAlerts.set({ severity: 'warning', type: 'process' }, 0);
+      memoryAlerts.set({ severity: 'critical', type: 'process' }, 0);
+      warningCount = 0;
+    }
+  }, 10000); // Checar a cada 10 segundos
   
-  // Limpar interval quando o comando terminar
-  command.on('end', () => {
-    clearInterval(memoryCheckInterval);
-    const duration = Math.round((Date.now() - startTime) / 1000);
-    console.log(`✅ Job ${jobId} - Monitoramento finalizado após ${duration}s`);
-  });
-  
-  command.on('error', () => {
-    clearInterval(memoryCheckInterval);
-    console.log(`❌ Job ${jobId} - Monitoramento interrompido devido a erro`);
-  });
+  return memoryCheckInterval;
 };
 
 // Get media information
@@ -777,308 +788,41 @@ export const renderVideo = async (
   renderRequest: RenderRequest, 
   progressCallback: (progress: number) => void = () => {}
 ): Promise<string> => {
+  // Validar request
+  if (!renderRequest || !renderRequest.output) {
+    throw new Error('Invalid render request: missing output configuration');
+  }
+
+  // Gerar ID único para o job
   const jobId = uuidv4();
-  const tempDir = path.join(config.tempDir, jobId);
-  let outputPath: string | undefined;
   
+  // Preparar diretórios
+  const tempDir = path.join(config.tempPath, jobId);
+  const outputPath = path.join(config.outputPath, jobId, `output.${renderRequest.output.format || 'mp4'}`);
+  
+  // Garantir que os diretórios existam
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.mkdir(tempDir, { recursive: true });
+
   try {
-    // Aguardar slot de renderização disponível
-    await waitForRenderSlot(jobId);
-    
-    console.log('Iniciando renderização do vídeo:', { 
-      timelineTracks: renderRequest.timeline?.tracks?.length || 0,
-      outputFormat: renderRequest.output?.format
-    });
-    
-    // Verificar se os dados necessários estão presentes
-    if (!renderRequest.timeline || !renderRequest.timeline.tracks || renderRequest.timeline.tracks.length === 0) {
-      throw new Error('Timeline inválida: deve conter pelo menos uma trilha');
+    // Tentar adquirir semáforo
+    const acquired = await acquireRenderSemaphore(jobId);
+    if (!acquired) {
+      throw new Error('Failed to acquire render semaphore');
     }
-    
-    if (!renderRequest.output || !renderRequest.output.format) {
-      throw new Error('Configuração de saída inválida: formato não especificado');
-    }
-    
-    // Usar caminhos absolutos
-    const outputDir = path.join(config.outputDir, jobId);
-    
-    console.log('Diretórios para processamento:', { tempDir, outputDir });
-    
-    // Ensure directories exist
-    try {
-      await ensureDirectory(tempDir);
-      await ensureDirectory(outputDir);
-      console.log('Diretórios criados com sucesso');
-    } catch (err) {
-      console.error('Erro ao criar diretórios:', err);
-      throw err;
-    }
-    
-    // Prepare all clips
-    console.log('Preparando clips...');
-    const preparedClips: { track: Track; clipInfo: { path: string; clip: Clip }[] }[] = [];
-    
-    try {
-      for (const track of renderRequest.timeline.tracks) {
-        const clipInfo = [];
-        
-        // Primeiro, preparar todos os clips e resolver length "auto"
-        for (const clip of track.clips) {
-          console.log('Preparando clip:', { 
-            type: clip.asset.type, 
-            start: clip.start, 
-            length: clip.length
-          });
-          
-          const localPath = await prepareClip(clip, tempDir);
-          console.log('Clip preparado:', { localPath });
-          
-          // 🔄 RESOLVER length "auto" ANTES DA VALIDAÇÃO
-          if (clip.length === "auto" && (clip.asset.type === 'video' || clip.asset.type === 'audio')) {
-            const resolvedLength = await resolveClipLength(clip, localPath);
-            clip.length = resolvedLength;
-            console.log(`✅ Length "auto" resolvido para: ${resolvedLength}s`);
-          }
-          
-          // 🔍 VALIDAÇÃO E DIAGNÓSTICO COMPLETO DO VÍDEO
-          if (clip.asset.type === 'video') {
-            try {
-              // Usar a função de diagnóstico completo
-              const diagnosis = await validateAndDiagnoseVideo(localPath, [clip]);
-              
-              if (!diagnosis.isValid) {
-                console.log('🚨 PROBLEMAS DETECTADOS:');
-                diagnosis.issues.forEach((issue, index) => {
-                  console.log(`   ${index + 1}. ${issue}`);
-                });
-                
-                console.log('💡 SUGESTÕES:');
-                diagnosis.suggestions.forEach((suggestion, index) => {
-                  console.log(`   ${index + 1}. ${suggestion}`);
-                });
-                
-                // 🔧 AUTO-AJUSTE INTELIGENTE
-                const availableDuration = Math.max(0, diagnosis.duration - clip.start);
-                
-                if (availableDuration > 0) {
-                  const originalLength = typeof clip.length === 'number' ? clip.length : 0;
-                  const newLength = Math.min(originalLength, availableDuration);
-                  clip.length = newLength;
-                  
-                  console.log('🔧 AUTO-AJUSTE APLICADO:');
-                  console.log(`   ✂️  Clip ajustado: ${clip.start}s - ${clip.start + newLength}s`);
-                  console.log(`   📏 Duração ajustada: ${originalLength}s → ${newLength}s`);
-                  console.log(`   ✅ Utilizando: ${((newLength / originalLength) * 100).toFixed(1)}% do clip original`);
-                } else {
-                  console.log('❌ ERRO CRÍTICO: Start time maior que duração do vídeo!');
-                  
-                  // Ajustar para usar o máximo disponível
-                  clip.start = 0;
-                  const maxLength = Math.min(typeof clip.length === 'number' ? clip.length : 0, diagnosis.duration);
-                  clip.length = maxLength;
-                  console.log(`   🔧 Ajuste automático aplicado: start=0, length=${maxLength}s`);
-                }
-              } else {
-                console.log('✅ VÍDEO VÁLIDO: Todas as configurações estão corretas');
-              }
-            } catch (error) {
-              console.warn('⚠️  Não foi possível validar o vídeo:', error instanceof Error ? error.message : String(error));
-            }
-          }
-          
-          clipInfo.push({ path: localPath, clip });
-        }
-        
-        // 🚀 APLICAR OTIMIZAÇÃO SEQUENCIAL DEPOIS DE RESOLVER length "auto"
-        console.log('🔍 Verificando otimizações sequenciais...');
-        const optimizedClips = optimizeSequentialClips(track.clips);
-        
-        if (optimizedClips.length !== track.clips.length) {
-          console.log(`✅ OTIMIZAÇÃO APLICADA! ${track.clips.length} clips → ${optimizedClips.length} clips`);
-          
-          // Atualizar clipInfo com clips otimizados
-          const optimizedClipInfo = [];
-          for (const optimizedClip of optimizedClips) {
-            // Encontrar o clipInfo correspondente ao primeiro clip do grupo otimizado
-            const originalClipInfo = clipInfo.find(ci => ci.clip.asset === optimizedClip.asset);
-            if (originalClipInfo) {
-              optimizedClipInfo.push({ 
-                path: originalClipInfo.path, 
-                clip: optimizedClip 
-              });
-            }
-          }
-          
-          preparedClips.push({ track, clipInfo: optimizedClipInfo });
-        } else {
-          preparedClips.push({ track, clipInfo });
-        }
-      }
-      
-      console.log('Clips preparados com sucesso:', { 
-        trackCount: preparedClips.length,
-        clipCount: preparedClips.reduce((acc, t) => acc + t.clipInfo.length, 0)
-      });
-    } catch (err) {
-      console.error('Erro ao preparar clips:', err);
-      throw err;
-    }
-    
-    // Create output file path
-    const outputFilename = `output.${renderRequest.output.format}`;
-    outputPath = path.join(outputDir, outputFilename);
-    
-    console.log('Caminho do arquivo de saída:', outputPath);
-    
-    // Build FFmpeg command based on timeline structure
-    return new Promise((resolve, reject) => {
+
+    return new Promise<string>((resolve, reject) => {
       try {
-        // Calcular duração total baseada nos clips
-        const timelineDuration = calculateTimelineDuration(renderRequest.timeline);
-        console.log('Duração calculada da timeline:', timelineDuration);
-        
-        // Separar clips de vídeo/imagem, áudio e legendas ANTES de criar o comando
-        const videoClips = preparedClips
-          .flatMap(p => p.clipInfo)
-          .filter(({ clip }) => clip.asset.type === 'image' || clip.asset.type === 'video');
-        
-        const audioClips = preparedClips
-          .flatMap(p => p.clipInfo)
-          .filter(({ clip }) => clip.asset.type === 'audio');
-        
-        const subtitleClips = preparedClips
-          .flatMap(p => p.clipInfo)
-          .filter(({ clip }) => clip.asset.type === 'subtitle');
-        
-        if (videoClips.length === 0) {
-          throw new Error('Nenhum clipe de vídeo ou imagem encontrado');
-        }
-        
-        console.log(`Processando ${videoClips.length} clips de vídeo/imagem, ${audioClips.length} clips de áudio e ${subtitleClips.length} clips de legenda`);
-        
-        // CRIAR O COMANDO FFMPEG APENAS UMA VEZ
+        // Configurar comando FFmpeg
         let command = ffmpeg();
         
-        // Adicionar TODOS os inputs de uma só vez
-        console.log('Adicionando inputs ao FFmpeg:', { 
-          videoClips: videoClips.length,
-          audioClips: audioClips.length,
-          subtitleClips: subtitleClips.length
-        });
+        // Aplicar configurações globais
+        applyFfmpegOptions(command);
         
-        // 1. Adicionar inputs de vídeo/imagem
-        videoClips.forEach(({ path }, index) => {
-          console.log(`Adicionando input de vídeo ${index}:`, path);
-          if (videoClips[index].clip.asset.type === 'image') {
-            // Para imagens, adicionar com opção de loop
-            command = command.addInput(path).inputOptions([
-              '-loop 1',
-              '-threads 2',  // Limitar threads por input
-              '-analyzeduration 10M',  // Reduzir tempo de análise
-              '-probesize 10M',  // Reduzir tamanho de probe
-              '-thread_queue_size 512'  // Reduzir fila de threads
-            ]);
-          } else {
-            command = command.addInput(path).inputOptions([
-              '-threads 2',  // Limitar threads por input
-              '-analyzeduration 10M',  // Reduzir tempo de análise
-              '-probesize 10M',  // Reduzir tamanho de probe
-              '-thread_queue_size 512'  // Reduzir fila de threads
-            ]);
-          }
-        });
-        
-        // 2. Adicionar inputs de áudio
-        audioClips.forEach((clipInfo, index) => {
-          clipInfo.clip._inputIndex = videoClips.length + index;
-          const path = clipInfo.path;
-          console.log(`Adicionando input de áudio ${index}:`, path);
-          command = command.addInput(path).inputOptions([
-            '-threads 1',  // Limitar threads para áudio
-            '-analyzeduration 5M',  // Reduzir tempo de análise
-            '-probesize 5M',  // Reduzir tamanho de probe
-            '-thread_queue_size 256'  // Reduzir fila de threads
-          ]);
-        });
-        
-        // Determinar a lógica de processamento baseada nos tipos de clips
-        if (videoClips.length === 1 && videoClips[0].clip._optimized) {
-          // Caso OTIMIZADO: clip único de um vídeo sequencial - usar trim simples
-          const optimizedClip = videoClips[0].clip;
-          console.log('🚀 Processando caso OTIMIZADO: trim simples');
-          const optimizedLength = typeof optimizedClip.length === 'number' ? optimizedClip.length : 0;
-          console.log(`   ⏱️  Trim: ${optimizedClip.start}s - ${optimizedClip.start + optimizedLength}s`);
-          
-          // Aplicar legendas se disponível
-          if (subtitleClips.length > 0) {
-            console.log('Aplicando legendas ao caso otimizado');
-            const subtitleFilter = createSubtitleFilter(subtitleClips[0]);
-            command = command.videoFilters(subtitleFilter);
-          }
-          
-        } else if (videoClips.length === 1 && videoClips[0].clip.asset.type === 'image') {
-          // Caso simples: uma imagem com duração específica
-          console.log('Processando caso simples: uma imagem');
-          
-          // Aplicar legendas se disponível
-          if (subtitleClips.length > 0) {
-            console.log('Aplicando legendas ao caso simples');
-            const subtitleFilter = createSubtitleFilter(subtitleClips[0]);
-            command = command.videoFilters(subtitleFilter);
-          }
-          
-        } else if (videoClips.length > 1) {
-          // Caso complexo: múltiplas imagens ou vídeos
-          console.log('Processando caso complexo: múltiplos clips');
-          const complexFilter = createComplexFilterForMedia(videoClips, audioClips, subtitleClips, renderRequest.output);
-          console.log('Filtro complexo criado:', complexFilter);
-          command = command.complexFilter(complexFilter);
-          
-        } else {
-          // Caso fallback: apenas um clip
-          console.log('Processando caso fallback: um clip');
-          // Para casos mais simples, pode ser necessário lógica adicional
-        }
-        
-        // Configurar opções de saída
-        const outputOptions = buildOutputOptions(videoClips, audioClips, subtitleClips, renderRequest.output, timelineDuration);
-        console.log('Opções de saída:', outputOptions);
-        command = command.outputOptions(outputOptions);
-        
-        // Configurar filtro de mixagem de áudio se necessário
-        if (audioClips.length > 1) {
-          console.log(`Criando filtro de mixagem para ${audioClips.length} áudios`);
-          const audioInputs = audioClips.map((_, index) => `[${videoClips.length + index}:a]`).join('');
-          const mixFilter = `${audioInputs}amix=inputs=${audioClips.length}:duration=first:dropout_transition=2[aout]`;
-          
-          // Se já existe um filtro complexo, precisamos combiná-los
-          // Por simplicidade, vamos aplicar o filtro de áudio separadamente se necessário
-          if (videoClips.length === 1) {
-            command = command.complexFilter(mixFilter);
-          }
-        }
-
-        if (audioClips.length > 0) {
-          console.log('Processando áudios para corresponder à duração do vídeo...');
-          const audioFilter = processAudioClips(audioClips, timelineDuration);
-          
-          // Se já existe um filtro complexo para vídeo, combinar com o filtro de áudio
-          if (videoClips.length > 1) {
-            const videoFilter = createComplexFilterForMedia(videoClips, [], subtitleClips, renderRequest.output);
-            command = command.complexFilter(videoFilter + ';' + audioFilter);
-          } else {
-            // Se não há filtro complexo de vídeo, aplicar apenas o filtro de áudio
-            command = command.complexFilter(audioFilter);
-          }
-        }
-        
-        // Set output format specific options
-        if (renderRequest.output.format === 'hls') {
-          command = command.outputOptions([
-            '-hls_time 10',
-            '-hls_list_size 0',
-            '-f hls'
-          ]);
+        // Validar outputPath
+        if (!outputPath) {
+          reject(new Error('Output path is required'));
+          return;
         }
         
         // Set output file and handlers
@@ -1109,7 +853,7 @@ export const renderVideo = async (
             let finalOutputUrl = outputPath;
             
             // Upload para Google Cloud Storage se habilitado
-            if (config.googleCloud.enabled) {
+            if (config.googleCloud.enabled && renderRequest.webhook) {
               try {
                 console.log('Fazendo upload para Google Cloud Storage...');
                 const storageService = getStorageService();
@@ -1123,12 +867,16 @@ export const renderVideo = async (
                   public: true,
                   metadata: {
                     jobId: jobId,
-                    format: renderRequest.output.format,
+                    format: renderRequest.output.format || 'mp4',
                     resolution: renderRequest.output.resolution || '1280x720',
                     quality: renderRequest.output.quality || 'medium',
                     createdAt: new Date().toISOString()
                   }
                 });
+                
+                if (!uploadResult.publicUrl) {
+                  throw new Error('Upload failed: no public URL returned');
+                }
                 
                 console.log('Upload para GCS concluído:', {
                   fileName: uploadResult.fileName,
@@ -1137,7 +885,7 @@ export const renderVideo = async (
                 });
                 
                 // Usar a URL pública do GCS como resultado final
-                finalOutputUrl = uploadResult.publicUrl || outputPath;
+                finalOutputUrl = uploadResult.publicUrl;
                 
                 // Remover arquivo local após upload bem-sucedido
                 try {
@@ -1173,7 +921,7 @@ export const renderVideo = async (
                   status: 'completed',
                   outputUrl: finalOutputUrl,
                   metadata: {
-                    format: renderRequest.output.format,
+                    format: renderRequest.output.format || 'mp4',
                     resolution: renderRequest.output.resolution || '1280x720',
                     quality: renderRequest.output.quality || 'medium',
                     fps: renderRequest.output.fps || 30,
