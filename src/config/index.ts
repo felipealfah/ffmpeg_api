@@ -24,6 +24,10 @@ console.log('🔧 ===== DEBUG VARIÁVEIS DE AMBIENTE =====');
 console.log('🔧 PORT:', process.env.PORT);
 console.log('🔧 FFMPEG_PATH:', process.env.FFMPEG_PATH);
 console.log('🔧 FFPROBE_PATH:', process.env.FFPROBE_PATH);
+console.log('🔧 MAX_CONCURRENT_JOBS:', process.env.MAX_CONCURRENT_JOBS);
+console.log('🔧 FFMPEG_THREADS:', process.env.FFMPEG_THREADS);
+console.log('🔧 FFMPEG_MAX_MEMORY:', process.env.FFMPEG_MAX_MEMORY);
+console.log('🔧 FFMPEG_PRESET:', process.env.FFMPEG_PRESET);
 console.log('🔧 GOOGLE_CLOUD_STORAGE_ENABLED:', process.env.GOOGLE_CLOUD_STORAGE_ENABLED);
 console.log('🔧 GOOGLE_CLOUD_PROJECT_ID:', process.env.GOOGLE_CLOUD_PROJECT_ID);
 console.log('🔧 REDIS_HOST:', process.env.REDIS_HOST);
@@ -33,8 +37,8 @@ console.log('🔧 ======================================');
 // Configuração
 const config = {
   port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
-  ffmpegPath: process.env.FFMPEG_PATH || '/opt/homebrew/bin/ffmpeg',
-  ffprobePath: process.env.FFPROBE_PATH || '/opt/homebrew/bin/ffprobe',
+  ffmpegPath: process.env.FFMPEG_PATH || '/usr/bin/ffmpeg',
+  ffprobePath: process.env.FFPROBE_PATH || '/usr/bin/ffprobe',
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
     port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 6379,
@@ -44,34 +48,47 @@ const config = {
   storagePath: STORAGE_PATH,
   tempPath: TEMP_PATH,
   outputPath: OUTPUT_PATH,
-  defaultTimeout: 600000, // 10 minutos (aumentado de 5 para 10)
-  maxConcurrentJobs: process.env.MAX_CONCURRENT_JOBS ? parseInt(process.env.MAX_CONCURRENT_JOBS) : 3,
+  defaultTimeout: 600000, // 10 minutos
+  maxConcurrentJobs: process.env.MAX_CONCURRENT_JOBS ? parseInt(process.env.MAX_CONCURRENT_JOBS) : 1,
   ffmpegOptions: {
-    threads: process.env.FFMPEG_THREADS ? parseInt(process.env.FFMPEG_THREADS) : 2,
-    preset: process.env.FFMPEG_PRESET || 'fast',
-    maxMemory: process.env.FFMPEG_MAX_MEMORY || '1G'
+    threads: process.env.FFMPEG_THREADS ? parseInt(process.env.FFMPEG_THREADS) : 5,
+    preset: process.env.FFMPEG_PRESET || 'faster',
+    maxMemory: process.env.FFMPEG_MAX_MEMORY || '8G',
+    priority: process.env.FFMPEG_PRIORITY ? parseInt(process.env.FFMPEG_PRIORITY) : 5,
+    bitrate: process.env.FFMPEG_BITRATE || '3000k',
+    audioBitrate: process.env.FFMPEG_AUDIO_BITRATE || '128k',
+    bufferSize: process.env.FFMPEG_BUFFER_SIZE || '4000k',
+    maxRate: process.env.FFMPEG_MAX_RATE || '4000k',
+    muxingQueueSize: process.env.FFMPEG_MUXING_QUEUE_SIZE ? parseInt(process.env.FFMPEG_MUXING_QUEUE_SIZE) : 1024,
+    cpuUsed: process.env.FFMPEG_CPU_USED ? parseInt(process.env.FFMPEG_CPU_USED) : 3,
+    nice: 10 // Prioridade do processo no sistema
   },
   googleCloud: {
     projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
     keyFilename: process.env.GOOGLE_CLOUD_KEY_FILE,
-    bucketName: process.env.GOOGLE_CLOUD_BUCKET_NAME || 'ffmpeg-api-outputs',
+    bucketName: process.env.GOOGLE_CLOUD_BUCKET_NAME || 'ffmpeg-api',
     enabled: process.env.GOOGLE_CLOUD_STORAGE_ENABLED === 'true'
   }
 };
 
-console.log('Config carregado:', {
-  ffmpegPath: config.ffmpegPath,
-  ffprobePath: config.ffprobePath,
-  storagePath: config.storagePath,
+// Log das configurações críticas
+console.log('=== DEBUG CONFIG NO SERVER ===');
+console.log('🎥 FFmpeg Config:', {
   maxConcurrentJobs: config.maxConcurrentJobs,
-  ffmpegOptions: config.ffmpegOptions
+  ffmpegOptions: config.ffmpegOptions,
+  paths: {
+    ffmpeg: config.ffmpegPath,
+    ffprobe: config.ffprobePath
+  }
 });
+console.log('🗄️ Storage Config:', {
+  storagePath: config.storagePath,
+  tempPath: config.tempPath,
+  outputPath: config.outputPath
+});
+console.log('☁️ Google Cloud Config:', config.googleCloud);
+console.log('================================');
 
-// DEBUG: Log do objeto config completo antes de exportar
-console.log('Final config object in config/index.ts:', config);
-
-console.log('🔧 EXPORTANDO CONFIG:', config);
-
-export default config; 
+export default config;
 module.exports = config;
 module.exports.default = config; 
