@@ -124,9 +124,11 @@ services:
     volumes:
       - ./docs-site:/app
       - docs-node-modules:/app/node_modules
-    command: sh -c "npm install && npx mintlify dev --port 3002 --host 0.0.0.0"
+    command: sh -c "npm ci && npm run dev"
     environment:
       - NODE_ENV=development
+      - PORT=3002
+      - HOST=0.0.0.0
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/introduction"]

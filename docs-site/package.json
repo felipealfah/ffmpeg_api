@@ -1,0 +1,13 @@
+{
+  "name": "ffmpeg-api-docs",
+  "version": "1.0.0",
+  "description": "Documentação da FFmpeg API",
+  "scripts": {
+    "dev": "mintlify dev --port 3002",
+    "build": "mintlify build",
+    "start": "mintlify start --port 3002"
+  },
+  "dependencies": {
+    "mintlify": "^4.0.0"
+  }
+} 
