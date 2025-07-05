@@ -1,13 +1,40 @@
 import promClient from 'prom-client';
 import { Request, Response, NextFunction } from 'express';
+import { Registry, Gauge } from 'prom-client';
 
 // Configurar coleta de métricas padrão do Node.js
 promClient.collectDefaultMetrics({
   gcDurationBuckets: [0.001, 0.01, 0.1, 1, 2, 5],
 });
 
-// Registry para todas as métricas
-export const register = promClient.register;
+export const register = new Registry();
+
+// Métricas existentes
+export const ffmpegMemoryUsage = new Gauge({
+  name: 'ffmpeg_memory_usage_bytes',
+  help: 'Uso de memória do FFmpeg em bytes',
+  labelNames: ['job_id'],
+  registers: [register]
+});
+
+export const ffmpegSigkillJobs = new Gauge({
+  name: 'ffmpeg_sigkill_jobs_total',
+  help: 'Número total de jobs FFmpeg terminados com SIGKILL',
+  registers: [register]
+});
+
+export const ffmpegOrphanedProcesses = new Gauge({
+  name: 'ffmpeg_orphaned_processes_total',
+  help: 'Número total de processos FFmpeg órfãos detectados',
+  registers: [register]
+});
+
+// Nova métrica para jobs ativos
+export const activeRenderJobs = new Gauge({
+  name: 'ffmpeg_active_render_jobs',
+  help: 'Número atual de jobs de renderização ativos',
+  registers: [register]
+});
 
 // ==== MÉTRICAS HTTP ====
 

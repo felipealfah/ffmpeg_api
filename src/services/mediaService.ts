@@ -11,10 +11,12 @@ import axios from 'axios';
 import { downloadFile as downloadFileUtil, ensureDirectory, cleanupDirectory } from '../utils/file';
 import { getStorageService } from './storageService';
 import { logger } from '../utils/logger';
+import { getQueueService } from './queueService';
 import {
   ffmpegMemoryUsage,
   ffmpegSigkillJobs,
-  ffmpegOrphanedProcesses
+  ffmpegOrphanedProcesses,
+  activeRenderJobs
 } from '../middleware/metrics';
 
 // Debug do config
@@ -48,6 +50,66 @@ if (config?.ffprobePath) {
 } else {
   console.warn('FFprobe path não encontrado no config, usando padrão do sistema');
 }
+
+// Chave do Redis para controle de concorrência
+const RENDER_SEMAPHORE_KEY = 'render_semaphore';
+const MAX_CONCURRENT_RENDERS = parseInt(process.env.MAX_CONCURRENT_JOBS || '2', 10);
+
+// Função para adquirir o semáforo de renderização
+const acquireRenderSemaphore = async (jobId: string): Promise<boolean> => {
+  const redis = await getQueueService();
+  
+  // Usar Redis MULTI para operação atômica
+  const result = await redis
+    .multi()
+    .scard(RENDER_SEMAPHORE_KEY)
+    .sismember(RENDER_SEMAPHORE_KEY, jobId)
+    .exec();
+  
+  const [activeCount, isAlreadyActive] = result!.map(r => r[1]) as [number, number];
+  
+  // Se já está ativo ou há espaço disponível
+  if (isAlreadyActive || activeCount < MAX_CONCURRENT_RENDERS) {
+    await redis.sadd(RENDER_SEMAPHORE_KEY, jobId);
+    
+    // Atualizar métrica do Prometheus
+    activeRenderJobs.set(activeCount + 1);
+    
+    console.log(`🔒 Job ${jobId} adquiriu semáforo (${activeCount + 1}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
+    return true;
+  }
+  
+  console.log(`⏳ Job ${jobId} aguardando slot de renderização (${activeCount}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
+  return false;
+};
+
+// Função para liberar o semáforo de renderização
+const releaseRenderSemaphore = async (jobId: string): Promise<void> => {
+  const redis = await getQueueService();
+  await redis.srem(RENDER_SEMAPHORE_KEY, jobId);
+  
+  const activeCount = await redis.scard(RENDER_SEMAPHORE_KEY);
+  activeRenderJobs.set(activeCount);
+  
+  console.log(`🔓 Job ${jobId} liberou semáforo (${activeCount}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
+};
+
+// Função para aguardar slot de renderização disponível
+const waitForRenderSlot = async (jobId: string): Promise<void> => {
+  const maxAttempts = 60; // 5 minutos (5s * 60)
+  let attempts = 0;
+  
+  while (attempts < maxAttempts) {
+    if (await acquireRenderSemaphore(jobId)) {
+      return;
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Espera 5s
+    attempts++;
+  }
+  
+  throw new Error('Timeout aguardando slot de renderização disponível');
+};
 
 // Função para limpar arquivos temporários
 const cleanupTempFiles = async (tempDir: string): Promise<void> => {
@@ -732,27 +794,30 @@ export const renderVideo = async (
   renderRequest: RenderRequest, 
   progressCallback: (progress: number) => void = () => {}
 ): Promise<string> => {
+  const jobId = uuidv4();
+  const tempDir = path.join(config.tempDir, jobId);
+  let outputPath: string | undefined;
+  
   try {
-    const { timeline, output } = renderRequest;
+    // Aguardar slot de renderização disponível
+    await waitForRenderSlot(jobId);
     
     console.log('Iniciando renderização do vídeo:', { 
-      timelineTracks: timeline?.tracks?.length || 0,
-      outputFormat: output?.format
+      timelineTracks: renderRequest.timeline?.tracks?.length || 0,
+      outputFormat: renderRequest.output?.format
     });
     
     // Verificar se os dados necessários estão presentes
-    if (!timeline || !timeline.tracks || timeline.tracks.length === 0) {
+    if (!renderRequest.timeline || !renderRequest.timeline.tracks || renderRequest.timeline.tracks.length === 0) {
       throw new Error('Timeline inválida: deve conter pelo menos uma trilha');
     }
     
-    if (!output || !output.format) {
+    if (!renderRequest.output || !renderRequest.output.format) {
       throw new Error('Configuração de saída inválida: formato não especificado');
     }
     
     // Usar caminhos absolutos
-    const jobId = uuidv4();
-    const tempDir = path.join(process.cwd(), 'storage/temp', jobId);
-    const outputDir = path.join(process.cwd(), 'storage/output', jobId);
+    const outputDir = path.join(config.outputDir, jobId);
     
     console.log('Diretórios para processamento:', { tempDir, outputDir });
     
@@ -771,7 +836,7 @@ export const renderVideo = async (
     const preparedClips: { track: Track; clipInfo: { path: string; clip: Clip }[] }[] = [];
     
     try {
-      for (const track of timeline.tracks) {
+      for (const track of renderRequest.timeline.tracks) {
         const clipInfo = [];
         
         // Primeiro, preparar todos os clips e resolver length "auto"
@@ -877,8 +942,8 @@ export const renderVideo = async (
     }
     
     // Create output file path
-    const outputFilename = `output.${output.format}`;
-    const outputPath = path.join(outputDir, outputFilename);
+    const outputFilename = `output.${renderRequest.output.format}`;
+    outputPath = path.join(outputDir, outputFilename);
     
     console.log('Caminho do arquivo de saída:', outputPath);
     
@@ -886,7 +951,7 @@ export const renderVideo = async (
     return new Promise((resolve, reject) => {
       try {
         // Calcular duração total baseada nos clips
-        const timelineDuration = calculateTimelineDuration(timeline);
+        const timelineDuration = calculateTimelineDuration(renderRequest.timeline);
         console.log('Duração calculada da timeline:', timelineDuration);
         
         // Separar clips de vídeo/imagem, áudio e legendas ANTES de criar o comando
@@ -982,7 +1047,7 @@ export const renderVideo = async (
         } else if (videoClips.length > 1) {
           // Caso complexo: múltiplas imagens ou vídeos
           console.log('Processando caso complexo: múltiplos clips');
-          const complexFilter = createComplexFilterForMedia(videoClips, audioClips, subtitleClips, output);
+          const complexFilter = createComplexFilterForMedia(videoClips, audioClips, subtitleClips, renderRequest.output);
           console.log('Filtro complexo criado:', complexFilter);
           command = command.complexFilter(complexFilter);
           
@@ -993,7 +1058,7 @@ export const renderVideo = async (
         }
         
         // Configurar opções de saída
-        const outputOptions = buildOutputOptions(videoClips, audioClips, subtitleClips, output, timelineDuration);
+        const outputOptions = buildOutputOptions(videoClips, audioClips, subtitleClips, renderRequest.output, timelineDuration);
         console.log('Opções de saída:', outputOptions);
         command = command.outputOptions(outputOptions);
         
@@ -1016,7 +1081,7 @@ export const renderVideo = async (
           
           // Se já existe um filtro complexo para vídeo, combinar com o filtro de áudio
           if (videoClips.length > 1) {
-            const videoFilter = createComplexFilterForMedia(videoClips, [], subtitleClips, output);
+            const videoFilter = createComplexFilterForMedia(videoClips, [], subtitleClips, renderRequest.output);
             command = command.complexFilter(videoFilter + ';' + audioFilter);
           } else {
             // Se não há filtro complexo de vídeo, aplicar apenas o filtro de áudio
@@ -1025,7 +1090,7 @@ export const renderVideo = async (
         }
         
         // Set output format specific options
-        if (output.format === 'hls') {
+        if (renderRequest.output.format === 'hls') {
           command = command.outputOptions([
             '-hls_time 10',
             '-hls_list_size 0',
@@ -1075,9 +1140,9 @@ export const renderVideo = async (
                   public: true,
                   metadata: {
                     jobId: jobId,
-                    format: output.format,
-                    resolution: output.resolution || '1280x720',
-                    quality: output.quality || 'medium',
+                    format: renderRequest.output.format,
+                    resolution: renderRequest.output.resolution || '1280x720',
+                    quality: renderRequest.output.quality || 'medium',
                     createdAt: new Date().toISOString()
                   }
                 });
@@ -1125,10 +1190,10 @@ export const renderVideo = async (
                   status: 'completed',
                   outputUrl: finalOutputUrl,
                   metadata: {
-                    format: output.format,
-                    resolution: output.resolution || '1280x720',
-                    quality: output.quality || 'medium',
-                    fps: output.fps || 30,
+                    format: renderRequest.output.format,
+                    resolution: renderRequest.output.resolution || '1280x720',
+                    quality: renderRequest.output.quality || 'medium',
+                    fps: renderRequest.output.fps || 30,
                     storageType: config.googleCloud.enabled ? 'gcs' : 'local'
                   },
                   completedAt: new Date().toISOString()
@@ -1225,9 +1290,16 @@ export const renderVideo = async (
       }
     });
   } catch (error) {
-    console.error('Erro no renderVideo:', error);
+    console.error(`❌ Erro na renderização:`, error);
+    await cleanupTempFiles(tempDir);
+    await releaseRenderSemaphore(jobId);
     throw error;
+  } finally {
+    // Garantir que o semáforo seja liberado
+    await releaseRenderSemaphore(jobId);
   }
+  
+  return outputPath!;
 };
 
 // Generate a thumbnail from a video
