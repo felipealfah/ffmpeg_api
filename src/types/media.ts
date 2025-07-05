@@ -115,7 +115,13 @@ export interface RenderOutput {
   bitrate?: string;
 }
 
+export interface InputConfig {
+  url: string;
+  type?: MediaType;
+}
+
 export interface RenderRequest {
+  input: InputConfig;
   timeline: Timeline;
   output: RenderOutput;
   webhook?: string;
