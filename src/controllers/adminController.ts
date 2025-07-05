@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { circuitBreaker, resetCircuitBreaker } from '../middleware/circuitBreaker';
+import { getConcurrencyControl } from '../services/concurrencyControl';
 import { logger } from '../utils/logger';
 import * as queueService from '../services/queueService';
 
@@ -116,6 +117,45 @@ export const getStorageStats = async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Erro ao obter estatísticas de storage:', error);
+    throw error;
+  }
+};
+
+// Get concurrency control status
+export const getConcurrencyStatus = async (req: Request, res: Response) => {
+  try {
+    const concurrencyControl = getConcurrencyControl();
+    const status = await concurrencyControl.getStatus();
+    
+    return res.status(200).json({
+      data: {
+        concurrency: status,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Erro ao obter status do controle de concorrência:', error);
+    throw error;
+  }
+};
+
+// Force cleanup orphaned jobs
+export const forceCleanupConcurrency = async (req: Request, res: Response) => {
+  try {
+    const concurrencyControl = getConcurrencyControl();
+    const cleanedJobs = await concurrencyControl.forceCleanup();
+    
+    logger.warn('Limpeza forçada do controle de concorrência executada', { cleanedJobs });
+    
+    return res.status(200).json({
+      data: {
+        message: 'Limpeza forçada executada com sucesso',
+        cleanedJobs,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Erro na limpeza forçada do controle de concorrência:', error);
     throw error;
   }
 }; 

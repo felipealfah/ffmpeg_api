@@ -18,6 +18,26 @@ import {
   ffmpegOrphanedProcesses,
   activeRenderJobs
 } from '../middleware/metrics';
+// Função para calcular duração da timeline
+export const calculateTimelineDuration = (timeline: Timeline): number => {
+  if (!timeline || !timeline.tracks) return 0;
+  
+  // Calcular a duração máxima entre todas as tracks
+  let maxDuration = 0;
+  
+  for (const track of timeline.tracks) {
+    let trackDuration = 0;
+    
+    for (const clip of track.clips) {
+      const clipLength = typeof clip.length === 'number' ? clip.length : 0;
+      trackDuration = Math.max(trackDuration, clip.start + clipLength);
+    }
+    
+    maxDuration = Math.max(maxDuration, trackDuration);
+  }
+  
+  return maxDuration;
+};
 
 // Debug do config
 console.log('Config no mediaService:', {
@@ -206,43 +226,6 @@ const monitorResourceUsage = (command: any, jobId: string): void => {
     clearInterval(memoryCheckInterval);
     console.log(`❌ Job ${jobId} - Monitoramento interrompido devido a erro`);
   });
-};
-
-// Função para calcular a duração total da timeline baseada nos clips
-export const calculateTimelineDuration = (timeline: Timeline): number => {
-  let totalDuration = 0;
-  
-  // Para cada track, calcular a duração baseada nos clips
-  timeline.tracks.forEach((track, trackIndex) => {
-    let trackDuration = 0;
-    
-    if (track.clips.length === 0) {
-      trackDuration = 0;
-    } else {
-      // Verificar se há clips otimizados
-      const optimizedClips = optimizeSequentialClips(track.clips);
-      
-      if (optimizedClips.length === 1 && optimizedClips[0]._optimized) {
-        // Se temos um clip otimizado, usar sua duração total
-        const optimizedClip = optimizedClips[0];
-        trackDuration = typeof optimizedClip.length === 'number' ? optimizedClip.length : 0;
-        console.log(`Track ${trackIndex} otimizada:`, {
-          originalClips: track.clips.length,
-          duracaoTotal: trackDuration
-        });
-      } else {
-        // Calcular duração baseada no último clip
-        const lastClip = track.clips[track.clips.length - 1];
-        const lastClipLength = typeof lastClip.length === 'number' ? lastClip.length : 0;
-        trackDuration = lastClip.start + lastClipLength;
-      }
-    }
-    
-    // Atualizar duração total se esta track for mais longa
-    totalDuration = Math.max(totalDuration, trackDuration);
-  });
-  
-  return totalDuration;
 };
 
 // Get media information

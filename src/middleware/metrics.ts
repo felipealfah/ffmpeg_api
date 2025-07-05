@@ -118,6 +118,27 @@ export const queueSize = new promClient.Gauge({
   labelNames: ['queue_name', 'status'],
 });
 
+// ==== MÉTRICAS DO SEMÁFORO ====
+
+// Gauge de slots disponíveis no semáforo
+export const semaphoreAvailableSlots = new promClient.Gauge({
+  name: 'ffmpeg_semaphore_available_slots',
+  help: 'Number of available slots in the semaphore',
+});
+
+// Gauge de jobs na fila aguardando
+export const semaphoreQueuedJobs = new promClient.Gauge({
+  name: 'ffmpeg_semaphore_queued_jobs',
+  help: 'Number of jobs queued waiting for semaphore slots',
+});
+
+// Função para atualizar métricas do semáforo
+export const updateSemaphoreMetrics = (availableSlots: number, queuedJobs: number, activeJobsCount: number) => {
+  semaphoreAvailableSlots.set(availableSlots);
+  semaphoreQueuedJobs.set(queuedJobs);
+  ffmpegJobsActive.set({ status: 'processing' }, activeJobsCount);
+};
+
 // ==== MÉTRICAS DE SISTEMA ====
 
 // Gauge de uso de storage

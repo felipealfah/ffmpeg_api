@@ -6,6 +6,7 @@ import config from '../config';
 import path from 'path';
 import { cleanupDirectory } from '../utils/file';
 import fs from 'fs/promises';
+import { getConcurrencyControl } from './concurrencyControl';
 import { 
   updateJobMetrics, 
   updateStorageMetrics, 
@@ -108,8 +109,7 @@ const renderQueue = new Queue('video-render', {
 });
 
 // LIMITAR CONCORRÊNCIA PARA EVITAR SOBRECARGA DE RECURSOS
-const MAX_CONCURRENT_JOBS = process.env.MAX_CONCURRENT_JOBS ? 
-  parseInt(process.env.MAX_CONCURRENT_JOBS) : 3; // Reduzido de ilimitado para 3
+const MAX_CONCURRENT_JOBS = config.maxConcurrentJobs;
 
 console.log(`🚀 Configurando fila com máximo ${MAX_CONCURRENT_JOBS} jobs simultâneos`);
 
@@ -246,8 +246,17 @@ const startPeriodicCleanup = (): void => {
 renderQueue.process(MAX_CONCURRENT_JOBS, async (job) => {
   const renderJob = job.data as RenderJob;
   const startTime = Date.now();
+  const concurrencyControl = getConcurrencyControl();
   
   try {
+    // 🔒 CONTROLE DE CONCORRÊNCIA - Tentar adquirir slot
+    const slotAcquired = await concurrencyControl.tryAcquireSlot(renderJob.id);
+    
+    if (!slotAcquired) {
+      // Se não conseguiu slot, rejeitar o job temporariamente
+      throw new Error(`Job ${renderJob.id} rejeitado - limite de concorrência atingido (${await concurrencyControl.getStatus().then(s => s.maxConcurrentJobs)} jobs máx)`);
+    }
+    
     // Incrementar contador de jobs ativos
     activeJobsCount++;
     updateActiveJobsMetrics();
@@ -307,6 +316,9 @@ renderQueue.process(MAX_CONCURRENT_JOBS, async (job) => {
     // Registrar conclusão do job
     recordJobComplete(renderJob.id, Date.now() - startTime);
     
+    // 🔓 CONTROLE DE CONCORRÊNCIA - Liberar slot
+    await concurrencyControl.releaseSlot(renderJob.id);
+    
     console.info(`✅ Job ${renderJob.id} completed successfully`);
     
   } catch (error) {
@@ -320,17 +332,20 @@ renderQueue.process(MAX_CONCURRENT_JOBS, async (job) => {
     activeJobsCount = Math.max(0, activeJobsCount - 1);
     updateActiveJobsMetrics();
     
-          console.error(`❌ Job ${renderJob.id} falhou:`, error);
+    // 🔓 CONTROLE DE CONCORRÊNCIA - Liberar slot mesmo em caso de erro
+    await concurrencyControl.releaseSlot(renderJob.id);
+    
+    console.error(`❌ Job ${renderJob.id} falhou:`, error);
       
-      // Update job with error
-      updateJob(renderJob.id, {
-        status: JobStatus.FAILED,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        updatedAt: new Date()
-      });
-      
-      // Registrar falha do job
-      recordJobFail(renderJob.id, Date.now() - startTime);
+    // Update job with error
+    updateJob(renderJob.id, {
+      status: JobStatus.FAILED,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      updatedAt: new Date()
+    });
+    
+    // Registrar falha do job
+    recordJobFail(renderJob.id, Date.now() - startTime);
     
     throw error;
   } finally {

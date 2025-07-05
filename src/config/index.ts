@@ -32,6 +32,7 @@ console.log('🔧 GOOGLE_CLOUD_STORAGE_ENABLED:', process.env.GOOGLE_CLOUD_STORA
 console.log('🔧 GOOGLE_CLOUD_PROJECT_ID:', process.env.GOOGLE_CLOUD_PROJECT_ID);
 console.log('🔧 REDIS_HOST:', process.env.REDIS_HOST);
 console.log('🔧 REDIS_PASSWORD:', process.env.REDIS_PASSWORD ? '***' : 'NOT SET');
+console.log('🔧 MAX_CONCURRENT_JOBS:', process.env.MAX_CONCURRENT_JOBS);
 console.log('🔧 ======================================');
 
 // Configuração
@@ -48,7 +49,7 @@ const config = {
   storagePath: STORAGE_PATH,
   tempPath: TEMP_PATH,
   outputPath: OUTPUT_PATH,
-  defaultTimeout: 600000, // 10 minutos
+  defaultTimeout: 600000, // 10 minutos (aumentado de 5 para 10)
   maxConcurrentJobs: process.env.MAX_CONCURRENT_JOBS ? parseInt(process.env.MAX_CONCURRENT_JOBS) : 1,
   ffmpegOptions: {
     threads: process.env.FFMPEG_THREADS ? parseInt(process.env.FFMPEG_THREADS) : 5,

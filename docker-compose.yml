@@ -1,59 +1,62 @@
 services:
-  # Serviço Redis para filas - PROTEGIDO
   redis:
     image: redis:7-alpine
-    # SEGURANÇA: Redis não exposto externamente
-    # ports:
-    #   - "6379:6379"  # REMOVIDO POR SEGURANÇA
     volumes:
       - redis-data:/data
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-secure_redis_password_2025}"
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-secure_redis_password_2025}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-secure_redis_password_2025}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
     networks:
       - internal
 
-  # Nossa API FFmpeg
   ffmpeg-api:
-    # DESENVOLVIMENTO: Build local
     build: .
-    
-    # PRODUÇÃO: Use imagem pré-construída (descomente linha abaixo)
-    # image: ffmpeg-api:latest
-    
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-secure_redis_password_2025}
-      - FFMPEG_PATH=/usr/bin/ffmpeg
-      - FFPROBE_PATH=/usr/bin/ffprobe
-      - GOOGLE_CLOUD_STORAGE_ENABLED=true
+      # Ambiente e Credenciais
+      - NODE_ENV=${NODE_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - FFMPEG_PATH=${FFMPEG_PATH:-/usr/bin/ffmpeg}
+      - FFPROBE_PATH=${FFPROBE_PATH:-/usr/bin/ffprobe}
+      # Integrações externas
+      - GOOGLE_CLOUD_STORAGE_ENABLED=${GOOGLE_CLOUD_STORAGE_ENABLED:-true}
       - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
       - GOOGLE_CLOUD_KEY_FILE=${GOOGLE_CLOUD_KEY_FILE}
       - GOOGLE_CLOUD_BUCKET_NAME=${GOOGLE_CLOUD_BUCKET_NAME}
-      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-2}
-      - NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=4096}
-      - FFMPEG_MEMORY_LIMIT=${FFMPEG_MAX_MEMORY:-8G}
-      - FFMPEG_THREADS=${FFMPEG_THREADS:-5}
-      - FFMPEG_PRESET=${FFMPEG_PRESET:-faster}
-      - FFMPEG_PRIORITY=${FFMPEG_PRIORITY:-5}
-      - FFMPEG_BITRATE=${FFMPEG_BITRATE:-3000k}
-      - FFMPEG_AUDIO_BITRATE=${FFMPEG_AUDIO_BITRATE:-128k}
-      - FFMPEG_BUFFER_SIZE=${FFMPEG_BUFFER_SIZE:-4000k}
-      - FFMPEG_MAX_RATE=${FFMPEG_MAX_RATE:-4000k}
-      - FFMPEG_MUXING_QUEUE_SIZE=${FFMPEG_MUXING_QUEUE_SIZE:-1024}
-      - FFMPEG_CPU_USED=${FFMPEG_CPU_USED:-3}
-      - FFMPEG_NICE=10
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - SERVER_COST_PER_HOUR=${SERVER_COST_PER_HOUR}
+      - CLOUD_PROVIDER=${CLOUD_PROVIDER}
+      - INSTANCE_TYPE=${INSTANCE_TYPE}
+      - COMPLEXITY_FACTOR_LOW=${COMPLEXITY_FACTOR_LOW}
+      - COMPLEXITY_FACTOR_MEDIUM=${COMPLEXITY_FACTOR_MEDIUM}
+      - COMPLEXITY_FACTOR_HIGH=${COMPLEXITY_FACTOR_HIGH}
+      - ADDITIONAL_COST_FACTOR=${ADDITIONAL_COST_FACTOR}
+      # Configurações de infraestrutura do container (direto no compose)
+      - MAX_CONCURRENT_JOBS=1
+      - FFMPEG_THREADS=5
+      - FFMPEG_PRESET=faster
+      - FFMPEG_MAX_MEMORY=8G
+      - FFMPEG_PRIORITY=5
+      - FFMPEG_BITRATE=3000k
+      - FFMPEG_AUDIO_BITRATE=128k
+      - FFMPEG_BUFFER_SIZE=4000k
+      - FFMPEG_MAX_RATE=4000k
+      - FFMPEG_MUXING_QUEUE_SIZE=1024
+      - FFMPEG_CPU_USED=3
+      - TEMP_DIR=./storage/temp
+      - OUTPUT_DIR=./storage/output
+      - CLEANUP_INTERVAL_HOURS=1
+      - TEMP_FILE_TTL_HOURS=1
+      - OUTPUT_FILE_TTL_HOURS=24
     volumes:
       - ./storage:/app/storage
       - ./src/config:/app/src/config
@@ -64,11 +67,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '${CONTAINER_CPU_LIMIT:-5.0}'
-          memory: '${CONTAINER_MEMORY_LIMIT:-8G}'
+          cpus: '5.5'
+          memory: 10G
         reservations:
-          cpus: '${CONTAINER_CPU_RESERVE:-2.0}'
-          memory: '${CONTAINER_MEMORY_RESERVE:-2G}'
+          cpus: '2.0'
+          memory: 4G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -77,7 +80,6 @@ services:
     networks:
       - internal
 
-  # Prometheus para coleta de métricas
   prometheus:
     image: prom/prometheus:latest
     ports:
@@ -101,16 +103,15 @@ services:
     networks:
       - internal
 
-  # Grafana para visualização de métricas
   grafana:
     image: grafana/grafana:latest
     ports:
       - "3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
-      - GF_SERVER_ROOT_URL=http://75.119.156.254:3001
+      - GF_SERVER_ROOT_URL=http://localhost:3001
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
@@ -126,7 +127,6 @@ services:
     networks:
       - internal
 
-  # Documentação da API com Mintlify
   docs:
     image: node:20-alpine
     working_dir: /app
@@ -161,4 +161,4 @@ volumes:
 networks:
   internal:
     driver: bridge
-    internal: false  # Permite acesso externo para serviços que precisam
+    internal: false
