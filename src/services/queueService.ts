@@ -11,16 +11,70 @@ import {
   updateStorageMetrics, 
   recordJobStart, 
   recordJobComplete, 
+  recordJobFail,
   recordCleanup,
   queueSize,
   updateCostMetrics,
   updateHourlyCost,
   determineComplexity,
-  calculateVideoCost
+  calculateVideoCost,
+  ffmpegJobsActive,
+  ffmpegSigkillJobs,
+  ffmpegMemoryUsage,
+  ffmpegConcurrencyLimit
 } from '../middleware/metrics';
 
 // In-memory storage for jobs (in production, use a database)
 const jobsMap = new Map<string, RenderJob>();
+
+// Controle de jobs ativos
+let activeJobsCount = 0;
+
+// Função para obter contagem de jobs ativos
+const getActiveJobsCount = (): number => {
+  return activeJobsCount;
+};
+
+// Função para atualizar métricas de jobs ativos
+const updateActiveJobsMetrics = (): void => {
+  ffmpegJobsActive.set({ status: 'processing' }, activeJobsCount);
+};
+
+// Função para verificar recursos do sistema
+const checkSystemResources = async (): Promise<void> => {
+  try {
+    // Verificar memória disponível (Node.js)
+    const memUsage = process.memoryUsage();
+    const memUsageMB = {
+      rss: Math.round(memUsage.rss / 1024 / 1024),
+      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
+      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
+      external: Math.round(memUsage.external / 1024 / 1024)
+    };
+    
+    console.log('📊 Uso de memória:', memUsageMB);
+    
+    // Alertar se uso de memória estiver alto
+    if (memUsageMB.heapUsed > 1024) { // > 1GB
+      console.warn('⚠️  Alto uso de memória detectado:', memUsageMB);
+      
+      // Forçar garbage collection se possível
+      if (global.gc) {
+        console.log('🧹 Executando garbage collection...');
+        global.gc();
+      }
+    }
+    
+    // Verificar se há muitos jobs ativos
+    if (activeJobsCount >= MAX_CONCURRENT_JOBS) {
+      throw new Error(`Limite de jobs simultâneos atingido: ${activeJobsCount}/${MAX_CONCURRENT_JOBS}`);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao verificar recursos do sistema:', error);
+    throw error;
+  }
+};
 
 // Configuração Redis com autenticação
 const redisConfig = {
@@ -40,13 +94,33 @@ console.log('Configuração Redis:', {
 
 // Create render queue with explicit Redis configuration
 const renderQueue = new Queue('video-render', {
-  redis: redisConfig
+  redis: redisConfig,
+  defaultJobOptions: {
+    removeOnComplete: 5,
+    removeOnFail: 3,
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 2000,
+    },
+    timeout: 600000, // 10 minutos (aumentado de 5 para 10)
+  }
 });
+
+// LIMITAR CONCORRÊNCIA PARA EVITAR SOBRECARGA DE RECURSOS
+const MAX_CONCURRENT_JOBS = process.env.MAX_CONCURRENT_JOBS ? 
+  parseInt(process.env.MAX_CONCURRENT_JOBS) : 3; // Reduzido de ilimitado para 3
+
+console.log(`🚀 Configurando fila com máximo ${MAX_CONCURRENT_JOBS} jobs simultâneos`);
+
+// Configurar métrica de limite de concorrência
+ffmpegConcurrencyLimit.set(MAX_CONCURRENT_JOBS);
 
 // Log FFmpeg paths
 console.log('Caminhos do FFmpeg em queueService:', {
   ffmpegPath: config?.ffmpegPath,
-  ffprobePath: config?.ffprobePath
+  ffprobePath: config?.ffprobePath,
+  maxConcurrentJobs: MAX_CONCURRENT_JOBS
 });
 
 // Log Redis connection status
@@ -169,12 +243,19 @@ const startPeriodicCleanup = (): void => {
 };
 
 // Process jobs
-renderQueue.process(async (job) => {
+renderQueue.process(MAX_CONCURRENT_JOBS, async (job) => {
   const renderJob = job.data as RenderJob;
   const startTime = Date.now();
   
   try {
-    console.info(`Processing job ${renderJob.id}`, { jobId: renderJob.id });
+    // Incrementar contador de jobs ativos
+    activeJobsCount++;
+    updateActiveJobsMetrics();
+    
+    console.info(`🎬 Processando job ${renderJob.id} (${activeJobsCount}/${MAX_CONCURRENT_JOBS} ativos)`, { jobId: renderJob.id });
+    
+    // Verificar recursos do sistema antes de processar
+    await checkSystemResources();
     
     // Análise de custo do job
     await analyzeJobCost(renderJob);
@@ -226,16 +307,41 @@ renderQueue.process(async (job) => {
     // Registrar conclusão do job
     recordJobComplete(renderJob.id, Date.now() - startTime);
     
-    console.info(`Job ${renderJob.id} completed successfully`);
+    console.info(`✅ Job ${renderJob.id} completed successfully`);
     
   } catch (error) {
-    console.error(`Job ${renderJob.id} failed:`, error);
+    // Verificar se foi SIGKILL
+    if (error instanceof Error && error.message.includes('SIGKILL')) {
+      ffmpegSigkillJobs.inc({ reason: 'memory_limit' });
+      console.error(`💀 Job ${renderJob.id} foi terminado com SIGKILL - possível falta de memória`);
+    }
     
-    updateJob(renderJob.id, {
-      status: JobStatus.FAILED,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      updatedAt: new Date()
-    });
+    // Decrementar contador de jobs ativos em caso de erro
+    activeJobsCount = Math.max(0, activeJobsCount - 1);
+    updateActiveJobsMetrics();
+    
+          console.error(`❌ Job ${renderJob.id} falhou:`, error);
+      
+      // Update job with error
+      updateJob(renderJob.id, {
+        status: JobStatus.FAILED,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        updatedAt: new Date()
+      });
+      
+      // Registrar falha do job
+      recordJobFail(renderJob.id, Date.now() - startTime);
+    
+    throw error;
+  } finally {
+    // Sempre decrementar o contador, mesmo em caso de sucesso
+    activeJobsCount = Math.max(0, activeJobsCount - 1);
+    updateActiveJobsMetrics();
+    
+    // Limpar métrica de memória específica do job
+    ffmpegMemoryUsage.remove({ job_id: renderJob.id });
+    
+    console.log(`📊 Jobs ativos restantes: ${activeJobsCount}/${MAX_CONCURRENT_JOBS}`);
   }
 });
 

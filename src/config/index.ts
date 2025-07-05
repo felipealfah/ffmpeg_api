@@ -44,7 +44,13 @@ const config = {
   storagePath: STORAGE_PATH,
   tempPath: TEMP_PATH,
   outputPath: OUTPUT_PATH,
-  defaultTimeout: 300000, // 5 minutos
+  defaultTimeout: 600000, // 10 minutos (aumentado de 5 para 10)
+  maxConcurrentJobs: process.env.MAX_CONCURRENT_JOBS ? parseInt(process.env.MAX_CONCURRENT_JOBS) : 3,
+  ffmpegOptions: {
+    threads: process.env.FFMPEG_THREADS ? parseInt(process.env.FFMPEG_THREADS) : 2,
+    preset: process.env.FFMPEG_PRESET || 'fast',
+    maxMemory: process.env.FFMPEG_MAX_MEMORY || '1G'
+  },
   googleCloud: {
     projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
     keyFilename: process.env.GOOGLE_CLOUD_KEY_FILE,
@@ -56,7 +62,9 @@ const config = {
 console.log('Config carregado:', {
   ffmpegPath: config.ffmpegPath,
   ffprobePath: config.ffprobePath,
-  storagePath: config.storagePath
+  storagePath: config.storagePath,
+  maxConcurrentJobs: config.maxConcurrentJobs,
+  ffmpegOptions: config.ffmpegOptions
 });
 
 // DEBUG: Log do objeto config completo antes de exportar

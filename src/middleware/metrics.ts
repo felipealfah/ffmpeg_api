@@ -56,6 +56,34 @@ export const ffmpegJobDuration = new promClient.Histogram({
   buckets: [1, 5, 10, 30, 60, 300, 600, 1800],
 });
 
+// Gauge para jobs ativos (removido - duplicado com ffmpegJobsActive)
+
+// Contador de jobs terminados com SIGKILL
+export const ffmpegSigkillJobs = new promClient.Counter({
+  name: 'ffmpeg_sigkill_jobs_total',
+  help: 'Total number of FFmpeg jobs killed with SIGKILL',
+  labelNames: ['reason'],
+});
+
+// Gauge para uso de memória por job
+export const ffmpegMemoryUsage = new promClient.Gauge({
+  name: 'ffmpeg_memory_usage_bytes',
+  help: 'Memory usage per FFmpeg job in bytes',
+  labelNames: ['job_id'],
+});
+
+// Contador de processos órfãos limpos
+export const ffmpegOrphanedProcesses = new promClient.Counter({
+  name: 'ffmpeg_orphaned_processes_total',
+  help: 'Total number of orphaned FFmpeg processes cleaned up',
+});
+
+// Gauge para limite de concorrência
+export const ffmpegConcurrencyLimit = new promClient.Gauge({
+  name: 'ffmpeg_concurrency_limit',
+  help: 'Maximum number of concurrent FFmpeg jobs allowed',
+});
+
 // Gauge da fila Redis/Bull
 export const queueSize = new promClient.Gauge({
   name: 'bull_queue_size',
@@ -376,6 +404,18 @@ export const recordJobComplete = (jobId: string, durationMs: number) => {
   ffmpegJobDuration.observe({ complexity: 'unknown', status: 'completed' }, durationSeconds);
   
   console.log(`📊 Metrics: Job ${jobId} completed in ${durationSeconds}s`);
+};
+
+/**
+ * Registra falha de job
+ */
+export const recordJobFail = (jobId: string, durationMs: number) => {
+  const durationSeconds = durationMs / 1000;
+  
+  ffmpegJobsTotal.inc({ status: 'failed', complexity: 'unknown' });
+  ffmpegJobDuration.observe({ complexity: 'unknown', status: 'failed' }, durationSeconds);
+  
+  console.log(`📊 Metrics: Job ${jobId} failed in ${durationSeconds}s`);
 };
 
 /**

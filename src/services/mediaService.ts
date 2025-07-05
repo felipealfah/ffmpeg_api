@@ -11,6 +11,11 @@ import axios from 'axios';
 import { downloadFile as downloadFileUtil, ensureDirectory, cleanupDirectory } from '../utils/file';
 import { getStorageService } from './storageService';
 import { logger } from '../utils/logger';
+import {
+  ffmpegMemoryUsage,
+  ffmpegSigkillJobs,
+  ffmpegOrphanedProcesses
+} from '../middleware/metrics';
 
 // Debug do config
 console.log('Config no mediaService:', {
@@ -44,6 +49,79 @@ const cleanupTempFiles = async (tempDir: string): Promise<void> => {
     console.error(`Erro ao remover diretório temporário ${tempDir}:`, error);
     throw error;
   }
+};
+
+// Função para limpar processos FFmpeg órfãos
+const cleanupOrphanedProcesses = async (): Promise<void> => {
+  try {
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execAsync = util.promisify(exec);
+    
+    // Encontrar processos FFmpeg órfãos (apenas em sistemas Unix)
+    if (process.platform !== 'win32') {
+      const { stdout } = await execAsync('pgrep -f ffmpeg || true');
+      const ffmpegPids = stdout.trim().split('\n').filter((pid: string) => pid && pid !== '');
+      
+      if (ffmpegPids.length > 0) {
+        console.log(`🧹 Encontrados ${ffmpegPids.length} processos FFmpeg órfãos, limpando...`);
+        
+        // Incrementar métrica de processos órfãos
+        ffmpegOrphanedProcesses.inc(ffmpegPids.length);
+        
+        for (const pid of ffmpegPids) {
+          try {
+            await execAsync(`kill -TERM ${pid}`);
+            console.log(`✅ Processo FFmpeg ${pid} terminado`);
+          } catch (error) {
+            console.warn(`⚠️  Não foi possível terminar processo FFmpeg ${pid}:`, error);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️  Erro ao limpar processos órfãos:', error);
+  }
+};
+
+// Função para monitorar uso de recursos durante renderização
+const monitorResourceUsage = (command: any, jobId: string): void => {
+  const startTime = Date.now();
+  let lastMemoryCheck = Date.now();
+  
+  const memoryCheckInterval = setInterval(() => {
+    const memUsage = process.memoryUsage();
+    const memUsageMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    
+    // Atualizar métrica do Prometheus
+    ffmpegMemoryUsage.set({ job_id: jobId }, memUsage.heapUsed);
+    
+    console.log(`📊 Job ${jobId} - Uso de memória: ${memUsageMB}MB`);
+    
+    // Se uso de memória estiver muito alto, alertar
+    if (memUsageMB > 1500) { // > 1.5GB
+      console.warn(`⚠️  Job ${jobId} - Alto uso de memória detectado: ${memUsageMB}MB`);
+      
+      // Forçar garbage collection
+      if (global.gc) {
+        global.gc();
+      }
+    }
+    
+    lastMemoryCheck = Date.now();
+  }, 10000); // Verificar a cada 10 segundos
+  
+  // Limpar interval quando o comando terminar
+  command.on('end', () => {
+    clearInterval(memoryCheckInterval);
+    const duration = Math.round((Date.now() - startTime) / 1000);
+    console.log(`✅ Job ${jobId} - Monitoramento finalizado após ${duration}s`);
+  });
+  
+  command.on('error', () => {
+    clearInterval(memoryCheckInterval);
+    console.log(`❌ Job ${jobId} - Monitoramento interrompido devido a erro`);
+  });
 };
 
 // Função para calcular a duração total da timeline baseada nos clips
@@ -587,20 +665,24 @@ const buildOutputOptions = (
   // Codec settings
   outputOptions.push(
     `-c:v ${output.format === 'gif' ? 'gif' : 'libx264'}`,
-    `-preset ${output.quality === 'low' ? 'ultrafast' : output.quality === 'high' ? 'slow' : 'medium'}`,
-    `-b:v ${output.bitrate || '4000k'}`,  // Aumentar bitrate padrão
+    `-preset ${output.quality === 'low' ? 'ultrafast' : output.quality === 'high' ? 'medium' : 'fast'}`,  // Usar preset mais rápido
+    `-threads 4`,  // Limitar threads totais
+    `-b:v ${output.bitrate || '2000k'}`,  // Reduzir bitrate padrão
     '-movflags +faststart',  // Otimizar para streaming
-    '-max_muxing_queue_size 9999',  // Aumentar fila de muxing
-    '-pix_fmt yuv420p'  // Garantir compatibilidade
+    '-max_muxing_queue_size 1024',  // Reduzir fila de muxing
+    '-pix_fmt yuv420p',  // Garantir compatibilidade
+    '-avoid_negative_ts make_zero',  // Evitar timestamps negativos
+    '-fflags +genpts'  // Gerar timestamps se necessário
   );
 
   // Configurações de áudio
   if (audioClips.length > 0 || videoClips.some(({clip}) => clip.asset.type === 'video')) {
     outputOptions.push(
       '-c:a aac',
-      '-b:a 192k',  // Aumentar qualidade do áudio
-      '-ar 48000',  // Aumentar sample rate
-      '-ac 2'  // Forçar stereo
+      '-b:a 128k',  // Reduzir qualidade do áudio
+      '-ar 44100',  // Reduzir sample rate
+      '-ac 2',  // Forçar stereo
+      '-shortest'  // Parar quando o stream mais curto terminar
     );
   }
   
@@ -813,17 +895,17 @@ export const renderVideo = async (
             // Para imagens, adicionar com opção de loop
             command = command.addInput(path).inputOptions([
               '-loop 1',
-              '-hwaccel auto',  // Habilitar aceleração de hardware
-              '-analyzeduration 100M',  // Aumentar tempo de análise
-              '-probesize 100M',  // Aumentar tamanho de probe
-              '-thread_queue_size 4096'  // Aumentar fila de threads
+              '-threads 2',  // Limitar threads por input
+              '-analyzeduration 10M',  // Reduzir tempo de análise
+              '-probesize 10M',  // Reduzir tamanho de probe
+              '-thread_queue_size 512'  // Reduzir fila de threads
             ]);
           } else {
             command = command.addInput(path).inputOptions([
-              '-hwaccel auto',  // Habilitar aceleração de hardware
-              '-analyzeduration 100M',  // Aumentar tempo de análise
-              '-probesize 100M',  // Aumentar tamanho de probe
-              '-thread_queue_size 4096'  // Aumentar fila de threads
+              '-threads 2',  // Limitar threads por input
+              '-analyzeduration 10M',  // Reduzir tempo de análise
+              '-probesize 10M',  // Reduzir tamanho de probe
+              '-thread_queue_size 512'  // Reduzir fila de threads
             ]);
           }
         });
@@ -834,9 +916,10 @@ export const renderVideo = async (
           const path = clipInfo.path;
           console.log(`Adicionando input de áudio ${index}:`, path);
           command = command.addInput(path).inputOptions([
-            '-analyzeduration 100M',  // Aumentar tempo de análise
-            '-probesize 100M',  // Aumentar tamanho de probe
-            '-thread_queue_size 4096'  // Aumentar fila de threads
+            '-threads 1',  // Limitar threads para áudio
+            '-analyzeduration 5M',  // Reduzir tempo de análise
+            '-probesize 5M',  // Reduzir tamanho de probe
+            '-thread_queue_size 256'  // Reduzir fila de threads
           ]);
         });
         
@@ -923,6 +1006,15 @@ export const renderVideo = async (
         // Set output file and handlers
         command = command
           .output(outputPath)
+          .on('start', (commandLine) => {
+            console.log('🚀 Comando FFmpeg iniciado:', commandLine);
+            
+            // Iniciar monitoramento de recursos
+            monitorResourceUsage(command, jobId);
+            
+            // Limpar processos órfãos antes de iniciar
+            cleanupOrphanedProcesses();
+          })
           .on('progress', (progress) => {
             const percent = Math.round((progress.percent || 0) * 100) / 100;
             console.log(`📊 Progresso: ${percent}% completo`, {
@@ -934,7 +1026,7 @@ export const renderVideo = async (
             progressCallback(percent);
           })
           .on('end', async () => {
-            console.log('Renderização concluída com sucesso:', outputPath);
+            console.log('✅ Renderização concluída com sucesso:', outputPath);
             
             let finalOutputUrl = outputPath;
             
@@ -1038,14 +1130,24 @@ export const renderVideo = async (
             resolve(finalOutputUrl);
           })
           .on('error', async (err) => {
-            console.error('Erro na renderização:', err);
+            console.error('❌ Erro na renderização:', err);
             
-            // Limpar arquivos temporários mesmo em caso de erro
+            // Verificar se foi SIGKILL e registrar métrica
+            if (err.message && err.message.includes('SIGKILL')) {
+              ffmpegSigkillJobs.inc({ reason: 'memory_limit' });
+              console.error(`💀 FFmpeg foi terminado com SIGKILL - possível falta de memória`);
+            }
+            
+            // Limpar processos órfãos em caso de erro
+            await cleanupOrphanedProcesses();
+            
+            // Limpar arquivos temporários após erro
             try {
-              console.log('Limpando arquivos temporários após erro...');
+              console.log('🧹 Limpando arquivos temporários após erro...');
               await cleanupTempFiles(tempDir);
+              console.log('✅ Arquivos temporários removidos após erro');
             } catch (cleanupError) {
-              console.warn('Erro ao limpar arquivos temporários após falha:', cleanupError);
+              console.warn('⚠️  Erro ao limpar arquivos temporários:', cleanupError);
             }
 
             // Disparar webhook em caso de erro (se fornecido)

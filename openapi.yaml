@@ -93,7 +93,7 @@ info:
     - Mixagem balanceada com áudios principais
 
 paths:
-  /api/render:
+  /api/v1/media/render:
     post:
       summary: Inicia um job de renderização
       requestBody:
@@ -171,7 +171,86 @@ paths:
               schema:
                 $ref: '#/components/schemas/JobResponse'
   
-  /api/media/info:
+  /api/v1/media/job/{jobId}/status:
+    get:
+      summary: Verifica o status de um job de renderização
+      description: |
+        Retorna o status atual de um job de renderização, incluindo progresso,
+        resultado e possíveis erros.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID único do job de renderização
+      responses:
+        '200':
+          description: Status do job obtido com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '404':
+          description: Job não encontrado
+        '500':
+          description: Erro interno do servidor
+
+  /api/v1/media/job/{jobId}/download:
+    get:
+      summary: Faz download do vídeo renderizado
+      description: |
+        Faz download do arquivo de vídeo renderizado. Só funciona para jobs
+        com status 'completed'.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID único do job de renderização
+      responses:
+        '200':
+          description: Download iniciado com sucesso
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Job ainda não foi concluído
+        '404':
+          description: Job não encontrado ou arquivo não disponível
+        '500':
+          description: Erro interno do servidor
+
+  /api/v1/media/validate:
+    post:
+      summary: Valida um request de renderização
+      description: |
+        Valida se um request de renderização está correto sem processar o vídeo.
+        Útil para validar dados antes de criar um job.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenderRequest'
+      responses:
+        '200':
+          description: Request válido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+        '400':
+          description: Request inválido
+        '500':
+          description: Erro interno do servidor
+
+  /api/v1/media/info:
     get:
       summary: Obtém informações de um arquivo de mídia
       description: |
@@ -335,15 +414,72 @@ components:
       properties:
         jobId:
           type: string
+          format: uuid
+          description: ID único do job criado
         status:
           type: string
-          enum: [pending, processing, completed, failed]
-        progress:
-          type: number
+          enum: [queued]
+          description: Status inicial do job
+        message:
+          type: string
+          description: Mensagem de confirmação
+        estimatedTime:
+          type: string
+          description: Tempo estimado para conclusão
+    
+    JobStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID único do job
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+          description: Status atual do job
+        createdAt:
+          type: string
+          format: date-time
+          description: Data e hora de criação do job
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Data e hora de conclusão do job
         output:
           type: string
+          nullable: true
+          description: URL ou caminho do arquivo de saída (apenas para jobs completed)
         error:
           type: string
+          nullable: true
+          description: Mensagem de erro (apenas para jobs failed)
+        progress:
+          type: number
+          nullable: true
+          description: Progresso do processamento (0-100)
+    
+    ValidationResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Se o request é válido
+        estimatedDuration:
+          type: number
+          description: Duração estimada do vídeo final em segundos
+        message:
+          type: string
+          description: Mensagem de confirmação
+        error:
+          type: string
+          description: Mensagem de erro (apenas se valid = false)
+        details:
+          type: array
+          items:
+            type: object
+          description: Detalhes dos erros de validação
     
     MediaInfo:
       type: object
