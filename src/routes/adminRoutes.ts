@@ -17,4 +17,10 @@ router.post('/emergency-stop', asyncHandler(adminController.emergencyStop));
 router.post('/cleanup', asyncHandler(adminController.manualCleanup));
 router.get('/storage/stats', asyncHandler(adminController.getStorageStats));
 
+/**
+ * Rotas administrativas para controle de concorrência
+ */
+router.get('/concurrency/status', asyncHandler(adminController.getConcurrencyStatus));
+router.post('/concurrency/force-cleanup', asyncHandler(adminController.forceCleanupConcurrency));
+
 export default router; 
