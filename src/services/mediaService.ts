@@ -869,8 +869,8 @@ export const renderVideo = async (
                   metadata: {
                     jobId: jobId,
                     format: renderRequest.output.format || 'mp4',
-                    width: renderRequest.output.width || 1280,
-                    height: renderRequest.output.height || 720,
+                    width: String(renderRequest.output.width || 1280),
+                    height: String(renderRequest.output.height || 720),
                     quality: renderRequest.output.quality || 'medium',
                     createdAt: new Date().toISOString()
                   }
