@@ -100,7 +100,8 @@ const timelineSchema = Joi.object({
 // Schema para validar opções de saída
 const outputOptionsSchema = Joi.object({
   format: Joi.string().valid(...Object.values(OutputFormat)).required().description('Formato do arquivo de saída'),
-  resolution: Joi.string().pattern(/^\d+x\d+$/).required().description('Resolução no formato LARGURAxALTURA'),
+  width: Joi.number().integer().min(1).max(7680).optional().default(1280).description('Largura do vídeo em pixels'),
+  height: Joi.number().integer().min(1).max(4320).optional().default(720).description('Altura do vídeo em pixels'),
   quality: Joi.string().valid('low', 'medium', 'high').optional().default('medium').description('Qualidade da codificação'),
   fps: Joi.number().integer().min(1).max(120).optional().default(30).description('Frames por segundo'),
   bitrate: Joi.string().optional().description('Bitrate do vídeo (ex: "2000k")')
