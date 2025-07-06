@@ -335,73 +335,12 @@ renderQueue.process('video-render', async (job) => {
   console.log(`🎬 Iniciando processamento do job ${renderJob.id}`);
 
   try {
-    // Tentar adquirir slot para processamento
-    const concurrencyControl = getConcurrencyControl();
-    const slotAcquired = await concurrencyControl.tryAcquireSlot(renderJob.id);
-    if (!slotAcquired) {
-      console.log(`⏳ Job ${renderJob.id} aguardando slot disponível...`);
-      throw new Error('Nenhum slot disponível para processamento');
-    }
-
-    console.log(`✅ Job ${renderJob.id} adquiriu slot para processamento`);
-    
-    // Incrementar contador de jobs ativos
-    activeJobsCount++;
-    updateActiveJobsMetrics();
-    
-    // Verificar recursos do sistema
-    await checkSystemResources();
-    
-    // Atualizar status do job
-    updateJob(renderJob.id, {
-      status: JobStatus.PROCESSING,
-      updatedAt: new Date()
-    });
-    
-    // Registrar início do job nas métricas
-    recordJobStart(renderJob.id);
-    
-    // Analisar custo estimado do job
-    await analyzeJobCost(renderJob);
-    
-    // Processar o job
-    const result = await processRenderJob(renderJob);
-    
-    // Registrar conclusão nas métricas
-    recordJobComplete(renderJob.id, Date.now() - renderJob.createdAt.getTime());
-    
-    return result;
+    // Renderizar vídeo
+    const outputPath = await processRenderJob(renderJob);
+    return { outputPath };
   } catch (error) {
-    console.error(`❌ Erro no processamento do job ${renderJob.id}:`, error);
-    
-    // Atualizar status do job
-    updateJob(renderJob.id, {
-      status: JobStatus.FAILED,
-      error: (error as Error).message,
-      updatedAt: new Date()
-    });
-    
-    // Registrar falha nas métricas
-    recordJobFail(renderJob.id, Date.now() - renderJob.createdAt.getTime());
-    
-    // Se foi SIGKILL, incrementar métrica específica
-    if ((error as Error).message.includes('SIGKILL')) {
-      ffmpegSigkillJobs.inc();
-    }
-    
+    console.error(`❌ Job ${renderJob.id} falhou:`, error);
     throw error;
-  } finally {
-    // Liberar slot de processamento
-    await concurrencyControl.releaseSlot(renderJob.id);
-    
-    // Decrementar contador de jobs ativos
-    activeJobsCount = Math.max(0, activeJobsCount - 1);
-    updateActiveJobsMetrics();
-    
-    // Limpar métrica de memória específica do job
-    ffmpegMemoryUsage.remove({ job_id: renderJob.id });
-    
-    console.log(`📊 Jobs ativos restantes: ${activeJobsCount}/${MAX_CONCURRENT_JOBS}`);
   }
 });
 

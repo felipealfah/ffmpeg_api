@@ -21,6 +21,7 @@ import {
   ffmpegProcessMemory,
   memoryAlerts
 } from '../middleware/metrics';
+import { getConcurrencyControl } from '../middleware/concurrencyControl';
 
 // Função para calcular duração da timeline
 export const calculateTimelineDuration = (timeline: Timeline): number => {
@@ -788,28 +789,21 @@ export const renderVideo = async (
   renderRequest: RenderRequest, 
   progressCallback: (progress: number) => void = () => {}
 ): Promise<string> => {
-  // Validar request
-  if (!renderRequest || !renderRequest.output) {
-    throw new Error('Invalid render request: missing output configuration');
+  const jobId = renderRequest.jobId || uuidv4();
+  const tempDir = path.join(config.tempPath, jobId);
+  const outputPath = prepareOutput(renderRequest.output?.path);
+
+  // Tentar adquirir slot para renderização
+  const concurrencyControl = getConcurrencyControl();
+  const slotAcquired = await concurrencyControl.tryAcquireSlot(jobId);
+  
+  if (!slotAcquired) {
+    throw new Error('Failed to acquire render semaphore');
   }
 
-  // Gerar ID único para o job
-  const jobId = uuidv4();
-  
-  // Preparar diretórios
-  const tempDir = path.join(config.tempPath, jobId);
-  const outputPath = path.join(config.outputPath, jobId, `output.${renderRequest.output.format || 'mp4'}`);
-  
-  // Garantir que os diretórios existam
-  await fs.mkdir(path.dirname(outputPath), { recursive: true });
-  await fs.mkdir(tempDir, { recursive: true });
-
   try {
-    // Tentar adquirir semáforo
-    const acquired = await acquireRenderSemaphore(jobId);
-    if (!acquired) {
-      throw new Error('Failed to acquire render semaphore');
-    }
+    // Criar diretório temporário
+    await fs.promises.mkdir(tempDir, { recursive: true });
 
     return new Promise<string>((resolve, reject) => {
       try {
@@ -1030,11 +1024,13 @@ export const renderVideo = async (
   } catch (error) {
     console.error(`❌ Erro na renderização:`, error);
     await cleanupTempFiles(tempDir);
-    await releaseRenderSemaphore(jobId);
+    await concurrencyControl.releaseSlot(jobId);
     throw error;
   } finally {
-    // Garantir que o semáforo seja liberado
-    await releaseRenderSemaphore(jobId);
+    // Limpar arquivos temporários
+    await cleanupTempFiles(tempDir);
+    // Liberar slot após conclusão
+    await concurrencyControl.releaseSlot(jobId);
   }
   
   return outputPath!;

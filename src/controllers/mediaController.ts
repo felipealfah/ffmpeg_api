@@ -70,7 +70,10 @@ const processJobInBackground = async (jobId: string, renderRequest: any) => {
     
     // Importar e executar renderização
     const mediaService = await getMediaService();
-    const outputPath = await mediaService.renderVideo(renderRequest);
+    const outputPath = await mediaService.renderVideo({
+      ...renderRequest,
+      jobId // Passar jobId para o renderVideo
+    });
     
     // Atualizar job com resultado
     updateJob(jobId, {
