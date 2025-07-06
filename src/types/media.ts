@@ -110,7 +110,7 @@ export interface Timeline {
 export interface RenderOutput {
   format?: string;
   path?: string;
-  quality?: number;
+  quality?: 'low' | 'medium' | 'high';
   fps?: number;
   width?: number;
   height?: number;

@@ -869,7 +869,8 @@ export const renderVideo = async (
                   metadata: {
                     jobId: jobId,
                     format: renderRequest.output.format || 'mp4',
-                    resolution: renderRequest.output.resolution || '1280x720',
+                    width: renderRequest.output.width || 1280,
+                    height: renderRequest.output.height || 720,
                     quality: renderRequest.output.quality || 'medium',
                     createdAt: new Date().toISOString()
                   }
@@ -923,7 +924,8 @@ export const renderVideo = async (
                   outputUrl: finalOutputUrl,
                   metadata: {
                     format: renderRequest.output.format || 'mp4',
-                    resolution: renderRequest.output.resolution || '1280x720',
+                    width: renderRequest.output.width || 1280,
+                    height: renderRequest.output.height || 720,
                     quality: renderRequest.output.quality || 'medium',
                     fps: renderRequest.output.fps || 30,
                     storageType: config.googleCloud.enabled ? 'gcs' : 'local'
