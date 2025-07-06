@@ -826,9 +826,15 @@ export const renderVideo = async (
           return;
         }
 
-        // Adicionar input do vídeo apenas se existir
+        // Adicionar input do vídeo ou input padrão
         if (renderRequest.input?.url) {
           command = command.input(renderRequest.input.url);
+        } else {
+          // Criar input padrão (imagem preta)
+          command = command
+            .input('color=c=black:s=1280x720:r=30')
+            .inputFormat('lavfi')
+            .inputOptions(['-t', '1']);
         }
         
         // Set output file and handlers
