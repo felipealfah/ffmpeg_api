@@ -21,7 +21,7 @@ import {
   ffmpegProcessMemory,
   memoryAlerts
 } from '../middleware/metrics';
-import { getConcurrencyControl } from '../middleware/concurrencyControl';
+import { getConcurrencyControl } from '../services/concurrencyControl';
 
 // Função para calcular duração da timeline
 export const calculateTimelineDuration = (timeline: Timeline): number => {
@@ -803,7 +803,7 @@ export const renderVideo = async (
 
   try {
     // Criar diretório temporário
-    await fs.promises.mkdir(tempDir, { recursive: true });
+    await fs.mkdir(tempDir, { recursive: true });
 
     return new Promise<string>((resolve, reject) => {
       try {

@@ -108,11 +108,12 @@ export interface Timeline {
 }
 
 export interface RenderOutput {
-  format: OutputFormat;
-  resolution?: string;
-  quality?: 'low' | 'medium' | 'high';
+  format?: string;
+  path?: string;
+  quality?: number;
   fps?: number;
-  bitrate?: string;
+  width?: number;
+  height?: number;
 }
 
 export interface InputConfig {
@@ -121,6 +122,7 @@ export interface InputConfig {
 }
 
 export interface RenderRequest {
+  jobId?: string;
   input: InputConfig;
   timeline: Timeline;
   output: RenderOutput;
