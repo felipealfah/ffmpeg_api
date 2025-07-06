@@ -826,12 +826,10 @@ export const renderVideo = async (
           return;
         }
 
-        // Adicionar input do vídeo
-        if (!renderRequest.input || !renderRequest.input.url) {
-          reject(new Error('Input video URL is required'));
-          return;
+        // Adicionar input do vídeo apenas se existir
+        if (renderRequest.input?.url) {
+          command = command.input(renderRequest.input.url);
         }
-        command = command.input(renderRequest.input.url);
         
         // Set output file and handlers
         command = command
