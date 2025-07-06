@@ -777,11 +777,18 @@ const buildOutputOptions = (
 };
 
 // Função para preparar o output
-const prepareOutput = (outputPath: string | undefined): string => {
-  if (!outputPath || outputPath.trim() === '') {
-    throw new Error('Output path é obrigatório');
+const prepareOutput = (renderRequest: RenderRequest): string => {
+  if (renderRequest.output?.path) {
+    return renderRequest.output.path;
   }
-  return outputPath;
+
+  // Gerar nome de arquivo único
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const format = renderRequest.output?.format || 'mp4';
+  const fileName = `${timestamp}_output.${format}`;
+  
+  // Retornar path completo no diretório de saída
+  return path.join(config.outputPath, fileName);
 };
 
 // Render the video from the timeline
@@ -791,7 +798,7 @@ export const renderVideo = async (
 ): Promise<string> => {
   const jobId = renderRequest.jobId || uuidv4();
   const tempDir = path.join(config.tempPath, jobId);
-  const outputPath = prepareOutput(renderRequest.output?.path);
+  const outputPath = prepareOutput(renderRequest);
 
   // Tentar adquirir slot para renderização
   const concurrencyControl = getConcurrencyControl();
