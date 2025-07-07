@@ -91,3 +91,10 @@ monitoring/prometheus/data/
 *.backup
 *.bak
 backup/
+
+# Arquivos de uso local
+DEPLOY.md
+deploy.sh
+monitor.sh
+stop.sh
+test/concurrency-test.js
