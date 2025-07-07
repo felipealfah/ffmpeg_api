@@ -32,8 +32,8 @@ services:
       - REDIS_HOST=redis
       - FFMPEG_PATH=/usr/bin/ffmpeg
       - FFPROBE_PATH=/usr/bin/ffprobe
-      - TEMP_DIR=./storage/temp
-      - OUTPUT_DIR=./storage/output
+      - TEMP_DIR=/app/storage/temp
+      - OUTPUT_DIR=/app/storage/output
       - CLEANUP_INTERVAL_HOURS=1
       - TEMP_FILE_TTL_HOURS=1
       - OUTPUT_FILE_TTL_HOURS=24
@@ -47,7 +47,7 @@ services:
       - PORT=${PORT:-3000}
 
       # Configurações de FFmpeg e Recursos (otimizado para VPS)
-      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-1}
+      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-2}
       - FFMPEG_THREADS=${FFMPEG_THREADS:-2}
       - FFMPEG_PRESET=${FFMPEG_PRESET:-faster}
       - FFMPEG_MAX_MEMORY=${FFMPEG_MAX_MEMORY:-4G}
@@ -58,7 +58,7 @@ services:
       - FFMPEG_MAX_RATE=${FFMPEG_MAX_RATE:-2500k}
 
       # Integrações Externas (Secrets)
-      - GOOGLE_CLOUD_STORAGE_ENABLED=${GOOGLE_CLOUD_STORAGE_ENABLED:-true}
+      - GOOGLE_CLOUD_STORAGE_ENABLED=${GOOGLE_CLOUD_STORAGE_ENABLED:-false}
       - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
       - GOOGLE_CLOUD_KEY_FILE=${GOOGLE_CLOUD_KEY_FILE}
       - GOOGLE_CLOUD_BUCKET_NAME=${GOOGLE_CLOUD_BUCKET_NAME}
@@ -76,7 +76,7 @@ services:
 
     volumes:
       - ./storage:/app/storage
-      - ./src/config:/app/src/config
+      - ./src/config:/app/src/config:ro
       - ./logs:/app/logs
     depends_on:
       redis:
@@ -85,11 +85,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '3.0'
-          memory: 4G
+          cpus: '4.0'
+          memory: 8G
         reservations:
-          cpus: '1.0'
-          memory: 1G
+          cpus: '2.0'
+          memory: 2G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -98,6 +98,7 @@ services:
       start_period: 30s
     networks:
       - internal
+    stop_grace_period: 60s
 
   prometheus:
     image: prom/prometheus:latest

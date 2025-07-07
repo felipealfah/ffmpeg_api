@@ -81,10 +81,18 @@ const processJobInBackground = async (jobId: string, renderRequest: any) => {
     
     // Importar e executar renderização
     const mediaService = await getMediaService();
-    const outputPath = await mediaService.renderVideo({
-      ...renderRequest,
-      jobId // Passar jobId para o renderVideo
-    });
+    
+    // Obter informações do job para storage
+    const job = getJob(jobId);
+    if (!job) {
+      throw new Error('Job não encontrado');
+    }
+    
+    const outputPath = await mediaService.renderVideo(
+      jobId,
+      renderRequest,
+      job.storage
+    );
     
     // Atualizar job com resultado
     updateJob(jobId, {

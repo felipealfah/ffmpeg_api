@@ -172,8 +172,9 @@ const monitorResourceUsage = (command: any, jobId: string): NodeJS.Timeout => {
   const startTime = Date.now();
   let lastMemoryCheck = Date.now();
   let warningCount = 0;
-  const maxWarnings = 3;
+  const maxWarnings = 5; // Aumentado de 3 para 5
   const memoryLimit = config.ffmpegOptions.memoryLimitMB;
+  let consecutiveHighMemory = 0;
   
   const memoryCheckInterval = setInterval(() => {
     // Atualizar métricas do processo Node.js
@@ -191,23 +192,28 @@ const monitorResourceUsage = (command: any, jobId: string): NodeJS.Timeout => {
         
         // Verificar limite de memória
         if (ffmpegMemoryMB > memoryLimit) {
+          consecutiveHighMemory++;
           warningCount++;
-          console.warn(`⚠️  Job ${jobId} - Alto uso de memória detectado: ${ffmpegMemoryMB}MB`);
+          console.warn(`⚠️  Job ${jobId} - Alto uso de memória detectado: ${ffmpegMemoryMB}MB (Aviso ${warningCount}/${maxWarnings})`);
           memoryAlerts.inc();
           
-          if (warningCount >= maxWarnings) {
-            console.error(`❌ Job ${jobId} - Limite de memória excedido (${ffmpegMemoryMB}MB > ${memoryLimit}MB)`);
+          // Só mata o processo se tivermos 3 leituras consecutivas acima do limite
+          if (warningCount >= maxWarnings && consecutiveHighMemory >= 3) {
+            console.error(`❌ Job ${jobId} - Limite de memória excedido (${ffmpegMemoryMB}MB > ${memoryLimit}MB) por 3 verificações consecutivas`);
             command.kill();
             clearInterval(memoryCheckInterval);
             ffmpegSigkillJobs.inc();
           }
+        } else {
+          // Resetar contador de memória alta consecutiva se voltar ao normal
+          consecutiveHighMemory = 0;
         }
       } catch (error) {
         console.error(`❌ Job ${jobId} - Erro ao monitorar memória:`, error);
         clearInterval(memoryCheckInterval);
       }
     }
-  }, 5000); // Verificar a cada 5 segundos
+  }, 10000); // Aumentado de 5s para 10s
   
   return memoryCheckInterval;
 };
@@ -500,9 +506,6 @@ const createComplexFilterForMedia = (
     } else {
       // Para vídeos: escalar e processar áudio
       filterParts.push(`[${index}:v]scale=${output.width}:${output.height},setpts=PTS-STARTPTS[v${index}]`);
-      if (clip.asset.type === 'video') {
-        filterParts.push(`[${index}:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a${index}]`);
-      }
     }
   });
   
@@ -510,13 +513,6 @@ const createComplexFilterForMedia = (
   const videoInputs = videoClips.map((_, index) => `[v${index}]`).join('');
   if (videoInputs) {
     filterParts.push(`${videoInputs}concat=n=${videoClips.length}:v=1:a=0[outv]`);
-  }
-  
-  // Concatenate all audio segments (apenas para vídeos com áudio)
-  const audioClipsWithAudio = videoClips.filter(({clip}) => clip.asset.type === 'video');
-  if (audioClipsWithAudio.length > 0) {
-    const audioInputs = audioClipsWithAudio.map((_, index) => `[a${index}]`).join('');
-    filterParts.push(`${audioInputs}concat=n=${audioClipsWithAudio.length}:v=0:a=1[audio_concat]`);
   }
   
   return filterParts.join(';');
@@ -635,14 +631,8 @@ const buildOutputOptions = (
 ): string[] => {
   const outputOptions = [];
   
-  // Mapear vídeo e áudio do filtergraph
+  // Mapear vídeo do filtergraph
   outputOptions.push('-map [outv]');
-  
-  // Se temos vídeos com áudio, mapear o áudio concatenado
-  const hasVideoAudio = videoClips.some(({clip}) => clip?.asset?.type === 'video');
-  if (hasVideoAudio) {
-    outputOptions.push('-map [audio_concat]');
-  }
   
   // Codec settings
   outputOptions.push(
@@ -654,18 +644,6 @@ const buildOutputOptions = (
     '-avoid_negative_ts make_zero',
     '-fflags +genpts'
   );
-
-  // Configurações de áudio (apenas se tiver áudio)
-  if (hasVideoAudio) {
-    outputOptions.push(
-      '-c:a aac',
-      '-b:a 128k',
-      '-ar 44100',
-      '-ac 2',
-      '-shortest',
-      '-async 1'
-    );
-  }
   
   return outputOptions;
 };
@@ -685,74 +663,121 @@ const prepareOutput = (renderRequest: RenderRequest): string => {
   return path.join(config.outputPath, fileName);
 };
 
+// Process timeline and categorize clips
+const processTimeline = (timeline: any, preparedClips: any[]) => {
+  const videoClips = preparedClips.filter(({clip}) => 
+    clip.asset.type === 'video' || clip.asset.type === 'image'
+  );
+  const audioClips = preparedClips.filter(({clip}) => 
+    clip.asset.type === 'audio' || (clip.asset.type === 'video' && clip.asset.hasAudio)
+  );
+  const subtitleClips = preparedClips.filter(({clip}) => 
+    clip.asset.type === 'subtitle'
+  );
+
+  return {
+    videoClips,
+    audioClips,
+    subtitleClips
+  };
+};
+
 // Render the video from the timeline
 export const renderVideo = async (
-  renderRequest: RenderRequest, 
-  progressCallback: (progress: number) => void = () => {}
+  jobId: string,
+  request: RenderRequest,
+  storage: any
 ): Promise<string> => {
-  const jobId = renderRequest.jobId || uuidv4();
-  const tempDir = path.join(config.tempPath, jobId);
-  const outputPath = prepareOutput(renderRequest);
-
-  // Tentar adquirir slot para renderização
-  const concurrencyControl = getConcurrencyControl();
-  const slotAcquired = await concurrencyControl.acquireSlot(jobId);
-  
-  if (!slotAcquired) {
-    throw new Error('Failed to acquire render semaphore');
-  }
+  console.log(`🎯 Job ${jobId} iniciou processamento`);
+  const { timeline, output } = request;
+  const { tempDir, outputDir, fileName } = storage;
 
   try {
-    // Criar diretório temporário
+    // Criar diretórios se não existirem
     await fs.mkdir(tempDir, { recursive: true });
+    await fs.mkdir(outputDir, { recursive: true });
+    console.log('Diretórios para processamento:', { tempDir, outputDir });
 
+    // Preparar todos os clips da timeline
+    console.log('📥 Iniciando preparação dos assets...');
+    const preparedClips: any[] = [];
+    let inputIndex = 0;
+
+    if (timeline?.tracks) {
+      for (const track of timeline.tracks) {
+        for (const clip of track.clips) {
+          try {
+            const assetInfo = 'src' in clip.asset ? clip.asset.src : 
+                            'text' in clip.asset ? clip.asset.text : 
+                            'asset sem identificação';
+            console.log(`Preparando asset: ${clip.asset.type} - ${assetInfo}`);
+            const localPath = await prepareClip(clip, tempDir);
+            
+            preparedClips.push({
+              clip: {
+                ...clip,
+                _inputIndex: inputIndex,
+                _localPath: localPath
+              }
+            });
+            
+            inputIndex++;
+            console.log(`✅ Asset preparado: ${localPath}`);
+          } catch (error) {
+            console.error(`❌ Erro preparando asset:`, error);
+            throw new Error(`Erro preparando asset: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+          }
+        }
+      }
+    }
+
+    if (preparedClips.length === 0) {
+      throw new Error('Nenhum clip válido encontrado na timeline');
+    }
+
+    console.log(`📊 ${preparedClips.length} clips preparados. Iniciando renderização...`);
+
+    // Processar timeline e extrair clips
+    const { videoClips, audioClips, subtitleClips } = processTimeline(timeline, preparedClips);
+    console.log(`📊 Timeline processada: ${videoClips.length} vídeos, ${audioClips.length} áudios, ${subtitleClips.length} legendas`);
+
+    // Calcular duração total
+    const timelineDuration = calculateTimelineDuration(timeline);
+    console.log(`⏱️  Duração total: ${timelineDuration}s`);
+
+    // Criar path de saída
+    const outputPath = path.join(outputDir, fileName);
+    console.log(`📁 Arquivo de saída: ${outputPath}`);
+
+    // Renderizar usando FFmpeg
     return new Promise<string>((resolve, reject) => {
       try {
-        // Configurar comando FFmpeg
         let command = ffmpeg();
+
+        // Adicionar inputs baseado nos clips preparados
+        preparedClips.forEach(({ clip }) => {
+          if (clip._localPath) {
+            command = command.addInput(clip._localPath);
+            console.log(`📎 Input adicionado: ${clip._localPath}`);
+          }
+        });
+
+        // Criar filtergraph
+        const complexFilter = createComplexFilterForMedia(videoClips, audioClips, subtitleClips, output);
+        console.log(`🎛️  Filter complex: ${complexFilter}`);
         
-        // Aplicar configurações globais
-        applyFfmpegOptions(command);
-        
-        // Validar outputPath
-        if (!outputPath) {
-          reject(new Error('Output path is required'));
-          return;
+        if (complexFilter) {
+          command = command.complexFilter(complexFilter);
         }
 
-        // Adicionar input do vídeo ou input padrão
-        if (renderRequest.input?.url) {
-          command = command.input(renderRequest.input.url);
-        } else {
-          // Criar input padrão (imagem preta)
-          command = command
-            .input('color=c=black:s=1280x720:r=30')
-            .inputFormat('lavfi')
-            .inputOptions(['-t', '1']);
-        }
+        // Adicionar opções de saída
+        const outputOptions = buildOutputOptions(videoClips, audioClips, subtitleClips, output, timelineDuration);
+        console.log(`⚙️  Output options: ${outputOptions.join(' ')}`);
         
-        // Set output file and handlers - converter clips para formato esperado
-        const videoClips = (renderRequest.timeline?.tracks?.[0]?.clips || []).map(clip => ({ clip }));
-        const audioClips = (renderRequest.timeline?.tracks?.[1]?.clips || []).map(clip => ({ clip }));
-        const subtitleClips = (renderRequest.timeline?.tracks?.[2]?.clips || []).map(clip => ({ clip }));
-        
-        // Criar e aplicar o filtergraph complexo
-        const complexFilter = createComplexFilterForMedia(videoClips, audioClips, subtitleClips, renderRequest.output);
-        command.complexFilter(complexFilter);
-        
-        const outputOptions = buildOutputOptions(
-          videoClips,
-          audioClips,
-          subtitleClips,
-          renderRequest.output,
-          calculateTimelineDuration(renderRequest.timeline)
-        );
-
-        // Aplicar opções de saída diretamente
-        outputOptions.forEach(option => {
-          if (option.includes(' ')) {
-            const [key, value] = option.split(' ');
-            command.addOption(key, value);
+        outputOptions.forEach((option) => {
+          if (option.startsWith('-threads ')) {
+            const threads = option.split(' ')[1];
+            command = command.addOption('-threads', threads);
           } else {
             command.addOption(option);
           }
@@ -767,187 +792,38 @@ export const renderVideo = async (
             
             // Iniciar monitoramento de recursos
             monitorResourceUsage(command, jobId);
-            
-            // Limpar processos órfãos antes de iniciar
-            cleanupOrphanedProcesses();
           })
           .on('progress', (progress) => {
             const percent = Math.round((progress.percent || 0) * 100) / 100;
-            console.log(`📊 Progresso: ${percent}% completo`, {
-              frames: progress.frames,
-              fps: progress.currentFps,
-              kbps: progress.currentKbps,
-              time: progress.timemark
-            });
-            progressCallback(percent);
+            console.log(`📊 Progresso: ${percent}% completo`);
           })
           .on('end', async () => {
             console.log('✅ Renderização concluída com sucesso:', outputPath);
             
-            let finalOutputUrl = outputPath;
-            
-            // Upload para Google Cloud Storage se habilitado
-            if (config.googleCloud.enabled && renderRequest.webhook) {
-              try {
-                console.log('Fazendo upload para Google Cloud Storage...');
-                const storageService = getStorageService();
-                
-                // Gerar nome único para o arquivo no GCS
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                const fileName = `renders/${jobId}/${timestamp}_${path.basename(outputPath)}`;
-                
-                const uploadResult = await storageService.uploadFile(outputPath, {
-                  destination: fileName,
-                  public: true,
-                  metadata: {
-                    jobId: jobId,
-                    format: renderRequest.output.format || 'mp4',
-                    width: String(renderRequest.output.width || 1280),
-                    height: String(renderRequest.output.height || 720),
-                    quality: renderRequest.output.quality || 'medium',
-                    createdAt: new Date().toISOString()
-                  }
-                });
-                
-                if (!uploadResult.publicUrl) {
-                  throw new Error('Upload failed: no public URL returned');
-                }
-                
-                console.log('Upload para GCS concluído:', {
-                  fileName: uploadResult.fileName,
-                  size: uploadResult.size,
-                  publicUrl: uploadResult.publicUrl
-                });
-                
-                // Usar a URL pública do GCS como resultado final
-                finalOutputUrl = uploadResult.publicUrl;
-                
-                // Remover arquivo local após upload bem-sucedido
-                try {
-                  await fs.unlink(outputPath);
-                  console.log('Arquivo local removido após upload para GCS');
-                } catch (unlinkError) {
-                  console.warn('Erro ao remover arquivo local:', unlinkError);
-                }
-                
-              } catch (uploadError) {
-                console.error('Erro no upload para GCS:', uploadError);
-                console.log('Mantendo arquivo local como fallback');
-                // Continuar com o arquivo local se o upload falhar
-              }
-            }
-            
-            // Limpar arquivos temporários após sucesso
+            // Limpar arquivos temporários
             try {
-              console.log('Limpando arquivos temporários...');
               await cleanupTempFiles(tempDir);
-              console.log('Arquivos temporários removidos com sucesso');
+              console.log(`Diretório temporário removido: ${tempDir}`);
             } catch (cleanupError) {
               console.warn('Erro ao limpar arquivos temporários:', cleanupError);
-              // Não falhar o job por causa da limpeza
-            }
-
-            // Disparar webhook se fornecido
-            if (renderRequest.webhook) {
-              console.log('🔔 Disparando webhook:', renderRequest.webhook);
-              try {
-                const webhookPayload = {
-                  jobId: jobId,
-                  status: 'completed',
-                  outputUrl: finalOutputUrl,
-                  metadata: {
-                    format: renderRequest.output.format || 'mp4',
-                    width: renderRequest.output.width || 1280,
-                    height: renderRequest.output.height || 720,
-                    quality: renderRequest.output.quality || 'medium',
-                    fps: renderRequest.output.fps || 30,
-                    storageType: config.googleCloud.enabled ? 'gcs' : 'local'
-                  },
-                  completedAt: new Date().toISOString()
-                };
-
-                const response = await axios.post(renderRequest.webhook, webhookPayload, {
-                  timeout: 10000, // 10 segundos de timeout
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'FFmpeg-API-Webhook/1.0'
-                  }
-                });
-
-                console.log('✅ Webhook disparado com sucesso:', {
-                  url: renderRequest.webhook,
-                  status: response.status,
-                  jobId: jobId
-                });
-              } catch (webhookError) {
-                console.error('❌ Erro ao disparar webhook:', {
-                  url: renderRequest.webhook,
-                  error: webhookError instanceof Error ? webhookError.message : 'Unknown error',
-                  jobId: jobId
-                });
-                // Não falhar o job principal por causa do webhook
-              }
             }
             
-            resolve(finalOutputUrl);
+            resolve(outputPath);
           })
           .on('error', async (err) => {
-            console.error('❌ Erro na renderização:', err);
+            console.error(`❌ Erro na renderização:`, err);
             
-            // Verificar se foi SIGKILL e registrar métrica
-            if (err.message && err.message.includes('SIGKILL')) {
-              ffmpegSigkillJobs.inc({ reason: 'memory_limit' });
-              console.error(`💀 FFmpeg foi terminado com SIGKILL - possível falta de memória`);
-            }
-            
-            // Limpar processos órfãos em caso de erro
-            await cleanupOrphanedProcesses();
-            
-            // Limpar arquivos temporários após erro
+            // Limpar em caso de erro
             try {
-              console.log('🧹 Limpando arquivos temporários após erro...');
               await cleanupTempFiles(tempDir);
-              console.log('✅ Arquivos temporários removidos após erro');
             } catch (cleanupError) {
-              console.warn('⚠️  Erro ao limpar arquivos temporários:', cleanupError);
-            }
-
-            // Disparar webhook em caso de erro (se fornecido)
-            if (renderRequest.webhook) {
-              console.log('🔔 Disparando webhook de erro:', renderRequest.webhook);
-              try {
-                const webhookPayload = {
-                  jobId: jobId,
-                  status: 'failed',
-                  error: err.message || 'Unknown error during video processing',
-                  failedAt: new Date().toISOString()
-                };
-
-                await axios.post(renderRequest.webhook, webhookPayload, {
-                  timeout: 10000,
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'FFmpeg-API-Webhook/1.0'
-                  }
-                });
-
-                console.log('✅ Webhook de erro disparado com sucesso:', {
-                  url: renderRequest.webhook,
-                  jobId: jobId
-                });
-              } catch (webhookError) {
-                console.error('❌ Erro ao disparar webhook de erro:', {
-                  url: renderRequest.webhook,
-                  error: webhookError instanceof Error ? webhookError.message : 'Unknown error',
-                  jobId: jobId
-                });
-              }
+              console.warn('Erro ao limpar diretório temporário:', cleanupError);
             }
             
             reject(err);
           });
         
-        // Run the command
+        // Executar comando
         console.log('Iniciando processo de renderização...');
         command.run();
         
@@ -956,19 +832,13 @@ export const renderVideo = async (
         reject(err);
       }
     });
+
   } catch (error) {
-    console.error(`❌ Erro na renderização:`, error);
-    await cleanupTempFiles(tempDir);
-    await concurrencyControl.releaseSlot(jobId);
+    console.error(`❌ Erro no processamento do job ${jobId}:`, error);
     throw error;
   } finally {
-    // Limpar arquivos temporários
-    await cleanupTempFiles(tempDir);
-    // Liberar slot após conclusão
-    await concurrencyControl.releaseSlot(jobId);
+    // Cleanup já é feito no evento 'end' e 'error' do FFmpeg
   }
-  
-  return outputPath!;
 };
 
 // Generate a thumbnail from a video

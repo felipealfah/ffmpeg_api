@@ -95,15 +95,23 @@ console.log('Configuração Redis:', {
 // Create render queue with explicit Redis configuration
 const renderQueue = new Queue('video-render', {
   redis: redisConfig,
+  settings: {
+    stalledInterval: 60000, // Checar jobs travados a cada 60 segundos
+    maxStalledCount: 2, // Número de vezes que um job pode travar antes de ser considerado falho
+    lockDuration: 600000, // 10 minutos de lock
+    lockRenewTime: 30000, // Renovar o lock a cada 30 segundos
+    drainDelay: 5 // Delay entre processamentos em milissegundos
+  },
   defaultJobOptions: {
     removeOnComplete: 5,
     removeOnFail: 3,
     attempts: 3,
     backoff: {
       type: 'exponential',
-      delay: 2000,
+      delay: 5000
     },
-    timeout: config.defaultTimeout, // Usar timeout do config
+    timeout: 600000, // 10 minutos de timeout
+    jobId: undefined // Permitir IDs automáticos
   }
 });
 
@@ -127,8 +135,42 @@ renderQueue.on('error', (error) => {
   console.error('Bull queue error', { error: error.message, stack: error.stack });
 });
 
-renderQueue.on('ready', () => {
+renderQueue.on('ready', async () => {
   console.log('Bull queue is ready');
+  
+  // Limpar jobs órfãos/antigos ao inicializar
+  try {
+    console.log('🧹 Limpando jobs órfãos...');
+    
+    // Limpar jobs stalled
+    const stalledJobs = await renderQueue.getJobs(['stalled'] as any, 0, -1);
+    for (const job of stalledJobs) {
+      await job.remove();
+      console.log(`🗑️ Job stalled ${job.id} removido`);
+    }
+    
+    // Limpar jobs ativos órfãos (sem workers)
+    const activeJobs = await renderQueue.getJobs(['active'] as any, 0, -1);
+    for (const job of activeJobs) {
+      await job.remove();
+      console.log(`🗑️ Job ativo órfão ${job.id} removido`);
+    }
+    
+    // Limpar jobs aguardando muito tempo
+    const waitingJobs = await renderQueue.getJobs(['waiting'] as any, 0, -1);
+    const now = Date.now();
+    for (const job of waitingJobs) {
+      const jobAge = now - job.timestamp;
+      if (jobAge > 300000) { // Mais de 5 minutos
+        await job.remove();
+        console.log(`🗑️ Job aguardando há muito tempo ${job.id} removido`);
+      }
+    }
+    
+    console.log('✅ Limpeza de jobs concluída');
+  } catch (error) {
+    console.error('❌ Erro na limpeza de jobs:', error);
+  }
   
   // Iniciar limpeza periódica após a fila estar pronta
   startPeriodicCleanup();
@@ -251,24 +293,17 @@ const processRenderJob = async (renderJob: RenderJob): Promise<string> => {
   const startTime = Date.now();
   
   try {
-    // Usar caminhos absolutos
-    const tempDir = path.join(process.cwd(), 'storage/temp', renderJob.id);
-    const outputDir = path.join(process.cwd(), 'storage/output', renderJob.id);
+    console.log(`🚀 Processando job ${renderJob.id}`);
     
-    console.debug('Diretórios para processamento:', { tempDir, outputDir });
-    
-    // Processar o vídeo
+    // Processar o vídeo usando a nova assinatura
     const mediaService = await import('./mediaService.js');
-    const outputPath = await mediaService.renderVideo(renderJob.request, (progress: number) => {
-      // Atualizar progresso do job
-      updateJob(renderJob.id, { 
-        progress,
-        updatedAt: new Date()
-      });
-    });
+    const outputPath = await mediaService.renderVideo(
+      renderJob.id,
+      renderJob.request,
+      renderJob.storage
+    );
     
-    // Determinar tipo de storage baseado na configuração
-    const storageType = config.googleCloud?.enabled ? 'gcs' : 'local';
+    console.log(`✅ Job ${renderJob.id} processado em ${Date.now() - startTime}ms`);
     
     // Atualizar job com resultado
     updateJob(renderJob.id, {
@@ -276,21 +311,21 @@ const processRenderJob = async (renderJob: RenderJob): Promise<string> => {
       output: outputPath,
       progress: 100,
       completedAt: new Date(),
-      updatedAt: new Date(),
-      storage: {
-        type: storageType,
-        tempDir,
-        outputDir,
-        url: storageType === 'gcs' ? outputPath : undefined,
-        fileName: path.basename(outputPath)
-      }
+      updatedAt: new Date()
     });
-    
-    console.info(`✅ Job ${renderJob.id} concluído com sucesso em ${Date.now() - startTime}ms`);
     
     return outputPath;
   } catch (error) {
-    console.error(`❌ Erro ao processar job ${renderJob.id}:`, error);
+    console.error(`❌ Erro processando job ${renderJob.id}:`, error);
+    
+    // Atualizar job com erro
+    updateJob(renderJob.id, {
+      status: JobStatus.FAILED,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      progress: 0,
+      updatedAt: new Date()
+    });
+    
     throw error;
   }
 };
@@ -329,31 +364,65 @@ const processJob = async (job: Queue.Job<RenderJob>): Promise<void> => {
   }
 };
 
-// Configurar processamento da fila com limite de concorrência
+// Setup worker to process jobs
 renderQueue.process(MAX_CONCURRENT_JOBS, async (job) => {
   console.log(`🎬 Worker iniciando processamento do job ${job.id}`);
   const renderJob = job.data as RenderJob;
   const startTime = Date.now();
   
   try {
+    // Marcar progresso inicial
+    job.progress(10);
+    
     // Registrar início do processamento
     recordJobStart(renderJob.id);
     console.log(`📊 Métricas atualizadas para início do job ${renderJob.id}`);
-
-    // Processar o job
-    const outputPath = await processRenderJob(renderJob);
+    
+    job.progress(30);
+    
+    // Processar o job diretamente (sem semáforo)
+    console.log(`🚀 Processando job ${renderJob.id}`);
+    
+    // Processar o vídeo usando a nova assinatura
+    const mediaService = await import('./mediaService.js');
+    const outputPath = await mediaService.renderVideo(
+      renderJob.id,
+      renderJob.request,
+      renderJob.storage
+    );
+    
+    job.progress(90);
+    
+    // Atualizar job com resultado
+    updateJob(renderJob.id, {
+      status: JobStatus.COMPLETED,
+      output: outputPath,
+      progress: 100,
+      completedAt: new Date(),
+      updatedAt: new Date()
+    });
     
     // Registrar conclusão bem-sucedida
     const durationMs = Date.now() - startTime;
     recordJobComplete(renderJob.id, durationMs);
-    console.log(`✅ Job ${renderJob.id} concluído com sucesso`);
+    console.log(`✅ Job ${renderJob.id} concluído com sucesso em ${durationMs}ms`);
+    
+    job.progress(100);
     
     return { outputPath };
   } catch (error) {
+    // Atualizar job com erro
+    updateJob(renderJob.id, {
+      status: JobStatus.FAILED,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      progress: 0,
+      updatedAt: new Date()
+    });
+    
     // Registrar falha
     const durationMs = Date.now() - startTime;
     recordJobFail(renderJob.id, durationMs);
-    console.error(`❌ Job ${renderJob.id} falhou:`, error);
+    console.error(`❌ Job ${renderJob.id} falhou em ${durationMs}ms:`, error);
     throw error;
   }
 });

@@ -32,7 +32,9 @@ RUN npm prune --production
 
 # Criar diretórios necessários e ajustar permissões
 RUN mkdir -p storage/temp storage/output logs && \
-    chown -R appuser:appuser /app
+    mkdir -p /home/appuser/.npm/_logs && \
+    chown -R appuser:appuser /app && \
+    chown -R appuser:appuser /home/appuser
 
 # Mudar para usuário não-root
 USER appuser
@@ -44,5 +46,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-# Comando para iniciar a aplicação
+# Comando para iniciar a aplicação com mais memória para o Node.js
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 CMD ["npm", "start"] 
