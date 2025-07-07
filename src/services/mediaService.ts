@@ -500,11 +500,13 @@ const createComplexFilterForMedia = (
     
     if (clip.asset.type === 'image') {
       // Para imagens: usar loop e configurar duração
-      filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.resolution || '1280x720'},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
+      filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.width}:${output.height},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
     } else {
       // Para vídeos: escalar vídeo e processar áudio
-      filterParts.push(`[${index}:v]scale=${output.resolution || '1280x720'},fps=${output.fps || 30}[v${index}]`);
-      filterParts.push(`[${index}:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a${index}]`);
+      filterParts.push(`[${index}:v]scale=${output.width}:${output.height},fps=${output.fps || 30}[v${index}]`);
+      if (clip.asset.type === 'video') {
+        filterParts.push(`[${index}:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a${index}]`);
+      }
     }
   });
   
@@ -521,13 +523,17 @@ const createComplexFilterForMedia = (
       const startTime = clip.start || 0;
       const endTime = startTime + duration;
       concatFilter += `[v${index}]trim=start=${startTime}:end=${endTime}[v${index}t];`;
-      concatFilter += `[a${index}]atrim=start=${startTime}:end=${endTime}[a${index}t];`;
+      if (clip.asset.type === 'video') {
+        concatFilter += `[a${index}]atrim=start=${startTime}:end=${endTime}[a${index}t];`;
+      }
     }
   });
   
   // Concatenate all video segments
   const videoInputs = videoClips.map((_, index) => `[v${index}t]`).join('');
-  concatFilter += `${videoInputs}concat=n=${videoClips.length}:v=1:a=0[video_concat];`;
+  if (videoInputs) {
+    concatFilter += `${videoInputs}concat=n=${videoClips.length}:v=1:a=0[video_concat];`;
+  }
   
   // Concatenate all audio segments (apenas para vídeos)
   const audioInputs = videoClips
@@ -543,11 +549,14 @@ const createComplexFilterForMedia = (
   if (subtitleClips.length > 0) {
     const subtitleFilter = createSubtitleFilter(subtitleClips[0]);
     concatFilter += `[video_concat]${subtitleFilter}[outv]`;
-  } else {
+  } else if (videoInputs) {
     concatFilter += `[video_concat]copy[outv]`;
+  } else {
+    // Se não há vídeos, usar o input padrão (imagem preta)
+    filterParts.push(`color=c=black:s=${output.width}x${output.height}:r=${output.fps || 30}[outv]`);
   }
   
-  const finalFilter = filterParts.join(';') + ';' + concatFilter;
+  const finalFilter = filterParts.join(';') + (concatFilter ? ';' + concatFilter : '');
   
   // Log do filtro para depuração
   console.log('🔧 Filtro complexo criado:', finalFilter);
@@ -689,16 +698,8 @@ const buildOutputOptions = (
       outputOptions.push('-map 0:a');
     }
     
-  } else if (videoClips.length === 1 && videoClips[0]?.clip?.asset?.type === 'image') {
-    // Simple case: single image
-    outputOptions.push(`-t ${timelineDuration}`);
-    outputOptions.push(`-r ${output.fps || 30}`);
-    
-    if (audioClips.length > 0) {
-      outputOptions.push('-map 0:v', '-map [aout]');
-    }
-  } else if (videoClips.length > 1) {
-    // Complex case: multiple clips with complex filter
+  } else {
+    // Mapear vídeo e áudio do filtergraph
     outputOptions.push('-map [outv]');
     
     // Se temos áudios, usar o áudio processado
@@ -804,6 +805,10 @@ export const renderVideo = async (
         const videoClips = (renderRequest.timeline?.tracks?.[0]?.clips || []).map(clip => ({ clip }));
         const audioClips = (renderRequest.timeline?.tracks?.[1]?.clips || []).map(clip => ({ clip }));
         const subtitleClips = (renderRequest.timeline?.tracks?.[2]?.clips || []).map(clip => ({ clip }));
+        
+        // Criar e aplicar o filtergraph complexo
+        const complexFilter = createComplexFilterForMedia(videoClips, audioClips, subtitleClips, renderRequest.output);
+        command.complexFilter(complexFilter);
         
         const outputOptions = buildOutputOptions(
           videoClips,
