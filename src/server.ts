@@ -155,6 +155,11 @@ app.use((req: Request, res: Response) => {
 // DEBUG: Listar todas as rotas registradas
 function listRoutes(app: any) {
   const routes: any[] = [];
+  if (!app._router) {
+    console.log('⚠️ Router não inicializado ainda');
+    return routes;
+  }
+  
   app._router.stack.forEach((middleware: any) => {
     if (middleware.route) {
       routes.push({
