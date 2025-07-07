@@ -3,7 +3,6 @@ node_modules/
 npm-debug.log
 yarn-debug.log
 yarn-error.log
-
 yarn.lock
 
 # Arquivos de ambiente
@@ -53,6 +52,7 @@ uploads/
 temp/
 public/videos/
 public/thumbnails/
+storage/
 
 # Arquivos de IDE/editor
 .idea/
@@ -73,3 +73,21 @@ public/thumbnails/
 redis-data/
 dump.rdb
 cleanup-for-production.sh
+
+# Docker e deployment
+docker-compose.override.yml
+.dockerignore
+
+# Dados persistentes do Docker
+redis-backup.tar.gz
+prometheus-backup.tar.gz
+grafana-backup.tar.gz
+
+# Arquivos de monitoramento
+monitoring/grafana/data/
+monitoring/prometheus/data/
+
+# Backups
+*.backup
+*.bak
+backup/
