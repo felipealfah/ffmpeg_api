@@ -1,5 +1,5 @@
 import ffmpeg from 'fluent-ffmpeg';
-import config from '../config';
+import config from '../config/index';
 import path from 'path';
 import fs from 'fs/promises';
 import { createWriteStream } from 'fs';
@@ -60,20 +60,16 @@ if (config?.ffmpegPath) {
   console.warn('FFmpeg path não encontrado no config, usando padrão do sistema');
 }
 
-// Configurações globais do FFmpeg para otimização de memória
-const ffmpegOptions = {
-  priority: 5, // Prioridade média-baixa
-  niceness: 5, // Prioridade média-baixa no sistema
-  timeout: 0, // Sem timeout
-  preset: 'faster', // Preset mais rápido que medium, mas com qualidade razoável
-  threads: 5 // Usar 5 threads (deixando 1 vCPU livre para o sistema)
-};
-
 // Aplicar configurações em cada comando FFmpeg
 const applyFfmpegOptions = (command: ffmpeg.FfmpegCommand): void => {
-  Object.entries(ffmpegOptions).forEach(([key, value]) => {
-    command.addOption(`-${key}`, value.toString());
-  });
+  const options = config.ffmpegOptions;
+  
+  // Aplicar opções diretamente como argumentos do FFmpeg
+  command
+    .addOption('-threads', options.threads.toString())
+    .addOption('-preset', options.preset)
+    .addOption('-memory_limit', options.maxMemory)
+    .addOption('-max_muxing_queue_size', '1024');
 };
 
 if (config?.ffprobePath) {
@@ -192,50 +188,41 @@ const monitorResourceUsage = (command: any, jobId: string): NodeJS.Timeout => {
   let lastMemoryCheck = Date.now();
   let warningCount = 0;
   const maxWarnings = 3;
-  const memoryLimit = parseInt(process.env.FFMPEG_MEMORY_LIMIT || '8192', 10); // 8GB default
+  const memoryLimit = config.ffmpegOptions.memoryLimitMB;
   
   const memoryCheckInterval = setInterval(() => {
     // Atualizar métricas do processo Node.js
     const memoryUsage = process.memoryUsage();
     processMemoryUsage.set({ type: 'heap_used' }, memoryUsage.heapUsed);
-    processMemoryUsage.set({ type: 'heap_total' }, memoryUsage.heapTotal);
-    processMemoryUsage.set({ type: 'rss' }, memoryUsage.rss);
-    processMemoryUsage.set({ type: 'external' }, memoryUsage.external);
     
-    // Monitorar processo FFmpeg se disponível
-    if (command && command._pid) {
-      // Atualizar métricas do FFmpeg
-      ffmpegProcessMemory.set({ job_id: jobId, type: 'rss' }, command._pid);
-      ffmpegProcessMemory.set({ job_id: jobId, type: 'vsz' }, command._pid);
-    }
-    
-    // Verificar tempo desde o início
-    const elapsedMinutes = (Date.now() - startTime) / 1000 / 60;
-    
-    // Log a cada 5 minutos
-    if (elapsedMinutes >= 5 && elapsedMinutes % 5 === 0) {
-      logger.info(`🎥 Job ${jobId} rodando há ${Math.floor(elapsedMinutes)} minutos`);
-    }
-    
-    // Verificar uso de memória
-    const currentMemoryUsage = memoryUsage.heapUsed + memoryUsage.external;
-    const memoryUsageGB = currentMemoryUsage / 1024 / 1024 / 1024;
-    
-    // Alertas de memória
-    if (memoryUsageGB >= memoryLimit * 0.75) { // 75% do limite
-      memoryAlerts.set({ severity: 'warning', type: 'process' }, 1);
-      warningCount++;
-      
-      if (warningCount >= maxWarnings) {
-        logger.error(`⚠️ Job ${jobId} usando muita memória: ${memoryUsageGB.toFixed(2)}GB`);
-        memoryAlerts.set({ severity: 'critical', type: 'process' }, 1);
+    // Verificar uso de memória do FFmpeg
+    if (command && command.ffmpegProc) {
+      try {
+        const usage = process.memoryUsage();
+        const ffmpegMemoryMB = Math.round(usage.heapUsed / 1024 / 1024);
+        
+        // Atualizar métricas do Prometheus
+        ffmpegProcessMemory.set(ffmpegMemoryMB);
+        
+        // Verificar limite de memória
+        if (ffmpegMemoryMB > memoryLimit) {
+          warningCount++;
+          console.warn(`⚠️  Job ${jobId} - Alto uso de memória detectado: ${ffmpegMemoryMB}MB`);
+          memoryAlerts.inc();
+          
+          if (warningCount >= maxWarnings) {
+            console.error(`❌ Job ${jobId} - Limite de memória excedido (${ffmpegMemoryMB}MB > ${memoryLimit}MB)`);
+            command.kill();
+            clearInterval(memoryCheckInterval);
+            ffmpegSigkillJobs.inc();
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Job ${jobId} - Erro ao monitorar memória:`, error);
+        clearInterval(memoryCheckInterval);
       }
-    } else {
-      memoryAlerts.set({ severity: 'warning', type: 'process' }, 0);
-      memoryAlerts.set({ severity: 'critical', type: 'process' }, 0);
-      warningCount = 0;
     }
-  }, 10000); // Checar a cada 10 segundos
+  }, 5000); // Verificar a cada 5 segundos
   
   return memoryCheckInterval;
 };
@@ -838,8 +825,31 @@ export const renderVideo = async (
         }
         
         // Set output file and handlers
+        const outputOptions = buildOutputOptions(
+          renderRequest.timeline?.tracks?.[0]?.clips || [],
+          renderRequest.timeline?.tracks?.[1]?.clips || [],
+          renderRequest.timeline?.tracks?.[2]?.clips || [],
+          renderRequest.output,
+          calculateTimelineDuration(renderRequest.timeline)
+        );
+
+        // Aplicar opções de FFmpeg
+        applyFfmpegOptions(command);
+
+        // Aplicar opções de saída diretamente
+        outputOptions.forEach(option => {
+          if (option.includes(' ')) {
+            const [key, value] = option.split(' ');
+            command.addOption(key, value);
+          } else {
+            command.addOption(option);
+          }
+        });
+
+        // Configurar output e eventos
         command = command
           .output(outputPath)
+          .addOption('-y') // Sobrescrever arquivo se existir
           .on('start', (commandLine) => {
             console.log('🚀 Comando FFmpeg iniciado:', commandLine);
             

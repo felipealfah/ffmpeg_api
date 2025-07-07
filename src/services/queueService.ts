@@ -2,7 +2,7 @@ import { RenderJob, RenderRequest, JobStatus, Timeline, StorageInfo } from '../t
 import { v4 as uuidv4 } from 'uuid';
 import { calculateTimelineDuration } from './mediaService';
 import Queue from 'bull';
-import config from '../config';
+import config from '../config/index';
 import path from 'path';
 import { cleanupDirectory } from '../utils/file';
 import fs from 'fs/promises';
