@@ -481,9 +481,9 @@ export const addRenderJob = async (job: RenderJob) => {
 export const createJob = (jobId: string, request: RenderRequest): RenderJob => {
   const now = new Date();
   
-  // Criar diretórios para o job
+  // Criar diretórios para o job (baseado na configuração)
   const storage: StorageInfo = {
-    type: 'local',
+    type: config.googleCloud?.enabled ? 'gcs' : 'local',
     tempDir: `/app/storage/temp/${jobId}`,
     outputDir: `/app/storage/output/${jobId}`,
     fileName: `${now.toISOString().replace(/[:.]/g, '-')}_output.mp4`,

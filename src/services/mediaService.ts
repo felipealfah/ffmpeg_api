@@ -800,6 +800,44 @@ export const renderVideo = async (
           .on('end', async () => {
             console.log('✅ Renderização concluída com sucesso:', outputPath);
             
+            // Verificar se deve fazer upload para Google Cloud Storage
+            let finalOutputPath = outputPath;
+            try {
+              if (config.googleCloud?.enabled) {
+                console.log('☁️ Iniciando upload para Google Cloud Storage...');
+                const { getStorageService } = await import('./storageService');
+                const storageService = getStorageService();
+                
+                const uploadResult = await storageService.uploadFile(outputPath, {
+                  destination: `videos/${jobId}/${fileName}`,
+                  public: true,
+                  metadata: {
+                    jobId: jobId,
+                    uploadedAt: new Date().toISOString(),
+                    originalFileName: fileName
+                  }
+                });
+                
+                console.log('✅ Upload concluído para GCS:', {
+                  publicUrl: uploadResult.publicUrl,
+                  gsUrl: uploadResult.gsUrl,
+                  size: uploadResult.size
+                });
+                
+                // Usar URL pública como output final
+                finalOutputPath = uploadResult.publicUrl;
+                
+                // Opcional: Remover arquivo local após upload bem-sucedido
+                // (descomente se quiser economizar espaço em disco)
+                // await fs.unlink(outputPath);
+                // console.log('🗑️ Arquivo local removido após upload para GCS');
+              }
+            } catch (uploadError) {
+              console.warn('⚠️ Erro no upload para Google Cloud Storage:', uploadError);
+              console.log('📁 Mantendo arquivo local como fallback');
+              // Continuar com arquivo local em caso de erro de upload
+            }
+            
             // Limpar arquivos temporários
             try {
               await cleanupTempFiles(tempDir);
@@ -808,7 +846,7 @@ export const renderVideo = async (
               console.warn('Erro ao limpar arquivos temporários:', cleanupError);
             }
             
-            resolve(outputPath);
+            resolve(finalOutputPath);
           })
           .on('error', async (err) => {
             console.error(`❌ Erro na renderização:`, err);
