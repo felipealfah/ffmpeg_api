@@ -487,81 +487,39 @@ const createComplexFilterForMedia = (
 ): string => {
   const filterParts: string[] = [];
   
-  // Verificar se são imagens ou vídeos
-  const hasImages = videoClips.some(({clip}) => clip.asset.type === 'image');
-  const hasVideos = videoClips.some(({clip}) => clip.asset.type === 'video');
-  
-  console.log('🎬 Tipo de mídia detectado:', { hasImages, hasVideos });
+  // Se não há vídeos, criar um vídeo preto base
+  if (videoClips.length === 0) {
+    return `color=c=black:s=${output.width}x${output.height}:r=${output.fps || 30}:d=1[outv]`;
+  }
   
   // Create filter parts for each video clip
-  videoClips.forEach((_, index) => {
-    const clip = videoClips[index].clip;
-    const duration = clip.length || 5; // Default 5 seconds se não especificado
-    
+  videoClips.forEach(({clip}, index) => {
     if (clip.asset.type === 'image') {
       // Para imagens: usar loop e configurar duração
-      filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.width}:${output.height},setpts=PTS-STARTPTS,fps=${output.fps || 30}[v${index}]`);
+      filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.width}:${output.height},setpts=PTS-STARTPTS[v${index}]`);
     } else {
-      // Para vídeos: escalar vídeo e processar áudio
-      filterParts.push(`[${index}:v]scale=${output.width}:${output.height},fps=${output.fps || 30}[v${index}]`);
+      // Para vídeos: escalar e processar áudio
+      filterParts.push(`[${index}:v]scale=${output.width}:${output.height},setpts=PTS-STARTPTS[v${index}]`);
       if (clip.asset.type === 'video') {
         filterParts.push(`[${index}:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a${index}]`);
       }
     }
   });
   
-  // Create concatenation filter with specific durations
-  let concatFilter = '';
-  videoClips.forEach((_, index) => {
-    const clip = videoClips[index].clip;
-    const duration = clip.length || 5; // Default 5 seconds se não especificado
-    
-    if (clip.asset.type === 'image') {
-      concatFilter += `[v${index}]trim=duration=${duration}[v${index}t];`;
-    } else {
-      // Para vídeos: usar trim start e end baseado no tempo para vídeo e áudio
-      const startTime = clip.start || 0;
-      const endTime = startTime + duration;
-      concatFilter += `[v${index}]trim=start=${startTime}:end=${endTime}[v${index}t];`;
-      if (clip.asset.type === 'video') {
-        concatFilter += `[a${index}]atrim=start=${startTime}:end=${endTime}[a${index}t];`;
-      }
-    }
-  });
-  
   // Concatenate all video segments
-  const videoInputs = videoClips.map((_, index) => `[v${index}t]`).join('');
+  const videoInputs = videoClips.map((_, index) => `[v${index}]`).join('');
   if (videoInputs) {
-    concatFilter += `${videoInputs}concat=n=${videoClips.length}:v=1:a=0[video_concat];`;
+    filterParts.push(`${videoInputs}concat=n=${videoClips.length}:v=1:a=0[outv]`);
   }
   
-  // Concatenate all audio segments (apenas para vídeos)
-  const audioInputs = videoClips
-    .filter(({clip}) => clip.asset.type === 'video')
-    .map((_, index) => `[a${index}t]`).join('');
-  
-  if (audioInputs) {
-    const audioCount = videoClips.filter(({clip}) => clip.asset.type === 'video').length;
-    concatFilter += `${audioInputs}concat=n=${audioCount}:v=0:a=1[audio_concat];`;
+  // Concatenate all audio segments (apenas para vídeos com áudio)
+  const audioClipsWithAudio = videoClips.filter(({clip}) => clip.asset.type === 'video');
+  if (audioClipsWithAudio.length > 0) {
+    const audioInputs = audioClipsWithAudio.map((_, index) => `[a${index}]`).join('');
+    filterParts.push(`${audioInputs}concat=n=${audioClipsWithAudio.length}:v=0:a=1[audio_concat]`);
   }
   
-  // Apply subtitles if available
-  if (subtitleClips.length > 0) {
-    const subtitleFilter = createSubtitleFilter(subtitleClips[0]);
-    concatFilter += `[video_concat]${subtitleFilter}[outv]`;
-  } else if (videoInputs) {
-    concatFilter += `[video_concat]copy[outv]`;
-  } else {
-    // Se não há vídeos, usar o input padrão (imagem preta)
-    filterParts.push(`color=c=black:s=${output.width}x${output.height}:r=${output.fps || 30}[outv]`);
-  }
-  
-  const finalFilter = filterParts.join(';') + (concatFilter ? ';' + concatFilter : '');
-  
-  // Log do filtro para depuração
-  console.log('🔧 Filtro complexo criado:', finalFilter);
-  
-  return finalFilter;
+  return filterParts.join(';');
 };
 
 // Helper function to detect if audio filename suggests it's background music
@@ -677,60 +635,32 @@ const buildOutputOptions = (
 ): string[] => {
   const outputOptions = [];
   
-  // Handle video mapping based on scenario
-  if (videoClips.length === 1 && videoClips[0]?.clip?._optimized) {
-    // Caso OTIMIZADO: trim simples aplicado nas opções de saída
-    const optimizedClip = videoClips[0].clip;
-    console.log('🚀 Opções de saída otimizadas: trim simples');
-    console.log(`   🎬 Aplicando trim: -ss ${optimizedClip.start} -t ${optimizedClip.length}`);
-    
-    // Aplicar trim nas opções de saída
-    outputOptions.push(`-ss ${optimizedClip.start}`);
-    outputOptions.push(`-t ${optimizedClip.length}`);
-    
-    // Mapear streams diretamente
-    outputOptions.push('-map 0:v');
-    
-    // Se temos áudios, usar o áudio processado
-    if (audioClips.length > 0) {
-      outputOptions.push('-map [aout]');
-    } else {
-      outputOptions.push('-map 0:a');
-    }
-    
-  } else {
-    // Mapear vídeo e áudio do filtergraph
-    outputOptions.push('-map [outv]');
-    
-    // Se temos áudios, usar o áudio processado
-    if (audioClips.length > 0) {
-      outputOptions.push('-map [aout]');
-    } else {
-      // Verificar se há vídeos com áudio para mapear
-      const hasVideoAudio = videoClips.some(({clip}) => clip?.asset?.type === 'video');
-      if (hasVideoAudio) {
-        outputOptions.push('-map [audio_concat]');
-      }
-    }
+  // Mapear vídeo e áudio do filtergraph
+  outputOptions.push('-map [outv]');
+  
+  // Se temos vídeos com áudio, mapear o áudio concatenado
+  const hasVideoAudio = videoClips.some(({clip}) => clip?.asset?.type === 'video');
+  if (hasVideoAudio) {
+    outputOptions.push('-map [audio_concat]');
   }
   
   // Codec settings
   outputOptions.push(
     `-c:v ${output.format === 'gif' ? 'gif' : 'libx264'}`,
     `-preset ${output.quality === 'low' ? 'veryfast' : output.quality === 'high' ? 'medium' : 'faster'}`,
-    `-b:v ${output.bitrate || '3000k'}`, // Bitrate moderado
+    `-b:v ${output.bitrate || '3000k'}`,
     '-movflags +faststart',
     '-pix_fmt yuv420p',
     '-avoid_negative_ts make_zero',
     '-fflags +genpts'
   );
 
-  // Configurações de áudio
-  if (audioClips.length > 0 || videoClips.some(({clip}) => clip?.asset?.type === 'video')) {
+  // Configurações de áudio (apenas se tiver áudio)
+  if (hasVideoAudio) {
     outputOptions.push(
       '-c:a aac',
-      '-b:a 128k',  // Qualidade de áudio moderada
-      '-ar 44100',  // Sample rate padrão
+      '-b:a 128k',
+      '-ar 44100',
       '-ac 2',
       '-shortest',
       '-async 1'
