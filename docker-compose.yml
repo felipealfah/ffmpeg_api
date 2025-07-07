@@ -51,7 +51,7 @@ services:
       - FFMPEG_THREADS=${FFMPEG_THREADS:-6}
       - FFMPEG_PRESET=${FFMPEG_PRESET:-fast}
       - FFMPEG_MEMORY_LIMIT_MB=${FFMPEG_MEMORY_LIMIT:-8192}
-      - NODE_OPTIONS=--max-old-space-size=6144
+      - NODE_OPTIONS=--max-old-space-size=3072
       - FFMPEG_BITRATE=${FFMPEG_BITRATE:-2000k}
       - FFMPEG_AUDIO_BITRATE=${FFMPEG_AUDIO_BITRATE:-128k}
       - FFMPEG_BUFFER_SIZE=${FFMPEG_BUFFER_SIZE:-2000k}
@@ -86,11 +86,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '6.0'
-          memory: 10G
+          cpus: '4.0'
+          memory: 5G
         reservations:
-          cpus: '2.0'
-          memory: 4G
+          cpus: '1.0'
+          memory: 2G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
