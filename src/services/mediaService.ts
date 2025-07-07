@@ -805,7 +805,7 @@ export const renderVideo = async (
             try {
               if (config.googleCloud?.enabled) {
                 console.log('☁️ Iniciando upload para Google Cloud Storage...');
-                const { getStorageService } = await import('./storageService');
+                const { getStorageService } = await import('./storageService.js');
                 const storageService = getStorageService();
                 
                 const uploadResult = await storageService.uploadFile(outputPath, {
