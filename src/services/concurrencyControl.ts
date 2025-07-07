@@ -4,116 +4,132 @@ import { logger } from '../utils/logger';
 import { updateSemaphoreMetrics, ffmpegJobsActive } from '../middleware/metrics';
 
 /**
- * Serviço de controle de concorrência que funciona como uma camada de proteção
- * sobre o sistema de fila existente. Não substitui o sistema atual, apenas
- * adiciona controle de quantos jobs podem rodar simultaneamente.
+ * Serviço centralizado de controle de concorrência para processamento de vídeos.
+ * Gerencia slots de processamento e garante que não excedemos o limite de jobs simultâneos.
  */
 export class ConcurrencyControl {
   private redis!: Redis;
-  private semaphoreKey: string = 'ffmpeg:concurrency_semaphore';
-  private activeJobsKey: string = 'ffmpeg:active_jobs_set';
-  private maxConcurrentJobs: number;
-  private isEnabled: boolean;
+  private readonly semaphoreKey: string = 'ffmpeg:concurrency_semaphore';
+  private readonly activeJobsKey: string = 'ffmpeg:active_jobs_set';
+  private readonly maxConcurrentJobs: number;
+  private readonly isEnabled: boolean;
 
   constructor() {
     this.maxConcurrentJobs = config.maxConcurrentJobs;
-    this.isEnabled = process.env.ENABLE_JOB_QUEUE !== 'false';
+    this.isEnabled = true; // Sempre ativado para garantir controle de recursos
     
-    if (this.isEnabled) {
-      this.redis = new Redis({
-        host: config.redis.host,
-        port: config.redis.port,
-        password: config.redis.password,
-        db: config.redis.db || 0,
-        enableReadyCheck: false,
-        lazyConnect: true
-      });
-      
-      this.initializeSemaphore();
-    }
+    this.redis = new Redis({
+      host: config.redis.host,
+      port: config.redis.port,
+      password: config.redis.password,
+      db: config.redis.db || 0,
+      enableReadyCheck: true,
+      retryStrategy: (times: number) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      }
+    });
     
-    logger.info(`🔒 Controle de concorrência ${this.isEnabled ? 'ATIVADO' : 'DESATIVADO'} - Max jobs: ${this.maxConcurrentJobs}`);
+    this.initializeSemaphore();
+    
+    logger.info(`🔒 Controle de concorrência inicializado - Max jobs: ${this.maxConcurrentJobs}`);
   }
 
   private async initializeSemaphore(): Promise<void> {
     try {
-      if (!this.isEnabled) return;
+      // Redis se conecta automaticamente quando usado - não precisamos chamar connect()
       
-      await this.redis.connect();
+      // Configurar listener de erro do Redis
+      this.redis.on('error', (error) => {
+        logger.error('❌ Erro na conexão Redis:', error);
+      });
       
-      // Inicializar o semáforo se não existir
-      const exists = await this.redis.exists(this.semaphoreKey);
-      if (!exists) {
-        await this.redis.set(this.semaphoreKey, this.maxConcurrentJobs);
-      }
+      this.redis.on('ready', async () => {
+        try {
+          // Inicializar o semáforo com o número máximo de slots
+          await this.redis.set(this.semaphoreKey, this.maxConcurrentJobs);
+          
+          // Limpar lista de jobs ativos no início
+          await this.redis.del(this.activeJobsKey);
+          
+          logger.info(`🔒 Semáforo inicializado com ${this.maxConcurrentJobs} slots disponíveis`);
+        } catch (error) {
+          logger.error('❌ Erro ao inicializar semáforo:', error);
+        }
+      });
       
-      logger.info(`🔒 Semáforo inicializado com ${this.maxConcurrentJobs} slots`);
     } catch (error) {
-      logger.error('❌ Erro ao inicializar semáforo:', error);
-      // Não falhar se Redis não estiver disponível - apenas desabilitar controle
-      this.isEnabled = false;
+      logger.error('❌ Erro fatal ao inicializar semáforo:', error);
+      throw error; // Falhar fast se Redis não estiver disponível
     }
   }
 
   /**
    * Tenta adquirir um slot para executar um job
-   * @param jobId ID do job
-   * @returns true se conseguiu adquirir slot, false caso contrário
    */
-  async tryAcquireSlot(jobId: string): Promise<boolean> {
-    if (!this.isEnabled) {
-      // Se controle está desabilitado, sempre permitir
-      return true;
-    }
-
+  async acquireSlot(jobId: string): Promise<boolean> {
     try {
+      // Verificar se o job já está ativo
+      const isActive = await this.redis.sismember(this.activeJobsKey, jobId);
+      if (isActive) {
+        logger.info(`⚠️ Job ${jobId} já está ativo`);
+        return true;
+      }
+
       // Tentar decrementar o semáforo atomicamente
       const availableSlots = await this.redis.decr(this.semaphoreKey);
       
       if (availableSlots >= 0) {
         // Slot adquirido com sucesso
         await this.redis.sadd(this.activeJobsKey, jobId);
-        logger.info(`🟢 Job ${jobId} adquiriu slot. Slots restantes: ${availableSlots}`);
+        const activeJobs = await this.redis.scard(this.activeJobsKey);
         
-        // Atualizar métricas
+        logger.info(`🟢 Job ${jobId} adquiriu slot (${activeJobs}/${this.maxConcurrentJobs} slots em uso)`);
         await this.updateMetrics();
         return true;
       } else {
         // Não há slots disponíveis, reverter o decremento
         await this.redis.incr(this.semaphoreKey);
-        logger.warn(`🔴 Job ${jobId} rejeitado - sem slots disponíveis`);
+        logger.warn(`🔴 Job ${jobId} aguardando slot disponível (${this.maxConcurrentJobs}/${this.maxConcurrentJobs} slots em uso)`);
         return false;
       }
     } catch (error) {
       logger.error(`❌ Erro ao adquirir slot para job ${jobId}:`, error);
-      // Em caso de erro, permitir execução para não quebrar o sistema
-      return true;
+      throw error;
     }
   }
 
   /**
    * Libera um slot após conclusão do job
-   * @param jobId ID do job
    */
   async releaseSlot(jobId: string): Promise<void> {
-    if (!this.isEnabled) return;
-
     try {
-      // Verificar se o job realmente estava ativo
       const wasActive = await this.redis.sismember(this.activeJobsKey, jobId);
       
       if (wasActive) {
-        // Liberar o slot
         await this.redis.incr(this.semaphoreKey);
         await this.redis.srem(this.activeJobsKey, jobId);
         
-        logger.info(`🔓 Job ${jobId} liberou slot`);
+        const activeJobs = await this.redis.scard(this.activeJobsKey);
+        logger.info(`🔓 Job ${jobId} liberou slot (${activeJobs}/${this.maxConcurrentJobs} slots em uso)`);
         
-        // Atualizar métricas
         await this.updateMetrics();
       }
     } catch (error) {
       logger.error(`❌ Erro ao liberar slot para job ${jobId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtém lista de jobs ativos
+   */
+  async getActiveJobs(): Promise<string[]> {
+    try {
+      return await this.redis.smembers(this.activeJobsKey);
+    } catch (error) {
+      logger.error('❌ Erro ao obter jobs ativos:', error);
+      return [];
     }
   }
 
@@ -121,99 +137,78 @@ export class ConcurrencyControl {
    * Obtém status atual do controle de concorrência
    */
   async getStatus(): Promise<{
-    enabled: boolean;
     maxConcurrentJobs: number;
     availableSlots: number;
-    activeJobs: number;
-    activeJobIds: string[];
+    activeJobs: string[];
   }> {
-    if (!this.isEnabled) {
-      return {
-        enabled: false,
-        maxConcurrentJobs: this.maxConcurrentJobs,
-        availableSlots: this.maxConcurrentJobs,
-        activeJobs: 0,
-        activeJobIds: []
-      };
-    }
-
     try {
-      const availableSlots = parseInt(await this.redis.get(this.semaphoreKey) || '0', 10);
-      const activeJobIds = await this.redis.smembers(this.activeJobsKey);
-      const activeJobs = activeJobIds.length;
+      const [availableSlots, activeJobs] = await Promise.all([
+        this.redis.get(this.semaphoreKey),
+        this.redis.smembers(this.activeJobsKey)
+      ]);
 
       return {
-        enabled: true,
         maxConcurrentJobs: this.maxConcurrentJobs,
-        availableSlots,
-        activeJobs,
-        activeJobIds
+        availableSlots: parseInt(availableSlots || '0', 10),
+        activeJobs
       };
     } catch (error) {
       logger.error('❌ Erro ao obter status:', error);
-      return {
-        enabled: false,
-        maxConcurrentJobs: this.maxConcurrentJobs,
-        availableSlots: 0,
-        activeJobs: 0,
-        activeJobIds: []
-      };
+      throw error;
     }
   }
 
   /**
-   * Força limpeza de jobs órfãos (jobs que não liberaram slots corretamente)
+   * Força a limpeza de jobs órfãos e reinicializa o semáforo
    */
-  async forceCleanup(): Promise<number> {
-    if (!this.isEnabled) return 0;
-
+  async forceCleanup(): Promise<string[]> {
     try {
-      const activeJobIds = await this.redis.smembers(this.activeJobsKey);
+      // Obter jobs ativos antes da limpeza
+      const activeJobs = await this.getActiveJobs();
       
-      // Limpar todos os jobs ativos
-      if (activeJobIds.length > 0) {
-        await this.redis.del(this.activeJobsKey);
-        await this.redis.set(this.semaphoreKey, this.maxConcurrentJobs);
-        
-        logger.warn(`🧹 Limpeza forçada: ${activeJobIds.length} jobs órfãos removidos`);
-        return activeJobIds.length;
-      }
+      // Reinicializar o semáforo
+      await this.redis.set(this.semaphoreKey, this.maxConcurrentJobs);
       
-      return 0;
+      // Limpar lista de jobs ativos
+      await this.redis.del(this.activeJobsKey);
+      
+      logger.warn(`🧹 Limpeza forçada executada. ${activeJobs.length} jobs foram liberados.`);
+      await this.updateMetrics();
+      
+      return activeJobs;
     } catch (error) {
-      logger.error('❌ Erro na limpeza forçada:', error);
-      return 0;
+      logger.error('❌ Erro ao forçar limpeza:', error);
+      throw error;
     }
   }
 
   private async updateMetrics(): Promise<void> {
     try {
       const status = await this.getStatus();
-      updateSemaphoreMetrics(status.availableSlots, 0, status.activeJobs);
+      updateSemaphoreMetrics(
+        status.availableSlots,
+        0, // Removido waitingJobs pois é gerenciado pelo Bull
+        status.activeJobs.length
+      );
+      ffmpegJobsActive.set(status.activeJobs.length);
     } catch (error) {
-      // Não falhar se métricas falharem
-      logger.debug('Erro ao atualizar métricas:', error);
+      logger.error('Erro ao atualizar métricas:', error);
     }
   }
 
   async disconnect(): Promise<void> {
-    if (this.isEnabled && this.redis) {
-      try {
-        await this.redis.disconnect();
-        logger.info('🧹 ConcurrencyControl desconectado');
-      } catch (error) {
-        logger.error('❌ Erro ao desconectar ConcurrencyControl:', error);
-      }
+    if (this.redis) {
+      await this.redis.quit();
     }
   }
 }
 
-// Instância singleton
-let concurrencyControlInstance: ConcurrencyControl;
+// Singleton instance
+let concurrencyControl: ConcurrencyControl | null = null;
 
 export const getConcurrencyControl = (): ConcurrencyControl => {
-  if (!concurrencyControlInstance) {
-    concurrencyControlInstance = new ConcurrencyControl();
+  if (!concurrencyControl) {
+    concurrencyControl = new ConcurrencyControl();
   }
-  return concurrencyControlInstance;
+  return concurrencyControl;
 }; 

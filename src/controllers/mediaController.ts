@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger';
-import { recordJobStart, recordJobComplete } from '../middleware/metrics';
+import { recordJobStart, recordJobComplete, recordJobFail } from '../middleware/metrics';
 import { renderRequestSchema } from '../validation/schemas';
 import { RenderJob, JobStatus } from '../types/media';
 import { createJob, getJob, updateJob } from '../services/queueService';
@@ -64,6 +64,8 @@ export const renderVideo = async (req: Request, res: Response) => {
  * Processa job em background
  */
 const processJobInBackground = async (jobId: string, renderRequest: any) => {
+  const startTime = Date.now();
+  
   try {
     // Atualizar status para processing
     updateJob(jobId, { status: JobStatus.PROCESSING });
@@ -83,7 +85,8 @@ const processJobInBackground = async (jobId: string, renderRequest: any) => {
     });
     
     // Registrar conclusão
-    recordJobComplete(jobId, Date.now());
+    const durationMs = Date.now() - startTime;
+    recordJobComplete(jobId, durationMs);
     
     logger.info(`✅ Job ${jobId} concluído com sucesso`);
     
@@ -98,7 +101,8 @@ const processJobInBackground = async (jobId: string, renderRequest: any) => {
     });
     
     // Registrar erro
-    recordJobComplete(jobId, Date.now());
+    const durationMs = Date.now() - startTime;
+    recordJobFail(jobId, durationMs);
   }
 };
 

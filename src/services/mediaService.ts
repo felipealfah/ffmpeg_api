@@ -68,7 +68,7 @@ const applyFfmpegOptions = (command: ffmpeg.FfmpegCommand): void => {
   command
     .addOption('-threads', options.threads.toString())
     .addOption('-preset', options.preset)
-    .addOption('-memory_limit', options.maxMemory)
+    .addOption('-memory_limit', options.memoryLimitMB.toString())
     .addOption('-max_muxing_queue_size', '1024');
 };
 
@@ -79,46 +79,32 @@ if (config?.ffprobePath) {
   console.warn('FFprobe path não encontrado no config, usando padrão do sistema');
 }
 
-// Chave do Redis para controle de concorrência
-const RENDER_SEMAPHORE_KEY = 'render_semaphore';
-const MAX_CONCURRENT_RENDERS = parseInt(process.env.MAX_CONCURRENT_JOBS || '2', 10);
-
 // Função para adquirir o semáforo de renderização
 const acquireRenderSemaphore = async (jobId: string): Promise<boolean> => {
-  const redis = await getQueueService();
+  const concurrencyControl = await getConcurrencyControl();
+  const acquired = await concurrencyControl.acquireSlot(jobId);
   
-  // Verificar se já está ativo
-  const activeJobs = await redis.getActive();
-  const isAlreadyActive = activeJobs.some(job => job.id === jobId);
-  
-  // Se já está ativo ou há espaço disponível
-  if (isAlreadyActive || activeJobs.length < MAX_CONCURRENT_RENDERS) {
-    await redis.add(jobId, { id: jobId });
-    
+  if (acquired) {
     // Atualizar métrica do Prometheus
-    activeRenderJobs.set(activeJobs.length + 1);
-    
-    console.log(`🔒 Job ${jobId} adquiriu semáforo (${activeJobs.length + 1}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
+    const activeJobs = await concurrencyControl.getActiveJobs();
+    activeRenderJobs.set(activeJobs.length);
+    console.log(`🔒 Job ${jobId} adquiriu semáforo (${activeJobs.length} slots ativos)`);
     return true;
   }
   
-  console.log(`⏳ Job ${jobId} aguardando slot de renderização (${activeJobs.length}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
+  console.log(`⏳ Job ${jobId} aguardando slot de renderização`);
   return false;
 };
 
 // Função para liberar o semáforo de renderização
 const releaseRenderSemaphore = async (jobId: string): Promise<void> => {
-  const redis = await getQueueService();
-  const job = await redis.getJob(jobId);
+  const concurrencyControl = await getConcurrencyControl();
+  await concurrencyControl.releaseSlot(jobId);
   
-  if (job) {
-    await job.remove();
-  }
+  const activeJobs = await concurrencyControl.getActiveJobs();
+  activeRenderJobs.set(activeJobs.length);
   
-  const activeCount = await redis.getJobCounts();
-  activeRenderJobs.set(activeCount.active);
-  
-  console.log(`🔓 Job ${jobId} liberou semáforo (${activeCount.active}/${MAX_CONCURRENT_RENDERS} slots ativos)`);
+  console.log(`🔓 Job ${jobId} liberou semáforo (${activeJobs.length} slots ativos)`);
 };
 
 // Função para aguardar slot de renderização disponível
@@ -789,7 +775,7 @@ export const renderVideo = async (
 
   // Tentar adquirir slot para renderização
   const concurrencyControl = getConcurrencyControl();
-  const slotAcquired = await concurrencyControl.tryAcquireSlot(jobId);
+  const slotAcquired = await concurrencyControl.acquireSlot(jobId);
   
   if (!slotAcquired) {
     throw new Error('Failed to acquire render semaphore');

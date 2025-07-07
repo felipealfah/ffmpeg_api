@@ -159,3 +159,23 @@ export const forceCleanupConcurrency = async (req: Request, res: Response) => {
     throw error;
   }
 }; 
+
+// Get queue status
+export const getQueueStatus = async (req: Request, res: Response) => {
+  try {
+    console.log('🔍 getQueueStatus chamado - iniciando...');
+    const queueStats = await queueService.getQueueStatistics();
+    console.log('🔍 getQueueStatus - estatísticas obtidas:', queueStats);
+    
+    return res.status(200).json({
+      data: {
+        queue: queueStats,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('🔍 getQueueStatus - erro capturado:', error);
+    logger.error('Erro ao obter estatísticas da fila:', error);
+    throw error;
+  }
+}; 

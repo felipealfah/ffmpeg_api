@@ -8,7 +8,7 @@ console.log('🔥 GOOGLE_CLOUD_STORAGE_ENABLED:', process.env.GOOGLE_CLOUD_STORA
 
 // Carregar configuração DEPOIS do dotenv usando require para evitar problemas de cache
 console.log('🚀 Carregando config usando require...');
-const configModule = require('./config');
+const configModule = require('./config/index');
 console.log('🚀 Config module:', configModule);
 console.log('🚀 Config module.default:', configModule.default);
 const config = configModule.default || configModule;
@@ -76,6 +76,27 @@ app.use('/static', express.static(path.join(__dirname, '../public')));
 // Configura o Swagger UI
 swagger.setup(app);
 
+// DEBUG: Log de todas as requisições
+app.use((req, res, next) => {
+  console.log(`🌐 SERVER REQUEST DEBUG:`);
+  console.log(`  Method: ${req.method}`);
+  console.log(`  Path: ${req.path}`);
+  console.log(`  Base URL: ${req.baseUrl}`);
+  console.log(`  Original URL: ${req.originalUrl}`);
+  console.log(`  Route Pattern: ${req.route?.path || 'N/A'}`);
+  console.log(`  Matched Route: ${req.route ? 'Yes' : 'No'}`);
+  next();
+});
+
+// DEBUG: Log específico para rotas admin
+app.use('/api/v1/admin', (req, res, next) => {
+  console.log(`🔍 ADMIN ROUTE INTERCEPTED:`);
+  console.log(`  Full Path: ${req.originalUrl}`);
+  console.log(`  Base: /api/v1/admin`);
+  console.log(`  Remaining Path: ${req.originalUrl.replace('/api/v1/admin', '')}`);
+  next();
+});
+
 // Routes
 app.use('/api/v1/media', mediaRoutes);
 app.use('/api/v1/admin', adminRoutes);
@@ -131,12 +152,48 @@ app.use((req: Request, res: Response) => {
   });
 });
 
+// DEBUG: Listar todas as rotas registradas
+function listRoutes(app: any) {
+  const routes: any[] = [];
+  app._router.stack.forEach((middleware: any) => {
+    if (middleware.route) {
+      routes.push({
+        path: middleware.route.path,
+        method: Object.keys(middleware.route.methods)[0].toUpperCase()
+      });
+    } else if (middleware.name === 'router') {
+      middleware.handle.stack.forEach((handler: any) => {
+        if (handler.route) {
+          const basePath = middleware.regexp.source
+            .replace('\\', '')
+            .replace('(?:\\/(?=$))?', '')
+            .replace('^', '')
+            .replace('$', '')
+            .replace(/\\\//g, '/');
+          routes.push({
+            path: basePath + handler.route.path,
+            method: Object.keys(handler.route.methods)[0].toUpperCase()
+          });
+        }
+      });
+    }
+  });
+  return routes;
+}
+
 // Start server
 const PORT = config.port || 3000;
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Documentação da API disponível em http://localhost:${PORT}/api-docs`);
+    
+    // DEBUG: Listar rotas registradas
+    console.log('🚀 ROTAS REGISTRADAS:');
+    const routes = listRoutes(app);
+    routes.forEach(route => {
+      console.log(`  ${route.method} ${route.path}`);
+    });
   });
 }
 

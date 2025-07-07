@@ -103,12 +103,12 @@ const renderQueue = new Queue('video-render', {
       type: 'exponential',
       delay: 2000,
     },
-    timeout: 600000, // 10 minutos (aumentado de 5 para 10)
+    timeout: config.defaultTimeout, // Usar timeout do config
   }
 });
 
 // LIMITAR CONCORRÊNCIA PARA EVITAR SOBRECARGA DE RECURSOS
-const MAX_CONCURRENT_JOBS = config.maxConcurrentJobs;
+export const MAX_CONCURRENT_JOBS = config.maxConcurrentJobs;
 
 console.log(`🚀 Configurando fila com máximo ${MAX_CONCURRENT_JOBS} jobs simultâneos`);
 
@@ -329,16 +329,30 @@ const processJob = async (job: Queue.Job<RenderJob>): Promise<void> => {
   }
 };
 
-// Processar jobs da fila
-renderQueue.process('video-render', async (job) => {
+// Configurar processamento da fila com limite de concorrência
+renderQueue.process(MAX_CONCURRENT_JOBS, async (job) => {
+  console.log(`🎬 Worker iniciando processamento do job ${job.id}`);
   const renderJob = job.data as RenderJob;
-  console.log(`🎬 Iniciando processamento do job ${renderJob.id}`);
-
+  const startTime = Date.now();
+  
   try {
-    // Renderizar vídeo
+    // Registrar início do processamento
+    recordJobStart(renderJob.id);
+    console.log(`📊 Métricas atualizadas para início do job ${renderJob.id}`);
+
+    // Processar o job
     const outputPath = await processRenderJob(renderJob);
+    
+    // Registrar conclusão bem-sucedida
+    const durationMs = Date.now() - startTime;
+    recordJobComplete(renderJob.id, durationMs);
+    console.log(`✅ Job ${renderJob.id} concluído com sucesso`);
+    
     return { outputPath };
   } catch (error) {
+    // Registrar falha
+    const durationMs = Date.now() - startTime;
+    recordJobFail(renderJob.id, durationMs);
     console.error(`❌ Job ${renderJob.id} falhou:`, error);
     throw error;
   }
@@ -574,4 +588,129 @@ export const analyzeJobCost = async (renderJob: RenderJob): Promise<void> => {
 // Exportar instância da fila
 export const getQueueService = (): Queue.Queue => {
   return renderQueue;
+};
+
+// Configurar eventos da fila para logging detalhado
+renderQueue.on('waiting', (jobId: string) => {
+  console.log(`⏳ Job ${jobId} adicionado à fila de espera`);
+});
+
+renderQueue.on('active', (job) => {
+  console.log(`🎯 Job ${job.id} iniciou processamento`);
+  console.log(`📊 Status da fila: ${job.queue.name}`);
+  job.queue.getJobCounts().then((counts) => {
+    console.log('📈 Contagem de jobs:', {
+      waiting: counts.waiting,
+      active: counts.active,
+      completed: counts.completed,
+      failed: counts.failed,
+      delayed: counts.delayed
+    });
+  });
+});
+
+renderQueue.on('completed', (job, result) => {
+  console.log(`✅ Job ${job.id} concluído com sucesso`);
+  console.log(`📁 Arquivo de saída: ${result.outputPath}`);
+});
+
+renderQueue.on('failed', (job, error) => {
+  console.error(`❌ Job ${job.id} falhou:`, error);
+  console.error(`🔍 Detalhes do job:`, {
+    attempts: job.attemptsMade,
+    data: job.data,
+    timestamp: new Date().toISOString()
+  });
+});
+
+renderQueue.on('stalled', (job) => {
+  console.warn(`⚠️ Job ${job.id} stalled - possível worker morto`);
+});
+
+// Monitoramento de workers
+renderQueue.on('cleaned', (jobs, type) => {
+  console.log(`🧹 ${jobs.length} jobs do tipo ${type} removidos da fila`);
+});
+
+renderQueue.on('error', (error) => {
+  console.error('🚨 Erro na fila:', error);
+});
+
+// Monitoramento de recursos do Redis
+const monitorRedisMemory = async () => {
+  try {
+    const redis = await getQueueService();
+    const info = await redis.client.info('memory');
+    const usedMemory = info.match(/used_memory_human:(\S+)/)?.[1];
+    console.log(`📊 Uso de memória Redis: ${usedMemory}`);
+  } catch (error) {
+    console.error('❌ Erro ao monitorar memória Redis:', error);
+  }
+};
+
+// Monitorar memória a cada 5 minutos
+setInterval(monitorRedisMemory, 5 * 60 * 1000);
+
+/**
+ * Retorna estatísticas detalhadas da fila de renderização
+ */
+export const getQueueStatistics = async () => {
+  try {
+    // Obter contadores da fila
+    const [
+      waiting,
+      active,
+      completed,
+      failed,
+      delayed,
+      paused
+    ] = await Promise.all([
+      renderQueue.getWaitingCount(),
+      renderQueue.getActiveCount(),
+      renderQueue.getCompletedCount(),
+      renderQueue.getFailedCount(),
+      renderQueue.getDelayedCount(),
+      renderQueue.getPausedCount()
+    ]);
+
+    // Obter jobs ativos com detalhes
+    const activeJobs = await renderQueue.getActive();
+    const activeJobsDetails = activeJobs.map(job => ({
+      id: job.id,
+      timestamp: job.timestamp,
+      processedOn: job.processedOn,
+      finishedOn: job.finishedOn,
+      attempts: job.attemptsMade
+    }));
+
+    // Calcular taxa de sucesso
+    const totalProcessed = completed + failed;
+    const successRate = totalProcessed > 0 ? (completed / totalProcessed) * 100 : 100;
+
+    return {
+      counts: {
+        waiting,
+        active,
+        completed,
+        failed,
+        delayed,
+        paused,
+        total: waiting + active + completed + failed + delayed + paused
+      },
+      activeJobs: activeJobsDetails,
+      performance: {
+        successRate: Math.round(successRate * 100) / 100, // Arredondar para 2 casas decimais
+        concurrencyLimit: MAX_CONCURRENT_JOBS,
+        currentConcurrency: active // Usar a contagem atual de jobs ativos da fila
+      },
+      memory: {
+        nodeHeapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        nodeHeapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
+      },
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('Erro ao obter estatísticas da fila:', error);
+    throw error;
+  }
 };
