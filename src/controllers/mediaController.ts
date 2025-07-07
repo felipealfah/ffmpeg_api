@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 import { recordJobStart, recordJobComplete, recordJobFail } from '../middleware/metrics';
 import { renderRequestSchema } from '../validation/schemas';
 import { RenderJob, JobStatus } from '../types/media';
-import { createJob, getJob, updateJob } from '../services/queueService';
+import { createJob, getJob, updateJob, addRenderJob } from '../services/queueService';
 
 // Importação dinâmica do mediaService
 const getMediaService = async () => {
@@ -34,10 +34,13 @@ export const renderVideo = async (req: Request, res: Response) => {
     // Criar job na queue
     const job = createJob(jobId, value);
     
+    // Adicionar job à fila do Redis
+    await addRenderJob(job);
+    
     // Registrar início do job
     recordJobStart(jobId);
     
-    logger.info(`🎬 Job ${jobId} criado, iniciando renderização...`);
+    logger.info(`🎬 Job ${jobId} criado e adicionado à fila...`);
     
     // Responder imediatamente com o job ID
     res.json({
@@ -47,11 +50,17 @@ export const renderVideo = async (req: Request, res: Response) => {
       estimatedTime: '2-5 minutos'
     });
     
-    // Processar em background
-    processJobInBackground(jobId, value);
-    
   } catch (error) {
     logger.error('Erro ao criar job:', error);
+    
+    if (jobId) {
+      updateJob(jobId, {
+        status: JobStatus.FAILED,
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        completedAt: new Date()
+      });
+      recordJobFail(jobId, 0);
+    }
     
     res.status(500).json({
       error: 'Erro interno do servidor',

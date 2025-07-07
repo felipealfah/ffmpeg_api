@@ -68,7 +68,6 @@ const applyFfmpegOptions = (command: ffmpeg.FfmpegCommand): void => {
   command
     .addOption('-threads', options.threads.toString())
     .addOption('-preset', options.preset)
-    .addOption('-memory_limit', options.memoryLimitMB.toString())
     .addOption('-max_muxing_queue_size', '1024');
 };
 
@@ -670,7 +669,7 @@ const buildOutputOptions = (
   const outputOptions = [];
   
   // Handle video mapping based on scenario
-  if (videoClips.length === 1 && videoClips[0].clip._optimized) {
+  if (videoClips.length === 1 && videoClips[0]?.clip?._optimized) {
     // Caso OTIMIZADO: trim simples aplicado nas opções de saída
     const optimizedClip = videoClips[0].clip;
     console.log('🚀 Opções de saída otimizadas: trim simples');
@@ -690,7 +689,7 @@ const buildOutputOptions = (
       outputOptions.push('-map 0:a');
     }
     
-  } else if (videoClips.length === 1 && videoClips[0].clip.asset.type === 'image') {
+  } else if (videoClips.length === 1 && videoClips[0]?.clip?.asset?.type === 'image') {
     // Simple case: single image
     outputOptions.push(`-t ${timelineDuration}`);
     outputOptions.push(`-r ${output.fps || 30}`);
@@ -707,7 +706,7 @@ const buildOutputOptions = (
       outputOptions.push('-map [aout]');
     } else {
       // Verificar se há vídeos com áudio para mapear
-      const hasVideoAudio = videoClips.some(({clip}) => clip.asset.type === 'video');
+      const hasVideoAudio = videoClips.some(({clip}) => clip?.asset?.type === 'video');
       if (hasVideoAudio) {
         outputOptions.push('-map [audio_concat]');
       }
@@ -718,24 +717,15 @@ const buildOutputOptions = (
   outputOptions.push(
     `-c:v ${output.format === 'gif' ? 'gif' : 'libx264'}`,
     `-preset ${output.quality === 'low' ? 'veryfast' : output.quality === 'high' ? 'medium' : 'faster'}`,
-    `-threads 5`,
     `-b:v ${output.bitrate || '3000k'}`, // Bitrate moderado
     '-movflags +faststart',
-    '-max_muxing_queue_size 1024',
     '-pix_fmt yuv420p',
     '-avoid_negative_ts make_zero',
-    '-fflags +genpts',
-    // Otimizações balanceadas para os recursos disponíveis
-    '-tile-columns 4',
-    '-frame-parallel 1',
-    '-cpu-used 3', // Valor médio entre desempenho e qualidade
-    '-row-mt 1',
-    '-bufsize 4000k',
-    '-maxrate 4000k'
+    '-fflags +genpts'
   );
 
   // Configurações de áudio
-  if (audioClips.length > 0 || videoClips.some(({clip}) => clip.asset.type === 'video')) {
+  if (audioClips.length > 0 || videoClips.some(({clip}) => clip?.asset?.type === 'video')) {
     outputOptions.push(
       '-c:a aac',
       '-b:a 128k',  // Qualidade de áudio moderada
@@ -810,17 +800,18 @@ export const renderVideo = async (
             .inputOptions(['-t', '1']);
         }
         
-        // Set output file and handlers
+        // Set output file and handlers - converter clips para formato esperado
+        const videoClips = (renderRequest.timeline?.tracks?.[0]?.clips || []).map(clip => ({ clip }));
+        const audioClips = (renderRequest.timeline?.tracks?.[1]?.clips || []).map(clip => ({ clip }));
+        const subtitleClips = (renderRequest.timeline?.tracks?.[2]?.clips || []).map(clip => ({ clip }));
+        
         const outputOptions = buildOutputOptions(
-          renderRequest.timeline?.tracks?.[0]?.clips || [],
-          renderRequest.timeline?.tracks?.[1]?.clips || [],
-          renderRequest.timeline?.tracks?.[2]?.clips || [],
+          videoClips,
+          audioClips,
+          subtitleClips,
           renderRequest.output,
           calculateTimelineDuration(renderRequest.timeline)
         );
-
-        // Aplicar opções de FFmpeg
-        applyFfmpegOptions(command);
 
         // Aplicar opções de saída diretamente
         outputOptions.forEach(option => {

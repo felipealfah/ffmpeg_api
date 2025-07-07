@@ -28,6 +28,8 @@ import { AppError } from './middleware/errorHandler';
 import { initializeStorageService } from './services/storageService';
 import { logger } from './utils/logger';
 import { metricsMiddleware, metricsHandler } from './middleware/metrics';
+// Importar queueService para inicializar o worker
+import './services/queueService';
 
 // Inicializar serviço de storage do Google Cloud (se habilitado)
 console.log('=== DEBUG CONFIG NO SERVER ===');
