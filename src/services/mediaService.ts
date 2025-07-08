@@ -634,7 +634,9 @@ const createComplexFilterForMedia = async (
     const {clip} = videoClips[index];
     const inputIndex = clip._inputIndex;
     const filePath = clip._localPath;
-    const duration = clip.length; // Duração que este clip deve ter no vídeo final
+    
+    // 🔧 NOVO: Resolver clip.length "auto" para valor numérico
+    const duration = await resolveClipLength(clip, filePath);
     
     if (clip.asset.type === 'image') {
       // Para imagens: loop infinito com duração específica
@@ -677,7 +679,9 @@ const createComplexFilterForMedia = async (
            const {clip} = audioClips.slice(0, videoClips.length)[index];
            const inputIndex = clip._inputIndex;
            const filePath = clip._localPath;
-           const duration = clip.length; // Duração que este clip de áudio deve ter
+           
+           // 🔧 NOVO: Resolver clip.length "auto" para valor numérico
+           const duration = await resolveClipLength(clip, filePath);
            
            try {
              const loopInfo = await detectLoopNeeds(clip, filePath);
