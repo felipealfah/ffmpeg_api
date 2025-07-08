@@ -114,6 +114,7 @@ export interface RenderOutput {
   fps?: number;
   width?: number;
   height?: number;
+  duration?: number;
 }
 
 export interface InputConfig {

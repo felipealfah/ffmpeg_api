@@ -230,6 +230,133 @@ export const getMediaInfo = async (url: string): Promise<any> => {
   });
 };
 
+// Get video duration in seconds from a local file
+const getVideoDuration = async (filePath: string): Promise<number> => {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, (err, data) => {
+      if (err) {
+        console.error(`❌ Erro ao obter duração do vídeo ${filePath}:`, err);
+        reject(err);
+        return;
+      }
+      
+      try {
+        const videoStream = data.streams.find(stream => stream.codec_type === 'video');
+        if (!videoStream || !videoStream.duration) {
+          reject(new Error(`Duração não encontrada para ${filePath}`));
+          return;
+        }
+        
+        const duration = parseFloat(videoStream.duration);
+        console.log(`📏 Duração detectada: ${filePath.split('/').pop()} = ${duration}s`);
+        resolve(duration);
+      } catch (parseError) {
+        console.error(`❌ Erro ao processar metadados:`, parseError);
+        reject(parseError);
+      }
+    });
+  });
+};
+
+// Detect user-specified duration from request
+const detectUserDuration = (request: RenderRequest): number | null => {
+  // Check timeline.duration first
+  if (request.timeline?.duration && typeof request.timeline.duration === 'number') {
+    console.log(`🎯 Duração especificada pelo usuário (timeline): ${request.timeline.duration}s`);
+    return request.timeline.duration;
+  }
+  
+  // Check output.duration as fallback
+  if (request.output?.duration && typeof request.output.duration === 'number') {
+    console.log(`🎯 Duração especificada pelo usuário (output): ${request.output.duration}s`);
+    return request.output.duration;
+  }
+  
+  console.log(`🔍 Usuário não especificou duração, será calculada automaticamente`);
+  return null;
+};
+
+// Calculate real duration based on video clips and their actual video durations
+const calculateRealDuration = async (clips: Clip[], preparedClips: string[]): Promise<number> => {
+  let maxEndTime = 0;
+  
+  console.log(`📊 Calculando duração real baseada nos clips...`);
+  
+  for (let i = 0; i < clips.length; i++) {
+    const clip = clips[i];
+    const filePath = preparedClips[i];
+    
+    // Only process video/audio clips
+    if (clip.asset.type === MediaType.VIDEO || clip.asset.type === MediaType.AUDIO) {
+      try {
+        const videoDuration = await getVideoDuration(filePath);
+        
+        // Calculate clip's actual end time
+        const clipLength = clip.length === "auto" 
+          ? Math.max(0, videoDuration - clip.start)
+          : Math.min(clip.length as number, videoDuration - clip.start);
+        
+        const clipEndTime = clip.start + clipLength;
+        
+        console.log(`📏 Clip ${i + 1}: start=${clip.start}s, length=${clipLength}s, end=${clipEndTime}s`);
+        
+        maxEndTime = Math.max(maxEndTime, clipEndTime);
+      } catch (error) {
+        console.warn(`⚠️ Erro ao obter duração do clip ${i + 1}:`, error);
+        // Fallback: assume clip length or default
+        const fallbackLength = clip.length === "auto" ? 10 : (clip.length as number);
+        maxEndTime = Math.max(maxEndTime, clip.start + fallbackLength);
+      }
+    }
+  }
+  
+  console.log(`⏱️ Duração real calculada: ${maxEndTime}s`);
+  return maxEndTime;
+};
+
+// Detect which clips need loop based on their requirements vs video duration
+const detectLoopNeeds = async (clip: Clip, filePath: string): Promise<{
+  needsLoop: boolean;
+  videoDuration: number;
+  loopCount: number;
+}> => {
+  try {
+    const videoDuration = await getVideoDuration(filePath);
+    
+    // Calculate required duration for this clip
+    const clipLength = clip.length === "auto" ? videoDuration : (clip.length as number);
+    const requiredEndTime = clip.start + clipLength;
+    
+    // Check if clip starts beyond video duration or extends beyond it
+    const needsLoop = clip.start >= videoDuration || requiredEndTime > videoDuration;
+    
+    let loopCount = 1;
+    if (needsLoop) {
+      // Calculate how many loops we need to cover the required duration
+      loopCount = Math.ceil(requiredEndTime / videoDuration);
+    }
+    
+    if (needsLoop) {
+      console.log(`🔄 Clip precisa de loop: start=${clip.start}s, length=${clipLength}s, videoDuration=${videoDuration}s, loops=${loopCount}`);
+    } else {
+      console.log(`✅ Clip não precisa de loop: start=${clip.start}s, length=${clipLength}s, videoDuration=${videoDuration}s`);
+    }
+    
+    return {
+      needsLoop,
+      videoDuration,
+      loopCount
+    };
+  } catch (error) {
+    console.error(`❌ Erro ao verificar necessidade de loop:`, error);
+    return {
+      needsLoop: false,
+      videoDuration: 0,
+      loopCount: 1
+    };
+  }
+};
+
 // Create a text image using FFmpeg
 const createTextImage = async (
   text: string, 
@@ -419,7 +546,7 @@ const prepareClip = async (clip: Clip, tempDir: string): Promise<string> => {
   }
 };
 
-// Função para validar e diagnosticar vídeos
+// 🔧 SIMPLIFICADO: Função apenas para obter duração do vídeo (sem ajustes problemáticos)
 const validateAndDiagnoseVideo = async (filePath: string, requestedClips: Clip[]): Promise<{
   duration: number;
   isValid: boolean;
@@ -436,26 +563,21 @@ const validateAndDiagnoseVideo = async (filePath: string, requestedClips: Clip[]
     });
     
     const duration = metadata.format.duration;
-    const issues: string[] = [];
-    const suggestions: string[] = [];
-    let isValid = true;
     
-    console.log('🔍 DIAGNÓSTICO COMPLETO DO VÍDEO:');
-    console.log(`   📹 Arquivo: ${filePath.split('/').pop()}`);
-    console.log(`   ⏱️  Duração total: ${duration}s`);
+    console.log(`🔍 Duração do vídeo: ${filePath.split('/').pop()} = ${duration}s`);
+    console.log(`📊 ${requestedClips.length} clips solicitados deste vídeo`);
     
-    // Validações...
-    
+    // ✅ SIMPLIFICADO: Sempre retornar como válido - a lógica de loop resolve automaticamente
     return {
       duration,
-      isValid,
-      issues,
-      suggestions,
+      isValid: true,
+      issues: [],
+      suggestions: [],
       adjustedClips: undefined
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao validar vídeo';
-    console.error('Erro ao validar vídeo:', errorMessage);
+    console.error('Erro ao obter duração do vídeo:', errorMessage);
     throw new Error(errorMessage);
   }
 };
@@ -485,37 +607,122 @@ const createSubtitleFilter = (subtitleClip: any): string => {
 };
 
 // Helper function to create complex filter for multiple media clips
-const createComplexFilterForMedia = (
+const createComplexFilterForMedia = async (
   videoClips: any[], 
   audioClips: any[], 
   subtitleClips: any[], 
   output: any
-): string => {
+): Promise<string> => {
   const filterParts: string[] = [];
   
   // Se não há vídeos, criar um vídeo preto base
   if (videoClips.length === 0) {
-    return `color=c=black:s=${output.width}x${output.height}:r=${output.fps || 30}:d=1[outv]`;
-  }
-  
-  // Create filter parts for each video clip
-  videoClips.forEach(({clip}, index) => {
-    if (clip.asset.type === 'image') {
-      // Para imagens: usar loop e configurar duração
-      filterParts.push(`[${index}:v]loop=loop=-1:size=1:start=0,scale=${output.width}:${output.height},setpts=PTS-STARTPTS[v${index}]`);
-    } else {
-      // Para vídeos: escalar e processar áudio
-      filterParts.push(`[${index}:v]scale=${output.width}:${output.height},setpts=PTS-STARTPTS[v${index}]`);
+    const videoDuration = calculateTimelineDuration({ tracks: [] }) || 10; // Default 10s
+    const baseVideoFilter = `color=c=black:s=${output.width}x${output.height}:r=${output.fps || 30}:d=${videoDuration}[outv]`;
+    
+    // Se há áudio, adicionar processamento de áudio
+    if (audioClips.length > 0) {
+      const audioFilter = processAudioClips(audioClips, videoDuration);
+      return audioFilter ? `${baseVideoFilter};${audioFilter}` : baseVideoFilter;
     }
-  });
-  
-  // Concatenate all video segments
-  const videoInputs = videoClips.map((_, index) => `[v${index}]`).join('');
-  if (videoInputs) {
-    filterParts.push(`${videoInputs}concat=n=${videoClips.length}:v=1:a=0[outv]`);
+    
+    return baseVideoFilter;
   }
   
-  return filterParts.join(';');
+  // 🔧 CORRIGIDO: Tratar cada clip individualmente - gerar apenas a duração necessária
+  for (let index = 0; index < videoClips.length; index++) {
+    const {clip} = videoClips[index];
+    const inputIndex = clip._inputIndex;
+    const filePath = clip._localPath;
+    const duration = clip.length; // Duração que este clip deve ter no vídeo final
+    
+    if (clip.asset.type === 'image') {
+      // Para imagens: loop infinito com duração específica
+      filterParts.push(`[${inputIndex}:v]loop=loop=-1:size=1:start=0,scale=${output.width}:${output.height},setpts=PTS-STARTPTS,trim=duration=${duration}[v${index}]`);
+      console.log(`🖼️ Imagem ${index}: input [${inputIndex}], duration=${duration}s`);
+    } else {
+      // Para vídeos: verificar se precisa de loop para cobrir a duração necessária
+      try {
+        const loopInfo = await detectLoopNeeds(clip, filePath);
+        
+        if (loopInfo.needsLoop) {
+          // 🔧 CORRIGIDO: Loop para cobrir a duração necessária, sem usar clip.start para trim
+          console.log(`🔄 Aplicando loop para clip ${index}: ${loopInfo.loopCount} repetições`);
+          filterParts.push(`[${inputIndex}:v]loop=${loopInfo.loopCount - 1}:1:0,setpts=PTS-STARTPTS,trim=duration=${duration},scale=${output.width}:${output.height}[v${index}]`);
+        } else {
+          // Sem loop necessário - processar normalmente, começando do início do vídeo
+          filterParts.push(`[${inputIndex}:v]trim=start=0:duration=${duration},setpts=PTS-STARTPTS,scale=${output.width}:${output.height}[v${index}]`);
+        }
+        
+        console.log(`🎬 Vídeo ${index}: input [${inputIndex}], duration=${duration}s, loop=${loopInfo.needsLoop ? 'SIM' : 'NÃO'}`);
+      } catch (error) {
+        // Fallback para processamento sem loop
+        console.warn(`⚠️ Erro ao verificar loop para clip ${index}, processando sem loop:`, error);
+        filterParts.push(`[${inputIndex}:v]trim=start=0:duration=${duration},setpts=PTS-STARTPTS,scale=${output.width}:${output.height}[v${index}]`);
+      }
+    }
+  }
+  
+  // 🎬 CORRIGIDO: Concatenar vídeo E áudio juntos para manter sincronização
+  if (videoClips.length > 1) {
+    // Para múltiplos clips de vídeo, usar concat que preserva sincronização
+    const videoInputs = videoClips.map((_, index) => `[v${index}]`).join('');
+    const audioInputs = audioClips.slice(0, videoClips.length).map((_, index) => `[${index}:a]`).join('');
+    
+         if (audioInputs) {
+       // 🎵 OTIMIZADO: Tratar áudio de clips sequenciais
+         
+         // 🔧 CORRIGIDO: Cada clip de áudio usa seu input correspondente com lógica de loop
+         for (let index = 0; index < audioClips.slice(0, videoClips.length).length; index++) {
+           const {clip} = audioClips.slice(0, videoClips.length)[index];
+           const inputIndex = clip._inputIndex;
+           const filePath = clip._localPath;
+           const duration = clip.length; // Duração que este clip de áudio deve ter
+           
+           try {
+             const loopInfo = await detectLoopNeeds(clip, filePath);
+             
+             if (loopInfo.needsLoop) {
+               // 🔧 CORRIGIDO: Aloop para cobrir a duração necessária, sem usar clip.start para trim
+               console.log(`🔄 Aplicando aloop para áudio ${index}: ${loopInfo.loopCount} repetições`);
+               filterParts.push(`[${inputIndex}:a]aloop=${loopInfo.loopCount - 1}:2:0,asetpts=PTS-STARTPTS,atrim=duration=${duration},aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=1.2[a${index}]`);
+             } else {
+               // Sem loop necessário - processar normalmente, começando do início
+               filterParts.push(`[${inputIndex}:a]atrim=start=0:duration=${duration},asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=1.2[a${index}]`);
+             }
+             
+             console.log(`🎵 Áudio ${index}: input [${inputIndex}], duration=${duration}s, volume=120%, loop=${loopInfo.needsLoop ? 'SIM' : 'NÃO'}`);
+           } catch (error) {
+             // Fallback para processamento sem loop
+             console.warn(`⚠️ Erro ao verificar aloop para áudio ${index}, processando sem loop:`, error);
+             filterParts.push(`[${inputIndex}:a]atrim=start=0:duration=${duration},asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=1.2[a${index}]`);
+           }
+         }
+       
+       // 🔧 CORRIGIDO: Concatenar com ordem correta [v0][a0][v1][a1][v2][a2]
+       const pairedInputs = [];
+       for (let i = 0; i < videoClips.length; i++) {
+         pairedInputs.push(`[v${i}]`, `[a${i}]`);
+       }
+       filterParts.push(`${pairedInputs.join('')}concat=n=${videoClips.length}:v=1:a=1[outv][aout]`);
+       console.log(`🎬 Concatenação: ${videoClips.length} clips sequenciais com áudio sincronizado`);
+     } else {
+       // Se não há áudio, concatenar só vídeo
+       filterParts.push(`${videoInputs}concat=n=${videoClips.length}:v=1:a=0[outv]`);
+     }
+  } else if (videoClips.length === 1) {
+    // Para um único clip, mapear diretamente
+    filterParts.push(`[v0]copy[outv]`);
+    if (audioClips.length > 0) {
+      filterParts.push(`[0:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=1.2[aout]`);
+      console.log(`🎵 Áudio único com volume aumentado para 120%`);
+    }
+  }
+  
+  const result = filterParts.join(';');
+  console.log(`🎛️ ComplexFilter gerado:`, result);
+  
+  return result;
 };
 
 // Helper function to detect if audio filename suggests it's background music
@@ -574,7 +781,7 @@ const processAudioClips = (audioClips: any[], videoDuration: number): string => 
     
     // Normalizar e manter volume do áudio principal mais alto
     filterParts.push(`${inputLabel}aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[norm${mainIndex}];`);
-    filterParts.push(`[norm${mainIndex}]volume=0.8[vol${mainIndex}];`); // Volume 80% para áudio principal
+    filterParts.push(`[norm${mainIndex}]volume=1.2[vol${mainIndex}];`); // Volume 120% para áudio principal
     
     // Aplicar delay se especificado
     if (clip.start > 0) {
@@ -634,7 +841,22 @@ const buildOutputOptions = (
   // Mapear vídeo do filtergraph
   outputOptions.push('-map [outv]');
   
-  // Codec settings
+  // 🎵 CORRIGIDO: Mapear áudio se existir
+  if (audioClips.length > 0) {
+    outputOptions.push('-map [aout]');
+    // Configurações de áudio
+    outputOptions.push(
+      '-c:a aac',
+      '-b:a 128k',
+      '-ar 44100',
+      '-ac 2'
+    );
+    console.log(`🎵 Áudio mapeado: ${audioClips.length} clips de áudio encontrados`);
+  } else {
+    console.log('⚠️ Nenhum áudio encontrado, vídeo será renderizado sem som');
+  }
+  
+  // Codec settings de vídeo
   outputOptions.push(
     `-c:v ${output.format === 'gif' ? 'gif' : 'libx264'}`,
     `-preset ${output.quality === 'low' ? 'veryfast' : output.quality === 'high' ? 'medium' : 'faster'}`,
@@ -665,15 +887,41 @@ const prepareOutput = (renderRequest: RenderRequest): string => {
 
 // Process timeline and categorize clips
 const processTimeline = (timeline: any, preparedClips: any[]) => {
+  // 🔧 SIMPLIFICADO: Processar todos os clips da mesma forma
+  
   const videoClips = preparedClips.filter(({clip}) => 
     clip.asset.type === 'video' || clip.asset.type === 'image'
   );
-  const audioClips = preparedClips.filter(({clip}) => 
-    clip.asset.type === 'audio' || (clip.asset.type === 'video' && clip.asset.hasAudio)
-  );
+  
+  // 🎵 CORRIGIDO: Incluir áudio de vídeos e clips de áudio separados
+  const audioClips = preparedClips.filter(({clip}) => {
+    // Áudio explícito
+    if (clip.asset.type === 'audio') {
+      const audioSrc = 'src' in clip.asset ? clip.asset.src : 'fonte desconhecida';
+      console.log(`🎵 Áudio encontrado: ${audioSrc}`);
+      return true;
+    }
+    
+    // Áudio de vídeos (assumir que vídeos têm áudio por padrão)
+    if (clip.asset.type === 'video') {
+      const videoSrc = 'src' in clip.asset ? clip.asset.src : 'fonte desconhecida';
+      console.log(`🎵 Vídeo com áudio encontrado: ${videoSrc}`);
+      return true;
+    }
+    
+    return false;
+  });
+  
   const subtitleClips = preparedClips.filter(({clip}) => 
     clip.asset.type === 'subtitle'
   );
+
+  console.log(`📊 Timeline processada:`, {
+    videoClips: videoClips.length,
+    audioClips: audioClips.length,
+    subtitleClips: subtitleClips.length,
+    totalClips: preparedClips.length
+  });
 
   return {
     videoClips,
@@ -702,6 +950,7 @@ export const renderVideo = async (
     console.log('📥 Iniciando preparação dos assets...');
     const preparedClips: any[] = [];
     let inputIndex = 0;
+    const downloadedAssets = new Map(); // Cache para evitar downloads duplicados
 
     if (timeline?.tracks) {
       for (const track of timeline.tracks) {
@@ -711,8 +960,52 @@ export const renderVideo = async (
                             'text' in clip.asset ? clip.asset.text : 
                             'asset sem identificação';
             console.log(`Preparando asset: ${clip.asset.type} - ${assetInfo}`);
-            const localPath = await prepareClip(clip, tempDir);
             
+            // 🔧 SIMPLIFICADO: Cada clip sempre tem seu próprio input, mesmo se reutilizar arquivo
+            let localPath;
+            
+            if (clip.asset.type === 'video' && 'src' in clip.asset) {
+              if (downloadedAssets.has(clip.asset.src)) {
+                // Reutilizar arquivo já baixado, mas manter input separado
+                localPath = downloadedAssets.get(clip.asset.src);
+                console.log(`♻️  Reutilizando arquivo: ${localPath} (input [${inputIndex}])`);
+              } else {
+                // Baixar pela primeira vez
+                localPath = await prepareClip(clip, tempDir);
+                downloadedAssets.set(clip.asset.src, localPath);
+                console.log(`📥 Novo arquivo baixado: ${localPath} (input [${inputIndex}])`);
+                
+                // 🔍 VALIDAÇÃO: Verificar duração do vídeo vs clips solicitados
+                if (!downloadedAssets.has(`validated_${clip.asset.src}`)) {
+                  try {
+                    const videoClipsFromThisSource = [];
+                    // Coletar todos os clips que usam esta fonte
+                    for (const track of timeline.tracks) {
+                      for (const trackClip of track.clips) {
+                        if (trackClip.asset.type === 'video' && 'src' in trackClip.asset && trackClip.asset.src === clip.asset.src) {
+                          videoClipsFromThisSource.push(trackClip);
+                        }
+                      }
+                    }
+                    
+                    const validation = await validateAndDiagnoseVideo(localPath, videoClipsFromThisSource);
+                    downloadedAssets.set(`validated_${clip.asset.src}`, validation);
+                    
+                    // ✅ SIMPLIFICADO: Apenas loggar duração, sem ajustes problemáticos
+                    console.log(`✅ Vídeo validado: ${localPath.split('/').pop()} - duração: ${validation.duration}s`);
+                  } catch (validationError) {
+                    console.warn(`⚠️  Erro na validação do vídeo: ${validationError}`);
+                    // Continuar processamento mesmo com erro de validação
+                  }
+                }
+              }
+            } else {
+              // Para outros tipos, baixar normalmente
+              localPath = await prepareClip(clip, tempDir);
+              console.log(`📥 Asset não-vídeo preparado: ${localPath} (input [${inputIndex}])`);
+            }
+            
+            // 🔧 SIMPLIFICADO: Cada clip sempre tem seu próprio input
             preparedClips.push({
               clip: {
                 ...clip,
@@ -721,7 +1014,9 @@ export const renderVideo = async (
               }
             });
             
+            // Sempre incrementar para o próximo clip
             inputIndex++;
+            
             console.log(`✅ Asset preparado: ${localPath}`);
           } catch (error) {
             console.error(`❌ Erro preparando asset:`, error);
@@ -741,39 +1036,60 @@ export const renderVideo = async (
     const { videoClips, audioClips, subtitleClips } = processTimeline(timeline, preparedClips);
     console.log(`📊 Timeline processada: ${videoClips.length} vídeos, ${audioClips.length} áudios, ${subtitleClips.length} legendas`);
 
-    // Calcular duração total
-    const timelineDuration = calculateTimelineDuration(timeline);
-    console.log(`⏱️  Duração total: ${timelineDuration}s`);
+    // 🎯 NOVA LÓGICA: Detectar duração desejada pelo usuário
+    const userDuration = detectUserDuration(request);
+    let finalDuration: number;
+    
+    if (userDuration !== null) {
+      // Usuário especificou uma duração
+      finalDuration = userDuration;
+      console.log(`🎯 Usando duração especificada pelo usuário: ${finalDuration}s`);
+    } else {
+      // Calcular duração baseada nos clips reais
+      try {
+        const clipPaths = preparedClips.map(p => p.clip._localPath);
+        const allClips = timeline.tracks?.flatMap(track => track.clips) || [];
+        finalDuration = await calculateRealDuration(allClips, clipPaths);
+        console.log(`📊 Duração calculada automaticamente: ${finalDuration}s`);
+      } catch (error) {
+        console.warn(`⚠️ Erro ao calcular duração real, usando fallback:`, error);
+        finalDuration = calculateTimelineDuration(timeline);
+      }
+    }
+    
+    console.log(`⏱️ Duração final: ${finalDuration}s`);
 
     // Criar path de saída
     const outputPath = path.join(outputDir, fileName);
     console.log(`📁 Arquivo de saída: ${outputPath}`);
+
+    // Criar filtergraph primeiro (antes da Promise)
+    const outputWithDuration = { ...output, duration: finalDuration };
+    const complexFilter = await createComplexFilterForMedia(videoClips, audioClips, subtitleClips, outputWithDuration);
+    console.log(`🎛️  Filter complex: ${complexFilter}`);
+
+    // Preparar opções de saída
+    const outputOptions = buildOutputOptions(videoClips, audioClips, subtitleClips, output, finalDuration);
+    console.log(`⚙️  Output options: ${outputOptions.join(' ')}`);
 
     // Renderizar usando FFmpeg
     return new Promise<string>((resolve, reject) => {
       try {
         let command = ffmpeg();
 
-        // Adicionar inputs baseado nos clips preparados
+        // 🔧 SIMPLIFICADO: Adicionar cada clip como input separado (mesmo se arquivo duplicado)
         preparedClips.forEach(({ clip }) => {
           if (clip._localPath) {
             command = command.addInput(clip._localPath);
-            console.log(`📎 Input adicionado: ${clip._localPath}`);
+            console.log(`📎 Input [${clip._inputIndex}] adicionado: ${clip._localPath}`);
           }
         });
-
-        // Criar filtergraph
-        const complexFilter = createComplexFilterForMedia(videoClips, audioClips, subtitleClips, output);
-        console.log(`🎛️  Filter complex: ${complexFilter}`);
         
         if (complexFilter) {
           command = command.complexFilter(complexFilter);
         }
 
         // Adicionar opções de saída
-        const outputOptions = buildOutputOptions(videoClips, audioClips, subtitleClips, output, timelineDuration);
-        console.log(`⚙️  Output options: ${outputOptions.join(' ')}`);
-        
         outputOptions.forEach((option) => {
           if (option.startsWith('-threads ')) {
             const threads = option.split(' ')[1];
