@@ -17,11 +17,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1G
+          cpus: '0.5'
+          memory: 512M
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: '0.1'
+          memory: 128M
 
   ffmpeg-api:
     build: .
@@ -38,7 +38,7 @@ services:
       - TEMP_FILE_TTL_HOURS=1
       - OUTPUT_FILE_TTL_HOURS=24
       - FFMPEG_MUXING_QUEUE_SIZE=1024
-      - FFMPEG_CPU_USED=3
+      - FFMPEG_CPU_USED=2
 
       # Configurações de Ambiente
       - NODE_ENV=${NODE_ENV:-production}
@@ -47,15 +47,15 @@ services:
       - PORT=${PORT:-3000}
 
       # Configurações de FFmpeg e Recursos (controlado pelo .env)
-      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-4}
-      - FFMPEG_THREADS=${FFMPEG_THREADS:-6}
+      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-2}
+      - FFMPEG_THREADS=${FFMPEG_THREADS:-2}
       - FFMPEG_PRESET=${FFMPEG_PRESET:-fast}
-      - FFMPEG_MEMORY_LIMIT_MB=${FFMPEG_MEMORY_LIMIT:-8192}
-      - NODE_OPTIONS=--max-old-space-size=3072
+      - FFMPEG_MEMORY_LIMIT_MB=${FFMPEG_MEMORY_LIMIT:-2048}
+      - NODE_OPTIONS=--max-old-space-size=2048
       - FFMPEG_BITRATE=${FFMPEG_BITRATE:-2000k}
       - FFMPEG_AUDIO_BITRATE=${FFMPEG_AUDIO_BITRATE:-128k}
-      - FFMPEG_BUFFER_SIZE=${FFMPEG_BUFFER_SIZE:-2000k}
-      - FFMPEG_MAX_RATE=${FFMPEG_MAX_RATE:-2500k}
+      - FFMPEG_BUFFER_SIZE=${FFMPEG_BUFFER_SIZE:-3000k}
+      - FFMPEG_MAX_RATE=${FFMPEG_MAX_RATE:-3000k}
 
       # Integrações Externas (Secrets)
       # Google Cloud Storage (OPCIONAL - configure no .env para habilitar)
@@ -91,11 +91,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4.0'
-          memory: 5G
+          cpus: '3.0'
+          memory: 3.5G
         reservations:
-          cpus: '1.0'
-          memory: 2G
+          cpus: '0.5'
+          memory: 1G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -120,16 +120,16 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--storage.tsdb.retention.time=72h'
       - '--web.enable-lifecycle'
-      - '--storage.tsdb.retention.size=2GB'
+      - '--storage.tsdb.retention.size=1GB'
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 1G
+          cpus: '0.3'
+          memory: 512M
         reservations:
           cpus: '0.1'
-          memory: 256M
+          memory: 128M
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
       interval: 30s
@@ -169,11 +169,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '0.2'
+          memory: 256M
         reservations:
           cpus: '0.1'
-          memory: 128M
+          memory: 64M
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
       interval: 30s
