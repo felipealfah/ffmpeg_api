@@ -1,6 +1,7 @@
 import promClient from 'prom-client';
 import { Request, Response, NextFunction } from 'express';
 import { Registry } from 'prom-client';
+import { v4 as uuidv4 } from 'uuid';
 
 // Configurar coleta de métricas padrão do Node.js
 promClient.collectDefaultMetrics({
@@ -391,7 +392,7 @@ export const calculateVideoCost = (durationSeconds: number, complexity: 'low' | 
   const renderTimeSeconds = durationSeconds * renderFactor;
   const costPerSecond = 0.238 / 3600; // $0.238 por hora
   const baseCost = costPerSecond * renderTimeSeconds;
-  const totalCost = baseCost * 1.2; // 20% overhead
+  const totalCost = baseCost * 1.2 * 10000; // 20% overhead e multiplicar por 10000 para valores mais significativos
   
   return totalCost;
 };
@@ -431,26 +432,35 @@ export const determineComplexity = (renderRequest: any): 'low' | 'medium' | 'hig
 };
 
 // Função para atualizar métricas de custo
-export const updateCostMetrics = (durationSeconds: number, complexity: 'low' | 'medium' | 'high', status: string): void => {
-  const cost = calculateVideoCost(durationSeconds, complexity);
-  
-  // Atualizar custo total se o job foi bem-sucedido
-  if (status === 'completed') {
-    videoProcessingCostTotal.inc({ complexity }, cost);
+export const updateCostMetrics = (durationSeconds: number, complexity: 'low' | 'medium' | 'high', status: string, jobId: string): void => {
+  try {
+    const cost = calculateVideoCost(durationSeconds, complexity);
+    
+    // Atualizar custo total se o job foi bem-sucedido
+    if (status === 'completed') {
+      videoProcessingCostTotal.labels(complexity).inc(cost);
+    }
+    
+    // Atualizar custo por hora baseado em uma estimativa simples
+    // Assumimos que cada job em execução custa $0.238/hora
+    const estimatedHourlyCost = 0.238 * 10000; // Multiplicar por 10000 para valores mais significativos
+    costPerHourGauge.set(estimatedHourlyCost);
+  } catch (error) {
+    console.error('Error updating cost metrics:', error);
   }
 };
 
 // Função para atualizar custo por hora
 export const updateHourlyCost = (activeJobs: number): void => {
   const utilizationRatio = activeJobs / 16; // Assumindo 16 jobs máximos
-  const currentHourlyCost = 0.238 * Math.max(utilizationRatio, 0.1); // Mínimo 10%
+  const currentHourlyCost = 0.238 * Math.max(utilizationRatio, 0.1) * 10000; // Mínimo 10% e multiplicar por 10000
   costPerHourGauge.set(currentHourlyCost);
 };
 
-// Contador de custo total de processamento de vídeo
+// Counter para custo total de processamento de vídeo
 export const videoProcessingCostTotal = new promClient.Counter({
   name: 'ffmpeg_video_processing_cost_total_dollars',
-  help: 'Total accumulated cost for video processing',
+  help: 'Total cost of video processing in USD (multiplied by 100 for better visualization)',
   labelNames: ['complexity'],
   registers: [register]
 });
@@ -458,6 +468,86 @@ export const videoProcessingCostTotal = new promClient.Counter({
 // Gauge de custo por hora
 export const costPerHourGauge = new promClient.Gauge({
   name: 'ffmpeg_cost_per_hour_dollars',
-  help: 'Current cost per hour based on active jobs',
+  help: 'Estimated cost per hour in USD (multiplied by 100 for better visualization)',
   registers: [register]
 }); 
+
+// Gauge para CPU por job
+export const ffmpegCpuUsagePerJob = new promClient.Gauge({
+  name: 'ffmpeg_cpu_usage_per_job',
+  help: 'CPU usage percentage per FFmpeg job',
+  labelNames: ['job_id', 'complexity']
+});
+
+// Gauge para memória detalhada por job
+export const ffmpegMemoryDetailedUsage = new promClient.Gauge({
+  name: 'ffmpeg_memory_detailed_usage',
+  help: 'Detailed memory usage per FFmpeg job in bytes',
+  labelNames: ['job_id', 'type'] // type pode ser: heapUsed, heapTotal, external, rss
+});
+
+// Counter para custo total por job
+export const jobProcessingCostTotal = new promClient.Counter({
+  name: 'job_processing_cost_total',
+  help: 'Total cost of processing jobs in USD',
+  labelNames: ['job_id', 'complexity', 'duration_seconds', 'output_format'],
+  registers: [register]
+});
+
+// Gauge para duração de processamento
+export const jobProcessingDuration = new promClient.Gauge({
+  name: 'job_processing_duration_seconds',
+  help: 'Duration of job processing in seconds',
+  labelNames: ['job_id', 'status', 'complexity']
+});
+
+// Counter para erros por tipo
+export const jobErrorsTotal = new promClient.Counter({
+  name: 'job_errors_total',
+  help: 'Total number of job errors by type',
+  labelNames: ['error_type', 'job_id']
+});
+
+// Função para atualizar métricas de CPU por job
+export const updateJobCpuMetrics = (jobId: string, complexity: string): void => {
+  try {
+    const cpuUsage = process.cpuUsage();
+    const totalUsage = (cpuUsage.user + cpuUsage.system) / 1000000; // Converter para segundos
+    ffmpegCpuUsagePerJob.labels(jobId, complexity).set(totalUsage);
+  } catch (error) {
+    console.error('Error updating CPU metrics:', error);
+  }
+};
+
+// Função para atualizar métricas detalhadas de memória por job
+export const updateJobMemoryMetrics = (jobId: string): void => {
+  try {
+    const memoryUsage = process.memoryUsage();
+    
+    // Atualizar cada tipo de memória separadamente
+    ffmpegMemoryDetailedUsage.labels(jobId, 'heapUsed').set(memoryUsage.heapUsed);
+    ffmpegMemoryDetailedUsage.labels(jobId, 'heapTotal').set(memoryUsage.heapTotal);
+    ffmpegMemoryDetailedUsage.labels(jobId, 'external').set(memoryUsage.external);
+    ffmpegMemoryDetailedUsage.labels(jobId, 'rss').set(memoryUsage.rss);
+  } catch (error) {
+    console.error('Error updating memory metrics:', error);
+  }
+};
+
+// Função para registrar erro de job
+export const recordJobError = (jobId: string, errorType: string): void => {
+  try {
+    jobErrorsTotal.labels(errorType, jobId).inc();
+  } catch (error) {
+    console.error('Error recording job error:', error);
+  }
+};
+
+// Função para atualizar duração de processamento
+export const updateJobDuration = (jobId: string, durationSeconds: number, status: string, complexity: string): void => {
+  try {
+    jobProcessingDuration.labels(jobId, status, complexity).set(durationSeconds);
+  } catch (error) {
+    console.error('Error updating job duration:', error);
+  }
+}; 

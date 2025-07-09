@@ -6,7 +6,7 @@ import { createWriteStream } from 'fs';
 import { Readable } from 'stream';
 import { finished } from 'stream/promises';
 import { v4 as uuidv4 } from 'uuid';
-import { RenderJob, RenderRequest, Clip, Track, Timeline, MediaType, AssetSource } from '../types/media';
+import { RenderJob, RenderRequest, Clip, Track, Timeline, MediaType, AssetSource, RenderOutput } from '../types/media';
 import axios from 'axios';
 import { downloadFile as downloadFileUtil, ensureDirectory, cleanupDirectory } from '../utils/file';
 import { getStorageService } from './storageService';
@@ -19,7 +19,18 @@ import {
   activeRenderJobs,
   processMemoryUsage,
   ffmpegProcessMemory,
-  memoryAlerts
+  memoryAlerts,
+  updateJobCpuMetrics,
+  updateJobMemoryMetrics,
+  updateJobDuration,
+  recordJobError,
+  jobProcessingCostTotal,
+  ffmpegJobsActive,
+  ffmpegJobsTotal,
+  ffmpegJobDuration,
+  updateCostMetrics,
+  updateHourlyCost,
+  determineComplexity
 } from '../middleware/metrics';
 import { getConcurrencyControl } from '../services/concurrencyControl';
 
@@ -941,6 +952,7 @@ export const renderVideo = async (
   storage: any
 ): Promise<string> => {
   console.log(`🎯 Job ${jobId} iniciou processamento`);
+  const startTime = Date.now(); // Adicionar aqui no início da função
   const { timeline, output } = request;
   const { tempDir, outputDir, fileName } = storage;
 
@@ -1120,6 +1132,16 @@ export const renderVideo = async (
           .on('end', async () => {
             console.log('✅ Renderização concluída com sucesso:', outputPath);
             
+            // Calcular duração e complexidade
+            const endTime = Date.now();
+            const durationSeconds = (endTime - startTime) / 1000;
+            const complexity = calculateJobComplexity(timeline, output);
+            
+            // Atualizar métricas apenas uma vez com todos os labels necessários
+            ffmpegJobsTotal.inc({ status: 'completed', complexity });
+            ffmpegJobDuration.observe({ status: 'completed', complexity }, durationSeconds);
+            updateCostMetrics(durationSeconds, complexity, 'completed', jobId);
+            
             // Verificar se deve fazer upload para Google Cloud Storage
             let finalOutputPath = outputPath;
             try {
@@ -1259,3 +1281,33 @@ export const downloadFile = async (filePath: string, res: any): Promise<void> =>
     throw error;
   }
 }; 
+
+// Nova função para calcular complexidade do job
+function calculateJobComplexity(timeline: Timeline, output: RenderOutput): 'low' | 'medium' | 'high' {
+  // Base na resolução do output
+  const width = output.width || 1920;
+  const height = output.height || 1080;
+  const resolution = width * height;
+  
+  // Base no número de clips
+  const totalClips = timeline.tracks?.reduce((sum, track) => sum + track.clips.length, 0) || 0;
+  
+  if (resolution >= 1920 * 1080 && totalClips >= 5) return 'high';
+  if (resolution >= 1280 * 720 && totalClips >= 3) return 'medium';
+  return 'low';
+}
+
+// Nova função para calcular custo do job
+function calculateJobCost(durationSeconds: number, complexity: 'low' | 'medium' | 'high'): number {
+  const complexityFactors = {
+    low: Number(process.env.COMPLEXITY_FACTOR_LOW) || 0.5,
+    medium: Number(process.env.COMPLEXITY_FACTOR_MEDIUM) || 1.5,
+    high: Number(process.env.COMPLEXITY_FACTOR_HIGH) || 3.0
+  };
+
+  const baseCost = (Number(process.env.SERVER_COST_PER_HOUR) || 0.009167) / 3600; // Custo por segundo
+  const complexityFactor = complexityFactors[complexity];
+  const additionalCostFactor = Number(process.env.ADDITIONAL_COST_FACTOR) || 0.12;
+
+  return durationSeconds * baseCost * complexityFactor * (1 + additionalCostFactor);
+} 

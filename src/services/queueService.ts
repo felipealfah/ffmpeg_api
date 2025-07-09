@@ -352,7 +352,7 @@ const processJob = async (job: Queue.Job<RenderJob>): Promise<void> => {
     
     // Atualizar métricas de custo
     const duration = calculateTimelineDuration(jobData.request.timeline);
-    updateCostMetrics(duration, complexity, 'completed');
+    updateCostMetrics(duration, complexity, 'completed', jobId);
     
   } catch (error) {
     // Calcular duração
@@ -643,7 +643,7 @@ export const analyzeJobCost = async (renderJob: RenderJob): Promise<void> => {
     });
     
     // Atualizar métricas de custo
-    updateCostMetrics(estimatedDuration, complexity, 'started');
+    updateCostMetrics(estimatedDuration, complexity, 'started', renderJob.id);
     
     // Atualizar custo por hora baseado em jobs ativos
     const activeJobsCount = jobsMap.size;

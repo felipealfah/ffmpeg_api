@@ -75,6 +75,11 @@ services:
       - COMPLEXITY_FACTOR_HIGH=${COMPLEXITY_FACTOR_HIGH}
       - ADDITIONAL_COST_FACTOR=${ADDITIONAL_COST_FACTOR}
 
+      # Slack Integration
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - SLACK_API_TOKEN=${SLACK_API_TOKEN}
+      - SLACK_CHANNEL=${SLACK_CHANNEL}
+
     volumes:
       - ./storage:/app/storage
       - ./src/config:/app/src/config:ro
@@ -140,14 +145,24 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-clock-panel
       - GF_SERVER_ROOT_URL=http://localhost:3001
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_UNIFIED_ALERTING_ENABLED=true
+      - GF_ALERTING_ENABLED=false
+      - GF_SMTP_ENABLED=false
+      
+      # Slack Integration
+      - GF_SLACK_API_URL=${SLACK_WEBHOOK_URL}
+      - GF_SLACK_TOKEN=${SLACK_API_TOKEN}
+      - GF_SLACK_NOTIFICATION_CHANNEL=${SLACK_CHANNEL}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/provisioning/notifiers:/etc/grafana/provisioning/notifiers
+      - ./monitoring/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting
     restart: unless-stopped
     depends_on:
       - prometheus
