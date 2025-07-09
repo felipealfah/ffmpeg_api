@@ -1,12 +1,13 @@
 apiVersion: 1
 
 providers:
-  - name: 'default'
+  - name: 'FFmpeg API Dashboards'
     orgId: 1
     folder: ''
     type: file
     disableDeletion: false
-    updateIntervalSeconds: 10
+    editable: true
     allowUiUpdates: true
     options:
-      path: /etc/grafana/provisioning/dashboards 
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: true 
