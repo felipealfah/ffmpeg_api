@@ -1,0 +1,962 @@
+---
+title: "Stories Instagram/TikTok"
+description: "Crie Stories e vídeos verticais otimizados para redes sociais"
+---
+
+# Stories Instagram/TikTok
+
+Aprenda a criar vídeos verticais otimizados para Instagram Stories, TikTok e outras redes sociais com formato 9:16.
+
+## Resultado Final
+
+Este exemplo criará um vídeo com:
+- ✅ Formato vertical 9:16 (1080x1920)
+- ✅ Múltiplos clips curtos com transições
+- ✅ Texto animado sobreposto
+- ✅ Áudio de fundo automático
+- ✅ Duração otimizada (15-30 segundos)
+
+## Código Completo
+
+<CodeGroup>
+```json Requisição Básica
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+            },
+            "start": 0,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_2mb.mp4"
+            },
+            "start": 5,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_5mb.mp4"
+            },
+            "start": 10,
+            "length": 5
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "✨ PRIMEIRO MOMENTO ✨",
+              "style": {
+                "fontSize": 64,
+                "fontColor": "white",
+                "outlineColor": "black",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 100
+              }
+            },
+            "start": 0,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "🔥 SEGUNDA CENA 🔥",
+              "style": {
+                "fontSize": 64,
+                "fontColor": "yellow",
+                "outlineColor": "black",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 100
+              }
+            },
+            "start": 5,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "💫 GRANDE FINAL 💫",
+              "style": {
+                "fontSize": 64,
+                "fontColor": "cyan",
+                "outlineColor": "black",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 100
+              }
+            },
+            "start": 10,
+            "length": 5
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+              "isBackground": true,
+              "volume": 0.6
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1080x1920",
+    "quality": "high",
+    "fps": 30,
+    "bitrate": "5000k"
+  }
+}
+```
+
+```json Versão Avançada
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1080&h=1920&fit=crop"
+            },
+            "start": 0,
+            "length": 3
+          },
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+            },
+            "start": 3,
+            "length": 7
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1080&h=1920&fit=crop"
+            },
+            "start": 10,
+            "length": 3
+          },
+          {
+            "asset": {
+              "type": "video",
+              "source": "url",
+              "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_2mb.mp4"
+            },
+            "start": 13,
+            "length": 7
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "🎬 INÍCIO",
+              "style": {
+                "fontSize": 80,
+                "fontColor": "white",
+                "outlineColor": "black",
+                "outline": 4,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 200
+              }
+            },
+            "start": 0,
+            "length": 3
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "Primeiro momento incrível!",
+              "style": {
+                "fontSize": 48,
+                "fontColor": "white",
+                "outlineColor": "black",
+                "outline": 2,
+                "bold": true,
+                "alignment": "center",
+                "position": "bottom",
+                "marginV": 150
+              }
+            },
+            "start": 3,
+            "length": 7
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "💥 TRANSIÇÃO",
+              "style": {
+                "fontSize": 72,
+                "fontColor": "yellow",
+                "outlineColor": "red",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 200
+              }
+            },
+            "start": 10,
+            "length": 3
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "E o grande final chegou!",
+              "style": {
+                "fontSize": 52,
+                "fontColor": "cyan",
+                "outlineColor": "black",
+                "outline": 2,
+                "bold": true,
+                "alignment": "center",
+                "position": "bottom",
+                "marginV": 150
+              }
+            },
+            "start": 13,
+            "length": 7
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+              "isBackground": true,
+              "volume": 0.7
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1080x1920",
+    "quality": "high",
+    "fps": 30,
+    "bitrate": "6000k"
+  }
+}
+```
+
+```javascript JavaScript
+async function criarStoryInstagram() {
+  const response = await fetch('http://localhost:3000/api/media/render', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      timeline: {
+        tracks: [
+          // Track de vídeo principal
+          {
+            clips: [
+              {
+                asset: {
+                  type: 'video',
+                  source: 'url',
+                  src: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4'
+                },
+                start: 0,
+                length: 5
+              },
+              {
+                asset: {
+                  type: 'video',
+                  source: 'url',
+                  src: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_2mb.mp4'
+                },
+                start: 5,
+                length: 5
+              }
+            ]
+          },
+          // Track de texto
+          {
+            clips: [
+              {
+                asset: {
+                  type: 'text',
+                  text: '✨ PRIMEIRO MOMENTO ✨',
+                  style: {
+                    fontSize: 64,
+                    fontColor: 'white',
+                    outlineColor: 'black',
+                    outline: 3,
+                    bold: true,
+                    alignment: 'center',
+                    position: 'top',
+                    marginV: 100
+                  }
+                },
+                start: 0,
+                length: 5
+              },
+              {
+                asset: {
+                  type: 'text',
+                  text: '🔥 SEGUNDA CENA 🔥',
+                  style: {
+                    fontSize: 64,
+                    fontColor: 'yellow',
+                    outlineColor: 'black',
+                    outline: 3,
+                    bold: true,
+                    alignment: 'center',
+                    position: 'top',
+                    marginV: 100
+                  }
+                },
+                start: 5,
+                length: 5
+              }
+            ]
+          },
+          // Track de áudio
+          {
+            clips: [
+              {
+                asset: {
+                  type: 'audio',
+                  source: 'url',
+                  src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+                  isBackground: true,
+                  volume: 0.6
+                },
+                start: 0,
+                length: 'auto'
+              }
+            ]
+          }
+        ]
+      },
+      output: {
+        format: 'mp4',
+        resolution: '1080x1920',
+        quality: 'high',
+        fps: 30,
+        bitrate: '5000k'
+      }
+    })
+  });
+
+  const job = await response.json();
+  console.log('Story job criado:', job.jobId);
+  return job.jobId;
+}
+```
+
+```python Python
+import requests
+
+def criar_story_instagram():
+    payload = {
+        "timeline": {
+            "tracks": [
+                # Track de vídeo principal
+                {
+                    "clips": [
+                        {
+                            "asset": {
+                                "type": "video",
+                                "source": "url",
+                                "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"
+                            },
+                            "start": 0,
+                            "length": 5
+                        },
+                        {
+                            "asset": {
+                                "type": "video",
+                                "source": "url",
+                                "src": "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_2mb.mp4"
+                            },
+                            "start": 5,
+                            "length": 5
+                        }
+                    ]
+                },
+                # Track de texto
+                {
+                    "clips": [
+                        {
+                            "asset": {
+                                "type": "text",
+                                "text": "✨ PRIMEIRO MOMENTO ✨",
+                                "style": {
+                                    "fontSize": 64,
+                                    "fontColor": "white",
+                                    "outlineColor": "black",
+                                    "outline": 3,
+                                    "bold": True,
+                                    "alignment": "center",
+                                    "position": "top",
+                                    "marginV": 100
+                                }
+                            },
+                            "start": 0,
+                            "length": 5
+                        }
+                    ]
+                },
+                # Track de áudio
+                {
+                    "clips": [
+                        {
+                            "asset": {
+                                "type": "audio",
+                                "source": "url",
+                                "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+                                "isBackground": True,
+                                "volume": 0.6
+                            },
+                            "start": 0,
+                            "length": "auto"
+                        }
+                    ]
+                }
+            ]
+        },
+        "output": {
+            "format": "mp4",
+            "resolution": "1080x1920",
+            "quality": "high",
+            "fps": 30,
+            "bitrate": "5000k"
+        }
+    }
+    
+    response = requests.post("http://localhost:3000/api/media/render", json=payload)
+    return response.json()
+```
+</CodeGroup>
+
+## Passo a Passo
+
+### 1. Estrutura da Timeline
+
+<Steps>
+  <Step title="Track de Vídeo">
+    Configure a track principal com os clips de vídeo sequenciais
+    
+    ```json
+    {
+      "clips": [
+        {
+          "asset": { "type": "video", "src": "url_do_video1" },
+          "start": 0,
+          "length": 5
+        },
+        {
+          "asset": { "type": "video", "src": "url_do_video2" },
+          "start": 5,
+          "length": 5
+        }
+      ]
+    }
+    ```
+  </Step>
+  
+  <Step title="Track de Texto">
+    Adicione textos sobrepostos com timing sincronizado
+    
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "text",
+            "text": "✨ PRIMEIRO MOMENTO ✨",
+            "style": {
+              "fontSize": 64,
+              "fontColor": "white",
+              "outlineColor": "black",
+              "outline": 3,
+              "position": "top"
+            }
+          },
+          "start": 0,
+          "length": 5
+        }
+      ]
+    }
+    ```
+  </Step>
+  
+  <Step title="Track de Áudio">
+    Configure áudio de fundo com volume balanceado
+    
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "audio",
+            "src": "url_do_audio",
+            "isBackground": true,
+            "volume": 0.6
+          },
+          "start": 0,
+          "length": "auto"
+        }
+      ]
+    }
+    ```
+  </Step>
+  
+  <Step title="Configuração de Saída">
+    Defina formato vertical otimizado para Stories
+    
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "resolution": "1080x1920",
+        "quality": "high",
+        "fps": 30,
+        "bitrate": "5000k"
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Variações e Formatos
+
+### Resoluções Recomendadas
+
+<Tabs>
+  <Tab title="Instagram Stories">
+    ```json
+    {
+      "output": {
+        "resolution": "1080x1920",
+        "format": "mp4",
+        "quality": "high",
+        "fps": 30
+      }
+    }
+    ```
+    
+    - **Proporção**: 9:16
+    - **Duração**: 15 segundos (máximo)
+    - **Tamanho**: Até 4GB
+  </Tab>
+  
+  <Tab title="TikTok">
+    ```json
+    {
+      "output": {
+        "resolution": "1080x1920",
+        "format": "mp4",
+        "quality": "high",
+        "fps": 30,
+        "bitrate": "6000k"
+      }
+    }
+    ```
+    
+    - **Proporção**: 9:16
+    - **Duração**: 15-60 segundos
+    - **Tamanho**: Até 500MB
+  </Tab>
+  
+  <Tab title="YouTube Shorts">
+    ```json
+    {
+      "output": {
+        "resolution": "1080x1920",
+        "format": "mp4",
+        "quality": "high",
+        "fps": 30,
+        "bitrate": "8000k"
+      }
+    }
+    ```
+    
+    - **Proporção**: 9:16
+    - **Duração**: Até 60 segundos
+    - **Qualidade**: Máxima
+  </Tab>
+</Tabs>
+
+## Dicas de Otimização
+
+### 📱 Design Vertical
+
+<AccordionGroup>
+  <Accordion title="Posicionamento de Texto" icon="text">
+    ```json
+    {
+      "style": {
+        "position": "top",    // ou "bottom"
+        "marginV": 100,       // margem do topo/fundo
+        "alignment": "center", // alinhamento horizontal
+        "fontSize": 64        // tamanho otimizado para mobile
+      }
+    }
+    ```
+    
+    - Use margens grandes (100-200px) para evitar sobreposição
+    - Posicione textos importantes no terço superior ou inferior
+    - Evite o centro vertical onde ficam os botões
+  </Accordion>
+  
+  <Accordion title="Cores e Contraste" icon="palette">
+    ```json
+    {
+      "style": {
+        "fontColor": "white",
+        "outlineColor": "black",
+        "outline": 3,
+        "bold": true
+      }
+    }
+    ```
+    
+    - Sempre use outline para garantir legibilidade
+    - Prefira cores claras com outline escuro
+    - Teste em diferentes fundos de vídeo
+  </Accordion>
+  
+  <Accordion title="Timing e Transições" icon="clock">
+    ```json
+    {
+      "clips": [
+        { "start": 0, "length": 3 },   // Intro rápida
+        { "start": 3, "length": 7 },   // Conteúdo principal
+        { "start": 10, "length": 3 },  // Transição
+        { "start": 13, "length": 7 }   // Final
+      ]
+    }
+    ```
+    
+    - Mantenha clips curtos (3-7 segundos)
+    - Use transições rápidas (2-3 segundos)
+    - Sincronize com batidas da música
+  </Accordion>
+</AccordionGroup>
+
+### 🎵 Áudio Otimizado
+
+<AccordionGroup>
+  <Accordion title="Volume Balanceado" icon="volume">
+    ```json
+    {
+      "asset": {
+        "type": "audio",
+        "isBackground": true,
+        "volume": 0.6  // 60% para não sobrepor narração
+      }
+    }
+    ```
+    
+    - Stories: 0.5-0.7 (muitos assistem sem som)
+    - TikTok: 0.7-0.9 (áudio é crucial)
+    - YouTube Shorts: 0.8-1.0 (qualidade máxima)
+  </Accordion>
+  
+  <Accordion title="Música Trending" icon="music">
+    Use músicas populares nas plataformas:
+    
+    - **Instagram**: Biblioteca de música do Instagram
+    - **TikTok**: Sounds trending
+    - **YouTube**: Música livre de direitos autorais
+    
+    ```json
+    {
+      "asset": {
+        "type": "audio",
+        "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+        "isBackground": true,
+        "volume": 0.75
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### ⚡ Performance
+
+<AccordionGroup>
+  <Accordion title="Bitrate Otimizado" icon="gauge">
+    ```json
+    {
+      "output": {
+        "bitrate": "5000k",  // Instagram Stories
+        "bitrate": "6000k",  // TikTok
+        "bitrate": "8000k"   // YouTube Shorts
+      }
+    }
+    ```
+    
+    - Menor bitrate = upload mais rápido
+    - Maior bitrate = melhor qualidade
+    - Balance baseado na plataforma
+  </Accordion>
+  
+  <Accordion title="Compressão" icon="compress">
+    ```json
+    {
+      "output": {
+        "format": "mp4",
+        "quality": "high",
+        "fps": 30  // 60fps só se necessário
+      }
+    }
+    ```
+    
+    - 30fps é suficiente para a maioria dos casos
+    - 60fps apenas para slow-motion ou gaming
+    - Formato MP4 é universal
+  </Accordion>
+</AccordionGroup>
+
+## Casos de Uso Reais
+
+### 🛍️ E-commerce
+
+```json
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "src": "produto1.jpg"
+            },
+            "start": 0,
+            "length": 3
+          },
+          {
+            "asset": {
+              "type": "image", 
+              "src": "produto2.jpg"
+            },
+            "start": 3,
+            "length": 3
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "🛍️ NOVO PRODUTO\n50% OFF",
+              "style": {
+                "fontSize": 72,
+                "fontColor": "red",
+                "bold": true
+              }
+            },
+            "start": 0,
+            "length": 6
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 🎉 Eventos
+
+```json
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "src": "evento_preview.mp4"
+            },
+            "start": 0,
+            "length": 10
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "📅 EVENTO IMPERDÍVEL\n15 DE JULHO\nInscreva-se já!",
+              "style": {
+                "fontSize": 48,
+                "fontColor": "white",
+                "position": "bottom"
+              }
+            },
+            "start": 0,
+            "length": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 🏋️ Fitness
+
+```json
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "video",
+              "src": "exercicio1.mp4"
+            },
+            "start": 0,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "video",
+              "src": "exercicio2.mp4"
+            },
+            "start": 5,
+            "length": 5
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "💪 TREINO DO DIA\n3x15 repetições",
+              "style": {
+                "fontSize": 56,
+                "fontColor": "yellow",
+                "position": "top"
+              }
+            },
+            "start": 0,
+            "length": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Troubleshooting
+
+### ❌ Problemas Comuns
+
+<AccordionGroup>
+  <Accordion title="Texto Não Aparece" icon="eye-slash">
+    **Problema**: Texto não é visível no vídeo
+    
+    **Soluções**:
+    ```json
+    {
+      "style": {
+        "fontSize": 48,        // Aumente o tamanho
+        "fontColor": "white",  // Use cor contrastante
+        "outlineColor": "black", // Adicione outline
+        "outline": 3,          // Outline grosso
+        "bold": true           // Texto em negrito
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Áudio Muito Alto/Baixo" icon="volume-x">
+    **Problema**: Volume inadequado do áudio
+    
+    **Soluções**:
+    ```json
+    {
+      "asset": {
+        "type": "audio",
+        "isBackground": true,
+        "volume": 0.6  // Ajuste entre 0.1 e 1.0
+      }
+    }
+    ```
+    
+    - Stories: 0.5-0.7
+    - TikTok: 0.7-0.9
+    - YouTube: 0.8-1.0
+  </Accordion>
+  
+  <Accordion title="Vídeo Muito Pesado" icon="weight">
+    **Problema**: Arquivo muito grande para upload
+    
+    **Soluções**:
+    ```json
+    {
+      "output": {
+        "quality": "medium",   // Reduza a qualidade
+        "bitrate": "3000k",    // Reduza o bitrate
+        "fps": 30             // Use 30fps em vez de 60
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  **Dica Pro**: Use o endpoint `/api/media/validate` para testar sua timeline antes de processar o vídeo!
+</Note>
+
+<Warning>
+  **Atenção**: Sempre teste em diferentes dispositivos móveis para garantir que o texto seja legível.
+</Warning> 

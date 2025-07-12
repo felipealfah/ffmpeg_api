@@ -1,0 +1,1258 @@
+---
+title: "Slideshow com Transições"
+description: "Crie slideshows profissionais com transições suaves e timing perfeito"
+---
+
+# Slideshow com Transições
+
+Aprenda a criar slideshows profissionais combinando múltiplas imagens, transições suaves e sincronização musical perfeita.
+
+## Resultado Final
+
+Este exemplo criará um slideshow com:
+- ✅ Múltiplas imagens em sequência
+- ✅ Transições suaves entre slides
+- ✅ Música de fundo sincronizada
+- ✅ Texto informativo customizável
+- ✅ Timing automático ou manual
+
+## Código Completo
+
+<CodeGroup>
+```json Slideshow Básico
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 0,
+            "length": 4
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 4,
+            "length": 4
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 8,
+            "length": 4
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 12,
+            "length": 4
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 16,
+            "length": 4
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "🌄 NATUREZA INCRÍVEL 🌄\n\nViagem pelas paisagens mais belas do mundo",
+              "style": {
+                "fontSize": 48,
+                "fontColor": "white",
+                "outlineColor": "black",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "bottom",
+                "marginV": 120
+              }
+            },
+            "start": 0,
+            "length": 20
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+              "isBackground": true,
+              "volume": 0.6
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1920x1080",
+    "quality": "high",
+    "fps": 30,
+    "bitrate": "8000k"
+  }
+}
+```
+
+```json Slideshow Avançado
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 0,
+            "length": 6
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 6,
+            "length": 6
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 12,
+            "length": 6
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 18,
+            "length": 6
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 24,
+            "length": 6
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "🏔️ MONTANHAS MAJESTOSAS",
+              "style": {
+                "fontSize": 56,
+                "fontColor": "white",
+                "outlineColor": "black",
+                "outline": 4,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 100
+              }
+            },
+            "start": 0,
+            "length": 6
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "🌊 OCEANOS INFINITOS",
+              "style": {
+                "fontSize": 56,
+                "fontColor": "cyan",
+                "outlineColor": "navy",
+                "outline": 4,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 100
+              }
+            },
+            "start": 6,
+            "length": 6
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "🌲 FLORESTAS EXUBERANTES",
+              "style": {
+                "fontSize": 56,
+                "fontColor": "lightgreen",
+                "outlineColor": "darkgreen",
+                "outline": 4,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 100
+              }
+            },
+            "start": 12,
+            "length": 6
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "🏜️ DESERTOS MÍSTICOS",
+              "style": {
+                "fontSize": 56,
+                "fontColor": "orange",
+                "outlineColor": "brown",
+                "outline": 4,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 100
+              }
+            },
+            "start": 18,
+            "length": 6
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "🌅 HORIZONTES INFINITOS",
+              "style": {
+                "fontSize": 56,
+                "fontColor": "gold",
+                "outlineColor": "black",
+                "outline": 4,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 100
+              }
+            },
+            "start": 24,
+            "length": 6
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "Uma jornada através das paisagens mais impressionantes do nosso planeta",
+              "style": {
+                "fontSize": 32,
+                "fontColor": "white",
+                "outlineColor": "black",
+                "outline": 2,
+                "bold": true,
+                "alignment": "center",
+                "position": "bottom",
+                "marginV": 80
+              }
+            },
+            "start": 0,
+            "length": 30
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+              "isBackground": true,
+              "volume": 0.65
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1920x1080",
+    "quality": "high",
+    "fps": 30,
+    "bitrate": "10000k"
+  }
+}
+```
+
+```json Slideshow Corporativo
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 0,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 5,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 10,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 15,
+            "length": 5
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "🏢 NOSSA EMPRESA\n\nLíder em Inovação Tecnológica",
+              "style": {
+                "fontSize": 52,
+                "fontColor": "white",
+                "outlineColor": "blue",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 120
+              }
+            },
+            "start": 0,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "👥 NOSSA EQUIPE\n\nProfissionais Qualificados",
+              "style": {
+                "fontSize": 52,
+                "fontColor": "white",
+                "outlineColor": "green",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 120
+              }
+            },
+            "start": 5,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "💼 NOSSOS SERVIÇOS\n\nSoluções Personalizadas",
+              "style": {
+                "fontSize": 52,
+                "fontColor": "white",
+                "outlineColor": "purple",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 120
+              }
+            },
+            "start": 10,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "🎯 NOSSOS RESULTADOS\n\nExcelência Comprovada",
+              "style": {
+                "fontSize": 52,
+                "fontColor": "white",
+                "outlineColor": "red",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 120
+              }
+            },
+            "start": 15,
+            "length": 5
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "www.empresa.com | contato@empresa.com | (11) 99999-9999",
+              "style": {
+                "fontSize": 24,
+                "fontColor": "white",
+                "outlineColor": "black",
+                "outline": 2,
+                "bold": true,
+                "alignment": "center",
+                "position": "bottom",
+                "marginV": 40
+              }
+            },
+            "start": 0,
+            "length": 20
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1920x1080",
+    "quality": "high",
+    "fps": 30,
+    "bitrate": "8000k"
+  }
+}
+```
+
+```javascript JavaScript
+async function criarSlideshow() {
+  const images = [
+    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&h=1080&fit=crop&auto=format&q=80',
+    'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1920&h=1080&fit=crop&auto=format&q=80',
+    'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1920&h=1080&fit=crop&auto=format&q=80',
+    'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=1920&h=1080&fit=crop&auto=format&q=80',
+    'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1920&h=1080&fit=crop&auto=format&q=80'
+  ];
+  
+  const titles = [
+    '🏔️ MONTANHAS MAJESTOSAS',
+    '🌊 OCEANOS INFINITOS',
+    '🌲 FLORESTAS EXUBERANTES',
+    '🏜️ DESERTOS MÍSTICOS',
+    '🌅 HORIZONTES INFINITOS'
+  ];
+  
+  const slideLength = 6; // segundos por slide
+  
+  // Gerar clips de imagem
+  const imageClips = images.map((src, index) => ({
+    asset: {
+      type: 'image',
+      source: 'url',
+      src: src
+    },
+    start: index * slideLength,
+    length: slideLength
+  }));
+  
+  // Gerar clips de texto
+  const textClips = titles.map((title, index) => ({
+    asset: {
+      type: 'text',
+      text: title,
+      style: {
+        fontSize: 56,
+        fontColor: 'white',
+        outlineColor: 'black',
+        outline: 4,
+        bold: true,
+        alignment: 'center',
+        position: 'top',
+        marginV: 100
+      }
+    },
+    start: index * slideLength,
+    length: slideLength
+  }));
+  
+  const response = await fetch('http://localhost:3000/api/media/render', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      timeline: {
+        tracks: [
+          // Track de imagens
+          { clips: imageClips },
+          // Track de títulos
+          { clips: textClips },
+          // Track de áudio
+          {
+            clips: [
+              {
+                asset: {
+                  type: 'audio',
+                  source: 'url',
+                  src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+                  isBackground: true,
+                  volume: 0.65
+                },
+                start: 0,
+                length: 'auto'
+              }
+            ]
+          }
+        ]
+      },
+      output: {
+        format: 'mp4',
+        resolution: '1920x1080',
+        quality: 'high',
+        fps: 30,
+        bitrate: '10000k'
+      }
+    })
+  });
+
+  const job = await response.json();
+  console.log('Slideshow criado:', job.jobId);
+  return job.jobId;
+}
+```
+
+```python Python
+import requests
+
+def criar_slideshow():
+    images = [
+        'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&h=1080&fit=crop&auto=format&q=80',
+        'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1920&h=1080&fit=crop&auto=format&q=80',
+        'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1920&h=1080&fit=crop&auto=format&q=80',
+        'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=1920&h=1080&fit=crop&auto=format&q=80',
+        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1920&h=1080&fit=crop&auto=format&q=80'
+    ]
+    
+    titles = [
+        '🏔️ MONTANHAS MAJESTOSAS',
+        '🌊 OCEANOS INFINITOS',
+        '🌲 FLORESTAS EXUBERANTES',
+        '🏜️ DESERTOS MÍSTICOS',
+        '🌅 HORIZONTES INFINITOS'
+    ]
+    
+    slide_length = 6  # segundos por slide
+    
+    # Gerar clips de imagem
+    image_clips = []
+    for i, src in enumerate(images):
+        image_clips.append({
+            "asset": {
+                "type": "image",
+                "source": "url",
+                "src": src
+            },
+            "start": i * slide_length,
+            "length": slide_length
+        })
+    
+    # Gerar clips de texto
+    text_clips = []
+    for i, title in enumerate(titles):
+        text_clips.append({
+            "asset": {
+                "type": "text",
+                "text": title,
+                "style": {
+                    "fontSize": 56,
+                    "fontColor": "white",
+                    "outlineColor": "black",
+                    "outline": 4,
+                    "bold": True,
+                    "alignment": "center",
+                    "position": "top",
+                    "marginV": 100
+                }
+            },
+            "start": i * slide_length,
+            "length": slide_length
+        })
+    
+    payload = {
+        "timeline": {
+            "tracks": [
+                {"clips": image_clips},
+                {"clips": text_clips},
+                {
+                    "clips": [
+                        {
+                            "asset": {
+                                "type": "audio",
+                                "source": "url",
+                                "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+                                "isBackground": True,
+                                "volume": 0.65
+                            },
+                            "start": 0,
+                            "length": "auto"
+                        }
+                    ]
+                }
+            ]
+        },
+        "output": {
+            "format": "mp4",
+            "resolution": "1920x1080",
+            "quality": "high",
+            "fps": 30,
+            "bitrate": "10000k"
+        }
+    }
+    
+    response = requests.post("http://localhost:3000/api/media/render", json=payload)
+    return response.json()
+```
+</CodeGroup>
+
+## Passo a Passo
+
+### 1. Planejamento do Slideshow
+
+<Steps>
+  <Step title="Definir Estrutura">
+    Planeje a sequência e timing dos slides
+    
+    ```json
+    {
+      "structure": {
+        "totalSlides": 5,
+        "slideLength": 6,
+        "transitionTime": 0.5,
+        "totalDuration": 30
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Preparar Assets">
+    Organize as imagens e conteúdo textual
+    
+    ```json
+    {
+      "assets": {
+        "images": [
+          "slide1.jpg",
+          "slide2.jpg",
+          "slide3.jpg"
+        ],
+        "texts": [
+          "Título 1",
+          "Título 2", 
+          "Título 3"
+        ]
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Configurar Timeline">
+    Defina timing preciso para cada elemento
+    
+    ```json
+    {
+      "timeline": {
+        "slide1": { "start": 0, "length": 6 },
+        "slide2": { "start": 6, "length": 6 },
+        "slide3": { "start": 12, "length": 6 }
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Adicionar Áudio">
+    Configure música de fundo sincronizada
+    
+    ```json
+    {
+      "audio": {
+        "src": "background_music.mp3",
+        "volume": 0.6,
+        "loop": true
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Tipos de Transições
+
+### 🎬 Efeitos Visuais
+
+<AccordionGroup>
+  <Accordion title="Transição Suave" icon="play">
+    ```json
+    {
+      "clips": [
+        {
+          "asset": { "type": "image", "src": "slide1.jpg" },
+          "start": 0,
+          "length": 5
+        },
+        {
+          "asset": { "type": "image", "src": "slide2.jpg" },
+          "start": 4.5,
+          "length": 5
+        }
+      ]
+    }
+    ```
+    
+    - Sobreposição de 0.5s entre slides
+    - Transição gradual e suave
+    - Ideal para paisagens e natureza
+  </Accordion>
+  
+  <Accordion title="Corte Seco" icon="scissors">
+    ```json
+    {
+      "clips": [
+        {
+          "asset": { "type": "image", "src": "slide1.jpg" },
+          "start": 0,
+          "length": 5
+        },
+        {
+          "asset": { "type": "image", "src": "slide2.jpg" },
+          "start": 5,
+          "length": 5
+        }
+      ]
+    }
+    ```
+    
+    - Mudança instantânea
+    - Sem sobreposição
+    - Ideal para apresentações dinâmicas
+  </Accordion>
+  
+  <Accordion title="Transição Rápida" icon="bolt">
+    ```json
+    {
+      "clips": [
+        {
+          "asset": { "type": "image", "src": "slide1.jpg" },
+          "start": 0,
+          "length": 3
+        },
+        {
+          "asset": { "type": "image", "src": "slide2.jpg" },
+          "start": 2.8,
+          "length": 3
+        }
+      ]
+    }
+    ```
+    
+    - Sobreposição de 0.2s
+    - Transição dinâmica
+    - Ideal para apresentações corporativas
+  </Accordion>
+</AccordionGroup>
+
+## Configurações de Timing
+
+### ⏱️ Durações Recomendadas
+
+<Tabs>
+  <Tab title="Slideshow Rápido">
+    ```json
+    {
+      "timing": {
+        "slideLength": 3,
+        "transitionTime": 0.2,
+        "totalSlides": 10,
+        "totalDuration": 30
+      }
+    }
+    ```
+    
+    - **Uso**: Apresentações dinâmicas, social media
+    - **Características**: Ritmo acelerado, alta energia
+    - **Ideal para**: Produtos, eventos, promoções
+  </Tab>
+  
+  <Tab title="Slideshow Médio">
+    ```json
+    {
+      "timing": {
+        "slideLength": 5,
+        "transitionTime": 0.5,
+        "totalSlides": 8,
+        "totalDuration": 40
+      }
+    }
+    ```
+    
+    - **Uso**: Apresentações corporativas, portfólio
+    - **Características**: Equilibrado, profissional
+    - **Ideal para**: Empresas, serviços, cases
+  </Tab>
+  
+  <Tab title="Slideshow Lento">
+    ```json
+    {
+      "timing": {
+        "slideLength": 8,
+        "transitionTime": 1.0,
+        "totalSlides": 6,
+        "totalDuration": 48
+      }
+    }
+    ```
+    
+    - **Uso**: Conteúdo artístico, paisagens
+    - **Características**: Contemplativo, relaxante
+    - **Ideal para**: Natureza, arte, memórias
+  </Tab>
+</Tabs>
+
+## Dicas Avançadas
+
+### 📸 Otimização de Imagens
+
+<AccordionGroup>
+  <Accordion title="Resolução Adequada" icon="image">
+    ```json
+    {
+      "imageSpecs": {
+        "fullHD": "1920x1080",
+        "4K": "3840x2160",
+        "instagram": "1080x1080",
+        "stories": "1080x1920"
+      }
+    }
+    ```
+    
+    - Use resolução consistente
+    - Mantenha aspect ratio correto
+    - Otimize tamanho do arquivo
+  </Accordion>
+  
+  <Accordion title="Qualidade vs. Performance" icon="balance">
+    ```json
+    {
+      "optimization": {
+        "quality": "80%",
+        "format": "JPEG",
+        "compression": "medium",
+        "fileSize": "< 2MB"
+      }
+    }
+    ```
+    
+    - Balance qualidade e tamanho
+    - Use compressão inteligente
+    - Considere tempo de processamento
+  </Accordion>
+  
+  <Accordion title="Ken Burns Effect" icon="camera">
+    ```json
+    {
+      "kenBurns": {
+        "zoom": "1.0 to 1.1",
+        "pan": "left to right",
+        "duration": 6,
+        "easing": "ease-in-out"
+      }
+    }
+    ```
+    
+    - Simule movimento em fotos estáticas
+    - Adicione dinamismo visual
+    - Use zoom sutil (1.0 a 1.1)
+  </Accordion>
+</AccordionGroup>
+
+### 🎨 Design e Composição
+
+<AccordionGroup>
+  <Accordion title="Hierarquia Visual" icon="layers">
+    ```json
+    {
+      "layers": {
+        "background": "image",
+        "overlay": "semi-transparent",
+        "title": "large text",
+        "subtitle": "medium text",
+        "footer": "small text"
+      }
+    }
+    ```
+    
+    - Organize elementos por importância
+    - Use tamanhos proporcionais
+    - Mantenha consistência visual
+  </Accordion>
+  
+  <Accordion title="Paleta de Cores" icon="palette">
+    ```json
+    {
+      "colorScheme": {
+        "primary": "#FFFFFF",
+        "secondary": "#000000",
+        "accent": "#FF6B35",
+        "background": "rgba(0,0,0,0.3)"
+      }
+    }
+    ```
+    
+    - Defina paleta consistente
+    - Use cores que contrastam
+    - Considere a identidade visual
+  </Accordion>
+  
+  <Accordion title="Tipografia" icon="text">
+    ```json
+    {
+      "typography": {
+        "title": {
+          "fontSize": 56,
+          "fontWeight": "bold",
+          "letterSpacing": "1.2px"
+        },
+        "subtitle": {
+          "fontSize": 32,
+          "fontWeight": "normal",
+          "letterSpacing": "0.8px"
+        }
+      }
+    }
+    ```
+    
+    - Mantenha hierarquia tipográfica
+    - Use tamanhos adequados
+    - Considere legibilidade
+  </Accordion>
+</AccordionGroup>
+
+### 🎵 Sincronização Musical
+
+<AccordionGroup>
+  <Accordion title="Timing Musical" icon="music">
+    ```json
+    {
+      "musicSync": {
+        "bpm": 120,
+        "beatLength": 0.5,
+        "slideSync": "on-beat",
+        "transitionSync": "off-beat"
+      }
+    }
+    ```
+    
+    - Sincronize com batidas da música
+    - Use ferramentas de análise de BPM
+    - Teste diferentes timings
+  </Accordion>
+  
+  <Accordion title="Variação de Intensidade" icon="wave">
+    ```json
+    {
+      "intensity": {
+        "intro": { "volume": 0.4, "slides": "slow" },
+        "buildup": { "volume": 0.6, "slides": "medium" },
+        "climax": { "volume": 0.8, "slides": "fast" },
+        "outro": { "volume": 0.5, "slides": "slow" }
+      }
+    }
+    ```
+    
+    - Varie ritmo conforme música
+    - Ajuste volume por seção
+    - Crie narrativa visual
+  </Accordion>
+</AccordionGroup>
+
+## Casos de Uso Específicos
+
+### 🏢 Apresentação Corporativa
+
+```json
+{
+  "corporate": {
+    "structure": [
+      "Capa/Logo da empresa",
+      "Missão e Valores",
+      "Equipe",
+      "Produtos/Serviços",
+      "Cases de Sucesso",
+      "Contato"
+    ],
+    "timing": {
+      "slideLength": 5,
+      "totalDuration": 30
+    },
+    "style": {
+      "colors": ["#003366", "#FFFFFF", "#0066CC"],
+      "fonts": ["Arial", "Sans-serif"],
+      "tone": "professional"
+    }
+  }
+}
+```
+
+### 🎉 Evento Social
+
+```json
+{
+  "social": {
+    "structure": [
+      "Convite",
+      "Data e Local",
+      "Programação",
+      "Palestrantes",
+      "Patrocinadores",
+      "Inscrições"
+    ],
+    "timing": {
+      "slideLength": 4,
+      "totalDuration": 24
+    },
+    "style": {
+      "colors": ["#FF6B35", "#FFFFFF", "#FFD700"],
+      "fonts": ["Impact", "Arial"],
+      "tone": "energetic"
+    }
+  }
+}
+```
+
+### 📱 Produto Digital
+
+```json
+{
+  "product": {
+    "structure": [
+      "Hero/Logo",
+      "Problema",
+      "Solução",
+      "Features",
+      "Testimonials",
+      "CTA"
+    ],
+    "timing": {
+      "slideLength": 6,
+      "totalDuration": 36
+    },
+    "style": {
+      "colors": ["#667EEA", "#FFFFFF", "#764BA2"],
+      "fonts": ["Roboto", "Modern"],
+      "tone": "innovative"
+    }
+  }
+}
+```
+
+### 🏞️ Viagem/Turismo
+
+```json
+{
+  "travel": {
+    "structure": [
+      "Destino",
+      "Paisagens",
+      "Atividades",
+      "Cultura Local",
+      "Gastronomia",
+      "Hospedagem"
+    ],
+    "timing": {
+      "slideLength": 7,
+      "totalDuration": 42
+    },
+    "style": {
+      "colors": ["#4ECDC4", "#FFFFFF", "#F7DC6F"],
+      "fonts": ["Montserrat", "Light"],
+      "tone": "adventurous"
+    }
+  }
+}
+```
+
+## Automatização e Scripts
+
+### 🔧 Gerador Automático
+
+```javascript
+function gerarSlideshowAutomatico(config) {
+  const {
+    images,
+    titles,
+    slideLength = 5,
+    transitionTime = 0.5,
+    audioSrc,
+    audioVolume = 0.6
+  } = config;
+  
+  const imageClips = images.map((src, index) => ({
+    asset: { type: 'image', source: 'url', src },
+    start: index * slideLength,
+    length: slideLength
+  }));
+  
+  const textClips = titles.map((title, index) => ({
+    asset: {
+      type: 'text',
+      text: title,
+      style: {
+        fontSize: 48,
+        fontColor: 'white',
+        outlineColor: 'black',
+        outline: 3,
+        bold: true,
+        alignment: 'center',
+        position: 'top',
+        marginV: 100
+      }
+    },
+    start: index * slideLength,
+    length: slideLength
+  }));
+  
+  return {
+    timeline: {
+      tracks: [
+        { clips: imageClips },
+        { clips: textClips },
+        {
+          clips: [{
+            asset: {
+              type: 'audio',
+              source: 'url',
+              src: audioSrc,
+              isBackground: true,
+              volume: audioVolume
+            },
+            start: 0,
+            length: 'auto'
+          }]
+        }
+      ]
+    },
+    output: {
+      format: 'mp4',
+      resolution: '1920x1080',
+      quality: 'high',
+      fps: 30,
+      bitrate: '8000k'
+    }
+  };
+}
+```
+
+## Troubleshooting
+
+### ❌ Problemas Comuns
+
+<AccordionGroup>
+  <Accordion title="Imagens Não Carregam" icon="image-slash">
+    **Problema**: Algumas imagens não aparecem no slideshow
+    
+    **Soluções**:
+    ```json
+    {
+      "debugging": {
+        "checkUrls": "Verifique se URLs estão acessíveis",
+        "testImages": "Teste cada imagem individualmente",
+        "format": "Use formatos suportados (JPG, PNG)",
+        "size": "Verifique tamanho dos arquivos"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Timing Desalinhado" icon="clock">
+    **Problema**: Slides não sincronizam com música
+    
+    **Soluções**:
+    ```json
+    {
+      "syncFixes": {
+        "precise": "Use números decimais precisos",
+        "testing": "Teste com trechos pequenos",
+        "bpm": "Calcule BPM da música",
+        "markers": "Use marcadores de tempo"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Qualidade Baixa" icon="quality">
+    **Problema**: Resultado final com baixa qualidade
+    
+    **Soluções**:
+    ```json
+    {
+      "qualityFixes": {
+        "resolution": "Use imagens em alta resolução",
+        "bitrate": "Aumente bitrate de saída",
+        "compression": "Reduza compressão",
+        "format": "Use formato apropriado"
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  **Dica Pro**: Use o endpoint `/api/media/info` para verificar as dimensões e qualidade das imagens antes de usar no slideshow.
+</Note>
+
+<Warning>
+  **Performance**: Slideshows com muitas imagens podem demorar mais para processar. Considere dividir em partes menores se necessário.
+</Warning> 

@@ -1,0 +1,1313 @@
+---
+title: "Visualizador de Música"
+description: "Crie visualizações impressionantes sincronizadas com áudio"
+---
+
+# Visualizador de Música
+
+Aprenda a criar visualizações de áudio impressionantes combinando música, elementos visuais animados e efeitos sincronizados.
+
+## Resultado Final
+
+Este exemplo criará um vídeo com:
+- ✅ Música como elemento principal
+- ✅ Background dinâmico e animado
+- ✅ Texto com informações da música
+- ✅ Elementos visuais sincronizados
+- ✅ Múltiplos formatos de saída
+
+## Código Completo
+
+<CodeGroup>
+```json Visualizador Básico
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&h=400&fit=crop&auto=format&q=80"
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "🎵 AGORA TOCANDO 🎵",
+              "style": {
+                "fontSize": 36,
+                "fontColor": "white",
+                "outlineColor": "black",
+                "outline": 2,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 80
+              }
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "Song Title - Artist Name\n🎶 Electronic Music 🎶",
+              "style": {
+                "fontSize": 48,
+                "fontColor": "cyan",
+                "outlineColor": "black",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "bottom",
+                "marginV": 120
+              }
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+              "volume": 0.9
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1920x1080",
+    "quality": "high",
+    "fps": 30,
+    "bitrate": "8000k"
+  }
+}
+```
+
+```json Visualizador Avançado
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 0,
+            "length": 30
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 30,
+            "length": 30
+          },
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1920&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 60,
+            "length": 30
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=600&h=600&fit=crop&auto=format&q=80"
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "🎵 NOW PLAYING 🎵",
+              "style": {
+                "fontSize": 42,
+                "fontColor": "white",
+                "outlineColor": "purple",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 60
+              }
+            },
+            "start": 0,
+            "length": 10
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "✨ BEAT DROP ✨",
+              "style": {
+                "fontSize": 64,
+                "fontColor": "yellow",
+                "outlineColor": "red",
+                "outline": 4,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 60
+              }
+            },
+            "start": 30,
+            "length": 5
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "🔥 FINAL CHORUS 🔥",
+              "style": {
+                "fontSize": 56,
+                "fontColor": "orange",
+                "outlineColor": "black",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 60
+              }
+            },
+            "start": 60,
+            "length": 10
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "Electronic Symphony\nby Digital Artist\n\n🎶 Genre: Electronic Dance Music\n⏱️ Duration: 3:45\n🎵 BPM: 128",
+              "style": {
+                "fontSize": 32,
+                "fontColor": "white",
+                "outlineColor": "black",
+                "outline": 2,
+                "bold": true,
+                "alignment": "left",
+                "position": "bottom",
+                "marginV": 150
+              }
+            },
+            "start": 0,
+            "length": 15
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "💫 BREAKDOWN SECTION 💫\n\nBass frequencies dominating\nSynthetic harmonies building\nEnergy level: Maximum",
+              "style": {
+                "fontSize": 36,
+                "fontColor": "cyan",
+                "outlineColor": "black",
+                "outline": 2,
+                "bold": true,
+                "alignment": "center",
+                "position": "bottom",
+                "marginV": 150
+              }
+            },
+            "start": 30,
+            "length": 15
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "🎯 CLIMAX REACHED 🎯\n\nAll elements combined\nMaximum intensity\nPerfect harmony achieved",
+              "style": {
+                "fontSize": 38,
+                "fontColor": "gold",
+                "outlineColor": "black",
+                "outline": 2,
+                "bold": true,
+                "alignment": "right",
+                "position": "bottom",
+                "marginV": 150
+              }
+            },
+            "start": 60,
+            "length": 15
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+              "volume": 0.95
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1920x1080",
+    "quality": "high",
+    "fps": 30,
+    "bitrate": "10000k"
+  }
+}
+```
+
+```json Formato Quadrado (Instagram)
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1080&h=1080&fit=crop&auto=format&q=80"
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "source": "url",
+              "src": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop&auto=format&q=80"
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "🎵 MUSIC PLAYER 🎵",
+              "style": {
+                "fontSize": 48,
+                "fontColor": "white",
+                "outlineColor": "black",
+                "outline": 3,
+                "bold": true,
+                "alignment": "center",
+                "position": "top",
+                "marginV": 80
+              }
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "Song Title\nArtist Name\n\n🎶 Electronic 🎶",
+              "style": {
+                "fontSize": 36,
+                "fontColor": "cyan",
+                "outlineColor": "black",
+                "outline": 2,
+                "bold": true,
+                "alignment": "center",
+                "position": "bottom",
+                "marginV": 120
+              }
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "source": "url",
+              "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+              "volume": 0.85
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "resolution": "1080x1080",
+    "quality": "high",
+    "fps": 30,
+    "bitrate": "6000k"
+  }
+}
+```
+
+```javascript JavaScript
+async function criarVisualizadorMusica() {
+  const response = await fetch('http://localhost:3000/api/media/render', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      timeline: {
+        tracks: [
+          // Background animado
+          {
+            clips: [
+              {
+                asset: {
+                  type: 'image',
+                  source: 'url',
+                  src: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1920&h=1080&fit=crop&auto=format&q=80'
+                },
+                start: 0,
+                length: 30
+              },
+              {
+                asset: {
+                  type: 'image',
+                  source: 'url',
+                  src: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1920&h=1080&fit=crop&auto=format&q=80'
+                },
+                start: 30,
+                length: 30
+              }
+            ]
+          },
+          // Capa do álbum
+          {
+            clips: [
+              {
+                asset: {
+                  type: 'image',
+                  source: 'url',
+                  src: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=600&h=600&fit=crop&auto=format&q=80'
+                },
+                start: 0,
+                length: 'auto'
+              }
+            ]
+          },
+          // Texto principal
+          {
+            clips: [
+              {
+                asset: {
+                  type: 'text',
+                  text: '🎵 NOW PLAYING 🎵',
+                  style: {
+                    fontSize: 42,
+                    fontColor: 'white',
+                    outlineColor: 'purple',
+                    outline: 3,
+                    bold: true,
+                    alignment: 'center',
+                    position: 'top',
+                    marginV: 60
+                  }
+                },
+                start: 0,
+                length: 10
+              },
+              {
+                asset: {
+                  type: 'text',
+                  text: '✨ BEAT DROP ✨',
+                  style: {
+                    fontSize: 64,
+                    fontColor: 'yellow',
+                    outlineColor: 'red',
+                    outline: 4,
+                    bold: true,
+                    alignment: 'center',
+                    position: 'top',
+                    marginV: 60
+                  }
+                },
+                start: 30,
+                length: 5
+              }
+            ]
+          },
+          // Informações da música
+          {
+            clips: [
+              {
+                asset: {
+                  type: 'text',
+                  text: 'Electronic Symphony\nby Digital Artist\n\n🎶 Genre: Electronic Dance Music\n⏱️ Duration: 3:45\n🎵 BPM: 128',
+                  style: {
+                    fontSize: 32,
+                    fontColor: 'white',
+                    outlineColor: 'black',
+                    outline: 2,
+                    bold: true,
+                    alignment: 'left',
+                    position: 'bottom',
+                    marginV: 150
+                  }
+                },
+                start: 0,
+                length: 15
+              }
+            ]
+          },
+          // Áudio principal
+          {
+            clips: [
+              {
+                asset: {
+                  type: 'audio',
+                  source: 'url',
+                  src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+                  volume: 0.95
+                },
+                start: 0,
+                length: 'auto'
+              }
+            ]
+          }
+        ]
+      },
+      output: {
+        format: 'mp4',
+        resolution: '1920x1080',
+        quality: 'high',
+        fps: 30,
+        bitrate: '10000k'
+      }
+    })
+  });
+
+  const job = await response.json();
+  console.log('Visualizador criado:', job.jobId);
+  return job.jobId;
+}
+```
+
+```python Python
+import requests
+
+def criar_visualizador_musica():
+    payload = {
+        "timeline": {
+            "tracks": [
+                # Background animado
+                {
+                    "clips": [
+                        {
+                            "asset": {
+                                "type": "image",
+                                "source": "url",
+                                "src": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1920&h=1080&fit=crop&auto=format&q=80"
+                            },
+                            "start": 0,
+                            "length": 30
+                        },
+                        {
+                            "asset": {
+                                "type": "image",
+                                "source": "url",
+                                "src": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1920&h=1080&fit=crop&auto=format&q=80"
+                            },
+                            "start": 30,
+                            "length": 30
+                        }
+                    ]
+                },
+                # Capa do álbum
+                {
+                    "clips": [
+                        {
+                            "asset": {
+                                "type": "image",
+                                "source": "url",
+                                "src": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=600&h=600&fit=crop&auto=format&q=80"
+                            },
+                            "start": 0,
+                            "length": "auto"
+                        }
+                    ]
+                },
+                # Texto principal
+                {
+                    "clips": [
+                        {
+                            "asset": {
+                                "type": "text",
+                                "text": "🎵 NOW PLAYING 🎵",
+                                "style": {
+                                    "fontSize": 42,
+                                    "fontColor": "white",
+                                    "outlineColor": "purple",
+                                    "outline": 3,
+                                    "bold": True,
+                                    "alignment": "center",
+                                    "position": "top",
+                                    "marginV": 60
+                                }
+                            },
+                            "start": 0,
+                            "length": 10
+                        }
+                    ]
+                },
+                # Áudio principal
+                {
+                    "clips": [
+                        {
+                            "asset": {
+                                "type": "audio",
+                                "source": "url",
+                                "src": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+                                "volume": 0.95
+                            },
+                            "start": 0,
+                            "length": "auto"
+                        }
+                    ]
+                }
+            ]
+        },
+        "output": {
+            "format": "mp4",
+            "resolution": "1920x1080",
+            "quality": "high",
+            "fps": 30,
+            "bitrate": "10000k"
+        }
+    }
+    
+    response = requests.post("http://localhost:3000/api/media/render", json=payload)
+    return response.json()
+```
+</CodeGroup>
+
+## Passo a Passo
+
+### 1. Estrutura por Camadas
+
+<Steps>
+  <Step title="Background Dinâmico">
+    Configure backgrounds que mudam conforme a música
+    
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "image",
+            "src": "background_intro.jpg"
+          },
+          "start": 0,
+          "length": 30
+        },
+        {
+          "asset": {
+            "type": "image",
+            "src": "background_drop.jpg"
+          },
+          "start": 30,
+          "length": 30
+        }
+      ]
+    }
+    ```
+  </Step>
+  
+  <Step title="Capa do Álbum">
+    Adicione a arte do álbum como elemento central
+    
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "image",
+            "src": "album_cover.jpg"
+          },
+          "start": 0,
+          "length": "auto"
+        }
+      ]
+    }
+    ```
+  </Step>
+  
+  <Step title="Texto Sincronizado">
+    Textos que mudam conforme as seções da música
+    
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "text",
+            "text": "🎵 INTRO 🎵",
+            "style": { "fontSize": 48, "fontColor": "white" }
+          },
+          "start": 0,
+          "length": 15
+        },
+        {
+          "asset": {
+            "type": "text",
+            "text": "🔥 DROP 🔥",
+            "style": { "fontSize": 64, "fontColor": "yellow" }
+          },
+          "start": 30,
+          "length": 10
+        }
+      ]
+    }
+    ```
+  </Step>
+  
+  <Step title="Áudio Principal">
+    Configure o áudio com volume otimizado
+    
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "audio",
+            "src": "music_file.mp3",
+            "volume": 0.9
+          },
+          "start": 0,
+          "length": "auto"
+        }
+      ]
+    }
+    ```
+  </Step>
+</Steps>
+
+## Sincronização Musical
+
+### 🎵 Estrutura Musical Típica
+
+<AccordionGroup>
+  <Accordion title="Intro (0-15s)" icon="play">
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "text",
+            "text": "🎵 AGORA TOCANDO 🎵",
+            "style": {
+              "fontSize": 36,
+              "fontColor": "white",
+              "alignment": "center"
+            }
+          },
+          "start": 0,
+          "length": 15
+        }
+      ]
+    }
+    ```
+    
+    - Apresente o título e artista
+    - Use cores suaves
+    - Texto informativo
+  </Accordion>
+  
+  <Accordion title="Verse 1 (15-45s)" icon="music">
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "text",
+            "text": "🎶 PRIMEIRA ESTROFE 🎶",
+            "style": {
+              "fontSize": 42,
+              "fontColor": "cyan",
+              "alignment": "center"
+            }
+          },
+          "start": 15,
+          "length": 30
+        }
+      ]
+    }
+    ```
+    
+    - Cores mais vibrantes
+    - Informações da música
+    - Elementos visuais crescendo
+  </Accordion>
+  
+  <Accordion title="Chorus/Drop (45-75s)" icon="bolt">
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "text",
+            "text": "🔥 REFRÃO EXPLOSIVO 🔥",
+            "style": {
+              "fontSize": 64,
+              "fontColor": "yellow",
+              "outlineColor": "red",
+              "outline": 4
+            }
+          },
+          "start": 45,
+          "length": 30
+        }
+      ]
+    }
+    ```
+    
+    - Máxima intensidade visual
+    - Cores contrastantes
+    - Texto grande e impactante
+  </Accordion>
+  
+  <Accordion title="Bridge/Breakdown (75-90s)" icon="wave">
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "text",
+            "text": "💫 BREAKDOWN 💫",
+            "style": {
+              "fontSize": 48,
+              "fontColor": "purple",
+              "alignment": "center"
+            }
+          },
+          "start": 75,
+          "length": 15
+        }
+      ]
+    }
+    ```
+    
+    - Transição suave
+    - Cores mais escuras
+    - Preparação para o final
+  </Accordion>
+  
+  <Accordion title="Outro (90s+)" icon="stop">
+    ```json
+    {
+      "clips": [
+        {
+          "asset": {
+            "type": "text",
+            "text": "🎵 OBRIGADO POR OUVIR 🎵",
+            "style": {
+              "fontSize": 40,
+              "fontColor": "white",
+              "alignment": "center"
+            }
+          },
+          "start": 90,
+          "length": 15
+        }
+      ]
+    }
+    ```
+    
+    - Finalização elegante
+    - Cores neutras
+    - Mensagem de agradecimento
+  </Accordion>
+</AccordionGroup>
+
+## Formatos e Variações
+
+### 📐 Resoluções Recomendadas
+
+<Tabs>
+  <Tab title="YouTube (16:9)">
+    ```json
+    {
+      "output": {
+        "resolution": "1920x1080",
+        "format": "mp4",
+        "quality": "high",
+        "fps": 30,
+        "bitrate": "10000k"
+      }
+    }
+    ```
+    
+    - **Ideal para**: Músicas completas, podcasts
+    - **Duração**: Sem limite
+    - **Qualidade**: Máxima
+  </Tab>
+  
+  <Tab title="Instagram Feed (1:1)">
+    ```json
+    {
+      "output": {
+        "resolution": "1080x1080",
+        "format": "mp4",
+        "quality": "high",
+        "fps": 30,
+        "bitrate": "6000k"
+      }
+    }
+    ```
+    
+    - **Ideal para**: Previews, teasers
+    - **Duração**: 60 segundos
+    - **Formato**: Quadrado
+  </Tab>
+  
+  <Tab title="TikTok/Stories (9:16)">
+    ```json
+    {
+      "output": {
+        "resolution": "1080x1920",
+        "format": "mp4",
+        "quality": "high",
+        "fps": 30,
+        "bitrate": "8000k"
+      }
+    }
+    ```
+    
+    - **Ideal para**: Clips curtos, virais
+    - **Duração**: 15-60 segundos
+    - **Formato**: Vertical
+  </Tab>
+</Tabs>
+
+## Dicas Avançadas
+
+### 🎨 Design Visual
+
+<AccordionGroup>
+  <Accordion title="Paleta de Cores Harmônica" icon="palette">
+    ```json
+    {
+      "intro": {
+        "primary": "white",
+        "secondary": "gray",
+        "accent": "blue"
+      },
+      "verse": {
+        "primary": "cyan",
+        "secondary": "blue",
+        "accent": "purple"
+      },
+      "chorus": {
+        "primary": "yellow",
+        "secondary": "orange",
+        "accent": "red"
+      },
+      "outro": {
+        "primary": "white",
+        "secondary": "silver",
+        "accent": "gold"
+      }
+    }
+    ```
+    
+    - Use cores que evoluem com a música
+    - Mantenha consistência visual
+    - Teste o contraste em diferentes devices
+  </Accordion>
+  
+  <Accordion title="Tipografia Responsiva" icon="text">
+    ```json
+    {
+      "mobile": {
+        "fontSize": 32,
+        "outline": 2
+      },
+      "desktop": {
+        "fontSize": 48,
+        "outline": 3
+      },
+      "large": {
+        "fontSize": 64,
+        "outline": 4
+      }
+    }
+    ```
+    
+    - Adapte o tamanho da fonte ao formato
+    - Use outlines para legibilidade
+    - Teste em diferentes resoluções
+  </Accordion>
+  
+  <Accordion title="Composição Visual" icon="layout">
+    ```json
+    {
+      "layout": {
+        "albumCover": "center",
+        "title": "top",
+        "artist": "bottom-left",
+        "duration": "bottom-right",
+        "genre": "top-right"
+      }
+    }
+    ```
+    
+    - Posicione elementos estrategicamente
+    - Use regra dos terços
+    - Mantenha hierarquia visual clara
+  </Accordion>
+</AccordionGroup>
+
+### 🎵 Otimização de Áudio
+
+<AccordionGroup>
+  <Accordion title="Volume e Dinâmica" icon="volume">
+    ```json
+    {
+      "volume": {
+        "intro": 0.7,
+        "verse": 0.8,
+        "chorus": 0.95,
+        "bridge": 0.6,
+        "outro": 0.7
+      }
+    }
+    ```
+    
+    - Varie o volume conforme a intensidade
+    - Mantenha consistência geral
+    - Evite distorção (máximo 0.95)
+  </Accordion>
+  
+  <Accordion title="Qualidade de Áudio" icon="music">
+    ```json
+    {
+      "audio": {
+        "bitrate": "320kbps",
+        "sampleRate": "44100Hz",
+        "channels": "stereo",
+        "format": "mp3"
+      }
+    }
+    ```
+    
+    - Use alta qualidade para música
+    - Mantenha consistência de formato
+    - Considere o tamanho final do arquivo
+  </Accordion>
+</AccordionGroup>
+
+### ⚡ Performance
+
+<AccordionGroup>
+  <Accordion title="Otimização de Assets" icon="image">
+    ```json
+    {
+      "images": {
+        "background": "1920x1080, 80% quality",
+        "albumCover": "600x600, 90% quality",
+        "thumbnails": "400x400, 70% quality"
+      }
+    }
+    ```
+    
+    - Use tamanhos apropriados
+    - Otimize qualidade vs. tamanho
+    - Considere o tempo de processamento
+  </Accordion>
+  
+  <Accordion title="Configuração de Render" icon="settings">
+    ```json
+    {
+      "render": {
+        "fps": 30,
+        "keyframes": "auto",
+        "preset": "fast",
+        "threads": 4
+      }
+    }
+    ```
+    
+    - 30fps é suficiente para música
+    - Use preset fast para rapidez
+    - Ajuste threads conforme CPU
+  </Accordion>
+</AccordionGroup>
+
+## Casos de Uso Específicos
+
+### 🎧 Podcast Visualizer
+
+```json
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "src": "podcast_background.jpg"
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "🎙️ PODCAST EPISODE #42\n\nTech Talk Daily\nwith John Smith\n\n📅 December 15, 2024\n⏱️ 45 minutes",
+              "style": {
+                "fontSize": 36,
+                "fontColor": "white",
+                "alignment": "center"
+              }
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 🎸 Band Promotion
+
+```json
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "src": "band_photo.jpg"
+            },
+            "start": 0,
+            "length": 20
+          },
+          {
+            "asset": {
+              "type": "image",
+              "src": "concert_venue.jpg"
+            },
+            "start": 20,
+            "length": 20
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "🎸 ROCK BAND LIVE 🎸\n\nNew Album Out Now!\n\n📅 Concert: Jan 20, 2025\n🎪 Madison Square Garden\n🎫 Tickets: rockband.com",
+              "style": {
+                "fontSize": 42,
+                "fontColor": "red",
+                "outlineColor": "black",
+                "outline": 3,
+                "bold": true
+              }
+            },
+            "start": 0,
+            "length": "auto"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 🎵 Lyric Video Híbrido
+
+```json
+{
+  "timeline": {
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "text",
+              "text": "🎵 VERSO 1 🎵\n\nI'm walking down the street tonight\nUnder the neon lights so bright\nFeeling the rhythm in my soul\nMusic makes me feel whole",
+              "style": {
+                "fontSize": 36,
+                "fontColor": "white",
+                "alignment": "center"
+              }
+            },
+            "start": 0,
+            "length": 30
+          },
+          {
+            "asset": {
+              "type": "text",
+              "text": "🔥 REFRÃO 🔥\n\nDance with me tonight\nEverything's gonna be alright\nMove your body to the beat\nFeel the fire in your feet",
+              "style": {
+                "fontSize": 48,
+                "fontColor": "yellow",
+                "outlineColor": "red",
+                "outline": 3
+              }
+            },
+            "start": 30,
+            "length": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Troubleshooting
+
+### ❌ Problemas Comuns
+
+<AccordionGroup>
+  <Accordion title="Sincronização Desalinhada" icon="clock">
+    **Problema**: Texto não está sincronizado com a música
+    
+    **Soluções**:
+    ```json
+    {
+      "clips": [
+        {
+          "start": 0,     // Início preciso
+          "length": 15.5  // Duração exata
+        }
+      ]
+    }
+    ```
+    
+    - Use durações decimais precisas
+    - Teste com trechos pequenos primeiro
+    - Ajuste baseado no BPM da música
+  </Accordion>
+  
+  <Accordion title="Qualidade de Áudio Baixa" icon="volume-x">
+    **Problema**: Áudio com qualidade ruim
+    
+    **Soluções**:
+    ```json
+    {
+      "asset": {
+        "type": "audio",
+        "src": "high_quality_audio.mp3",
+        "volume": 0.9
+      },
+      "output": {
+        "bitrate": "10000k"
+      }
+    }
+    ```
+    
+    - Use arquivos de áudio de alta qualidade
+    - Aumente o bitrate de saída
+    - Evite compressão excessiva
+  </Accordion>
+  
+  <Accordion title="Texto Ilegível" icon="eye-slash">
+    **Problema**: Texto não é visível sobre o background
+    
+    **Soluções**:
+    ```json
+    {
+      "style": {
+        "fontSize": 48,
+        "fontColor": "white",
+        "outlineColor": "black",
+        "outline": 4,
+        "bold": true
+      }
+    }
+    ```
+    
+    - Use cores contrastantes
+    - Adicione outline grosso
+    - Teste em diferentes backgrounds
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  **Dica Pro**: Use ferramentas como Audacity para analisar a estrutura da música e identificar os momentos exatos para mudanças visuais.
+</Note>
+
+<Warning>
+  **Direitos Autorais**: Sempre verifique os direitos autorais da música antes de usar em projetos comerciais.
+</Warning> 

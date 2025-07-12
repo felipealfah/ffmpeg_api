@@ -14,12 +14,6 @@
     "name": "Testar API",
     "url": "http://localhost:3000/api-docs"
   },
-  "topbarLinks": [
-    {
-      "name": "GitHub",
-      "url": "https://github.com/felipefull/ffmpeg_api"
-    }
-  ],
   "navigation": [
     {
       "group": "Começar",
@@ -51,8 +45,7 @@
     {
       "group": "Troubleshooting",
       "pages": [
-        "troubleshooting/common-issues",
-        "troubleshooting/faq"
+        "troubleshooting/common-issues"
       ]
     },
     {
@@ -65,12 +58,14 @@
       "group": "Exemplos",
       "pages": [
         "examples/lyric-video",
-        "examples/social-media"
+        "examples/social-media",
+        "examples/stories-instagram-tiktok",
+        "examples/music-visualizer",
+        "examples/slideshow-transitions"
       ]
     }
   ],
   "footerSocials": {
-    "github": "https://github.com/felipefull/ffmpeg_api",
     "twitter": "https://twitter.com/felipefull"
   },
   "api": {
