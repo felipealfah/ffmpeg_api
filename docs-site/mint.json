@@ -6,9 +6,13 @@
   },
   "favicon": "/favicon.ico",
   "colors": {
-    "primary": "#ff6b35",
-    "light": "#ff8c69",
-    "dark": "#e55a2b"
+    "primary": "#ffffff",
+    "light": "#35D399",
+    "dark": "#100915",
+    "background": {
+      "light": "#ffffff",
+      "dark": "#100915"
+    }
   },
   "topbarCtaButton": {
     "name": "Testar API",

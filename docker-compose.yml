@@ -75,11 +75,6 @@ services:
       - COMPLEXITY_FACTOR_HIGH=${COMPLEXITY_FACTOR_HIGH}
       - ADDITIONAL_COST_FACTOR=${ADDITIONAL_COST_FACTOR}
 
-      # Slack Integration
-      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
-      - SLACK_API_TOKEN=${SLACK_API_TOKEN}
-      - SLACK_CHANNEL=${SLACK_CHANNEL}
-
     volumes:
       - ./storage:/app/storage
       - ./src/config:/app/src/config:ro
@@ -152,11 +147,6 @@ services:
       - GF_UNIFIED_ALERTING_ENABLED=true
       - GF_ALERTING_ENABLED=false
       - GF_SMTP_ENABLED=false
-      
-      # Slack Integration
-      - GF_SLACK_API_URL=${SLACK_WEBHOOK_URL}
-      - GF_SLACK_TOKEN=${SLACK_API_TOKEN}
-      - GF_SLACK_NOTIFICATION_CHANNEL=${SLACK_CHANNEL}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
@@ -183,13 +173,13 @@ services:
       - internal
 
   docs:
-    image: node:18-alpine
+    image: node:20-alpine
     working_dir: /app
     ports:
       - "3002:3002"
     volumes:
       - ./docs-site:/app
-    command: sh -c "npm install && npx mintlify start --port 3002"
+    command: sh -c "npm install && npx mintlify dev --port 3002"
     restart: unless-stopped
     depends_on:
       - ffmpeg-api
