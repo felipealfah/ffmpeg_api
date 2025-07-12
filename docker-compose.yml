@@ -173,13 +173,13 @@ services:
       - internal
 
   docs:
-    image: node:20-alpine
+    image: node:20-slim
     working_dir: /app
     ports:
       - "3002:3002"
     volumes:
       - ./docs-site:/app
-    command: sh -c "npm install && npx mintlify dev --port 3002"
+    command: sh -c "apt-get update && apt-get install -y curl && npm install && sleep 10 && npx mintlify dev --port 3002 --host 0.0.0.0"
     restart: unless-stopped
     depends_on:
       - ffmpeg-api
@@ -192,11 +192,11 @@ services:
           cpus: '0.1'
           memory: 128M
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/"]
+      test: ["CMD", "curl", "-f", "http://localhost:3002/"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 120s
     networks:
       - internal
     environment:
