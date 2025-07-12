@@ -182,6 +182,36 @@ services:
     networks:
       - internal
 
+  docs:
+    image: node:18-alpine
+    working_dir: /app
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./docs-site:/app
+    command: sh -c "npm install && npx mintlify start --port 3002"
+    restart: unless-stopped
+    depends_on:
+      - ffmpeg-api
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - internal
+    environment:
+      - NODE_ENV=production
+
 volumes:
   redis-data:
   prometheus-data:
