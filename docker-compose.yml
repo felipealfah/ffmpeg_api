@@ -4,7 +4,7 @@ services:
     volumes:
       - redis-data:/data
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}" --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}" --maxmemory 2gb --maxmemory-policy allkeys-lru
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     healthcheck:
@@ -17,11 +17,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '1.0'
+          memory: 2G
         reservations:
-          cpus: '0.1'
-          memory: 128M
+          cpus: '0.2'
+          memory: 256M
 
   ffmpeg-api:
     build: .
@@ -47,15 +47,15 @@ services:
       - PORT=${PORT:-3000}
 
       # Configurações de FFmpeg e Recursos (controlado pelo .env)
-      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-2}
-      - FFMPEG_THREADS=${FFMPEG_THREADS:-2}
-      - FFMPEG_PRESET=${FFMPEG_PRESET:-fast}
-      - FFMPEG_MEMORY_LIMIT_MB=${FFMPEG_MEMORY_LIMIT:-2048}
-      - NODE_OPTIONS=--max-old-space-size=2048
-      - FFMPEG_BITRATE=${FFMPEG_BITRATE:-2000k}
-      - FFMPEG_AUDIO_BITRATE=${FFMPEG_AUDIO_BITRATE:-128k}
-      - FFMPEG_BUFFER_SIZE=${FFMPEG_BUFFER_SIZE:-3000k}
-      - FFMPEG_MAX_RATE=${FFMPEG_MAX_RATE:-3000k}
+      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-8}
+      - FFMPEG_THREADS=${FFMPEG_THREADS:-8}
+      - FFMPEG_PRESET=${FFMPEG_PRESET:-medium}
+      - FFMPEG_MEMORY_LIMIT_MB=${FFMPEG_MEMORY_LIMIT:-8192}
+      - NODE_OPTIONS=--max-old-space-size=8192
+      - FFMPEG_BITRATE=${FFMPEG_BITRATE:-4000k}
+      - FFMPEG_AUDIO_BITRATE=${FFMPEG_AUDIO_BITRATE:-192k}
+      - FFMPEG_BUFFER_SIZE=${FFMPEG_BUFFER_SIZE:-6000k}
+      - FFMPEG_MAX_RATE=${FFMPEG_MAX_RATE:-6000k}
 
       # Integrações Externas (Secrets)
       # Google Cloud Storage (OPCIONAL - configure no .env para habilitar)
@@ -86,11 +86,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '3.0'
-          memory: 3.5G
+          cpus: '8.0'
+          memory: 12G
         reservations:
-          cpus: '0.5'
-          memory: 1G
+          cpus: '2.0'
+          memory: 4G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -120,11 +120,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.3'
-          memory: 512M
+          cpus: '0.5'
+          memory: 1G
         reservations:
           cpus: '0.1'
-          memory: 128M
+          memory: 256M
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
       interval: 30s
@@ -159,11 +159,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.2'
-          memory: 256M
+          cpus: '0.5'
+          memory: 512M
         reservations:
           cpus: '0.1'
-          memory: 64M
+          memory: 128M
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
       interval: 30s
@@ -179,18 +179,18 @@ services:
       - "3002:3002"
     volumes:
       - ./docs-site:/app
-    command: sh -c "apt-get update && apt-get install -y curl && npm install && sleep 10 && npx mintlify dev --port 3002 --host 0.0.0.0"
+    command: sh -c "apt-get update && apt-get install -y curl && npm install && npm rebuild && npx mintlify dev --port 3002 --host 0.0.0.0"
     restart: unless-stopped
     depends_on:
       - ffmpeg-api
     deploy:
       resources:
         limits:
-          cpus: '0.3'
-          memory: 512M
+          cpus: '1.0'
+          memory: 1.5G
         reservations:
-          cpus: '0.1'
-          memory: 128M
+          cpus: '0.2'
+          memory: 512M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002/"]
       interval: 30s
