@@ -47,11 +47,11 @@ services:
       - PORT=${PORT:-3000}
 
       # Configurações de FFmpeg e Recursos (controlado pelo .env)
-      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-8}
+      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-6}
       - FFMPEG_THREADS=${FFMPEG_THREADS:-8}
       - FFMPEG_PRESET=${FFMPEG_PRESET:-medium}
       - FFMPEG_MEMORY_LIMIT_MB=${FFMPEG_MEMORY_LIMIT:-8192}
-      - NODE_OPTIONS=--max-old-space-size=8192
+      - NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=6144}
       - FFMPEG_BITRATE=${FFMPEG_BITRATE:-4000k}
       - FFMPEG_AUDIO_BITRATE=${FFMPEG_AUDIO_BITRATE:-192k}
       - FFMPEG_BUFFER_SIZE=${FFMPEG_BUFFER_SIZE:-6000k}
@@ -86,8 +86,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '8.0'
-          memory: 12G
+          cpus: '7.0'
+          memory: 10G
         reservations:
           cpus: '2.0'
           memory: 4G
