@@ -26,7 +26,7 @@ services:
   ffmpeg-api:
     build: .
     ports:
-      - "3000:3000"
+      - "8080:3000"
     environment:
       # Configurações Fixas
       - REDIS_HOST=redis
@@ -104,7 +104,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     ports:
-      - "9090:9090"
+      - "8083:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
@@ -136,12 +136,12 @@ services:
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "3001:3000"
+      - "8081:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-clock-panel
-      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_SERVER_ROOT_URL=http://localhost:8081
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
       - GF_UNIFIED_ALERTING_ENABLED=true
@@ -176,7 +176,7 @@ services:
     image: node:20-slim
     working_dir: /app
     ports:
-      - "3002:3002"
+      - "8082:3002"
     volumes:
       - ./docs-site:/app
     command: sh -c "apt-get update && apt-get install -y curl && npm install && npm rebuild && npx mintlify dev --port 3002 --host 0.0.0.0"
